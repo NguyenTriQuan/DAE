@@ -7,7 +7,7 @@ import math
 
 import torch
 import torch.nn as nn
-
+from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer
 
 def xavier(m: nn.Module) -> None:
     """
@@ -98,3 +98,68 @@ class MammothBackbone(nn.Module):
         for pp in list(self.parameters()):
             grads.append(pp.grad.view(-1))
         return grads
+
+class _DynamicModel(nn.Module):
+    def __init__(self):
+        super(_DynamicModel, self).__init__()
+        self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
+
+    def get_optim_params(self):
+        params = []
+        for m in self.DM:
+            params += m.get_optim_params()
+        return params
+
+    def expand(self, new_classes):
+        if self.task == 0:
+            self.DM[0].expand(add_in=None, add_out=None)
+        else:
+            self.DM[0].expand(add_in=0, add_out=None)
+
+        for m in self.DM[1:-1]:
+            m.expand(add_in=None, add_out=None)
+        self.DM[-1].expand(add_in=None, add_out=new_classes)
+
+    def squeeze(self, optim_state):
+        mask_in = None
+        for i, m in enumerate(self.DM[:-1]):
+            mask_out = self.DM[i].mask_out
+            m.squeeze(optim_state, mask_in, mask_out)
+            mask_in = mask_out
+        self.DM[-1].squeeze(optim_state, mask_in, None)
+
+    def count_params(self, t=-1):
+        if t == -1:
+            t = len(self.DM[-1].shape_out)-2
+        model_count = 0
+        layers_count = []
+        print('| num neurons:', end=' ')
+        for m in self.DM:
+            print(m.out_features, end=' ')
+            count = m.count_params(t)
+            model_count += count
+            layers_count.append(count)
+
+        print('| num params:', model_count, end=' |')
+        print()
+        return model_count, layers_count
+
+    def proximal_gradient_descent(self, lr, lamb):
+        for m in self.DM[:-1]:
+            m.proximal_gradient_descent(lr, lamb)
+
+    def freeze(self):
+        for m in self.DM:
+            m.freeze()
+    
+    def clear_memory(self):
+        for m in self.DM[:-1]:
+            m.clear_memory()
+    
+    def update_scale(self):
+        for m in self.DM[:-1]:
+            m.update_scale()
+    
+    def get_kb_params(self, t):
+        for m in self.DM[:-1]:
+            m.get_kb_params(t)
