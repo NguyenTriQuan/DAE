@@ -15,7 +15,7 @@ sys.path.append(mammoth_path)
 sys.path.append(mammoth_path + '/datasets')
 sys.path.append(mammoth_path + '/backbone')
 sys.path.append(mammoth_path + '/models')
-
+print(mammoth_path)
 import datetime
 import uuid
 from argparse import ArgumentParser
