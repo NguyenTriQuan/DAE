@@ -15,16 +15,17 @@ sys.path.append(mammoth_path)
 sys.path.append(mammoth_path + '/datasets')
 sys.path.append(mammoth_path + '/backbone')
 sys.path.append(mammoth_path + '/models')
-print(mammoth_path)
+
 import datetime
 import uuid
 from argparse import ArgumentParser
 
 import setproctitle
 import torch
-from datasets import NAMES as DATASET_NAMES
+# from datasets import NAMES as DATASET_NAMES
 from datasets import ContinualDataset, get_dataset
 from models import get_all_models, get_model
+import inspect
 
 from utils.args import add_management_args
 from utils.best_args import best_args
@@ -33,6 +34,18 @@ from utils.continual_training import train as ctrain
 from utils.distributed import make_dp
 from utils.training import train
 
+DATASET_NAMES = {}
+for model in get_all_models():
+    mod = importlib.import_module('datasets.' + model)
+    dataset_classes_name = [x for x in mod.__dir__() if 'type' in str(type(getattr(mod, x))) and 'ContinualDataset' in str(inspect.getmro(getattr(mod, x))[1:])]
+    for d in dataset_classes_name:
+        c = getattr(mod, d)
+        DATASET_NAMES[c.NAME] = c
+
+    gcl_dataset_classes_name = [x for x in mod.__dir__() if 'type' in str(type(getattr(mod, x))) and 'GCLDataset' in str(inspect.getmro(getattr(mod, x))[1:])]
+    for d in gcl_dataset_classes_name:
+        c = getattr(mod, d)
+        DATASET_NAMES[c.NAME] = c
 
 def lecun_fix():
     # Yann moved his website to CloudFlare. You need this now
