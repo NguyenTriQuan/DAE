@@ -23,6 +23,7 @@ from argparse import ArgumentParser
 import setproctitle
 import torch
 # from datasets import NAMES as DATASET_NAMES
+from datasets.utils.continual_dataset import ContinualDataset
 from datasets import ContinualDataset, get_dataset
 from models import get_all_models, get_model
 import inspect
