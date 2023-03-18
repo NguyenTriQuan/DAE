@@ -142,6 +142,8 @@ def main(args=None):
     # set job name
     setproctitle.setproctitle('{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
 
+    if model.NAME == 'DAE':
+        from utils.training_dae import train
     if isinstance(dataset, ContinualDataset):
         train(model, dataset, args)
     else:
