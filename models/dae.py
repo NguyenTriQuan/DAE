@@ -72,7 +72,8 @@ class DAE(ContinualModel):
             if kbts:
                 outputs.append(self.net(x, t, mode='kbts'))
             if jr:
-                outputs.append(self.net(x, t, mode='jr'))
+                self.net.get_kb_params(self.task)
+                outputs.append(self.net(x, self.task, mode='jr'))
             outputs = ensemble_outputs(outputs)
             _, predicts = outputs.max(1)
             return predicts + t * self.dataset.N_CLASSES_PER_TASK
@@ -87,7 +88,8 @@ class DAE(ContinualModel):
                 if kbts:
                     outputs.append(self.net(x, i, mode='kbts'))
                 if jr:
-                    outputs.append(self.net(x, i, mode='jr'))
+                    self.net.get_kb_params(self.task)
+                    outputs.append(self.net(x, self.task, mode='jr'))
                 outputs = ensemble_outputs(outputs)
                 outputs_tasks.append(outputs)
                 joint_entropy = -torch.sum(outputs * torch.log(outputs+0.0001), dim=1)
