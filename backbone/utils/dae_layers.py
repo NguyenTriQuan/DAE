@@ -385,7 +385,7 @@ class DynamicConv2D(_DynamicConvNd):
         self.view_out = [1, -1, 1, 1]
         self.dim_in = [1, 2, 3]
         self.dim_out = [0, 2, 3]
-        self.ks = np.prod(self.kernel_size)
+        self.ks = np.prod(kernel_size)
 
         super(DynamicConv2D, self).__init__(in_features, out_features, kernel_size, 
                                             stride, padding, dilation, False, _pair(0), groups, bias, norm_type, args, s)
