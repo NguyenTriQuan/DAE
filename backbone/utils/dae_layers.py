@@ -264,8 +264,7 @@ class _DynamicLayer(nn.Module):
             self.scale[-1][-1] = w_std
 
     def get_optim_params(self):
-        params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1]]
-        params += [self.score_kbts, self.score_jr]
+        params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score]
         if self.norm_layer:
             if self.norm_layer.affine:
                 params += [self.norm_layer.weight[-1], self.norm_layer.bias[-1]]
