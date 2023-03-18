@@ -112,7 +112,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'begin_task'):
             model.begin_task(dataset)
         if t and not args.ignore_other_metrics:
-            accs = evaluate(model, dataset, last=True)
+            accs = evaluate(model, dataset, last=True, ets=True, kbts=False, jr=False)
             results[t-1] = results[t-1] + accs[0]
             if dataset.SETTING == 'class-il':
                 results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
@@ -143,7 +143,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
 
-        accs = evaluate(model, dataset)
+        accs = evaluate(model, dataset, ets=True, kbts=False, jr=False)
         results.append(accs[0])
         results_mask_classes.append(accs[1])
 
