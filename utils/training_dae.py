@@ -121,10 +121,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # kbts training
         scheduler = dataset.get_scheduler(model, args)
         for epoch in range(model.args.n_epochs):
+            if args.debug and epoch > 3:
+                break
             for i, data in enumerate(train_loader):
-                if args.debug and i > 3:
-                    break
-                
                 inputs, labels, not_aug_inputs = data
                 inputs, labels = inputs.to(model.device), labels.to(
                     model.device)
@@ -138,16 +137,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 scheduler.step()
 
         accs = evaluate(model, dataset, last=True, ets=False, kbts=True, jr=False)
+        print(accs)
         print('\nKBTS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0], 2)), file=sys.stderr)
 
         # ets training
         scheduler = dataset.get_scheduler(model, args)
         num_params, num_neurons = model.net.count_params()
         for epoch in range(model.args.n_epochs):
+            if args.debug and epoch > 3:
+                break
             for i, data in enumerate(train_loader):
-                if args.debug and i > 3:
-                    break
-                
                 inputs, labels, not_aug_inputs = data
                 inputs, labels = inputs.to(model.device), labels.to(
                     model.device)
@@ -171,9 +170,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # jr training
         scheduler = dataset.get_scheduler(model, args)
         for epoch in range(model.args.n_epochs):
+            if args.debug and epoch > 3:
+                break
             for i, data in enumerate(train_loader):
-                if args.debug and i > 3:
-                    break
                 
                 inputs, labels, not_aug_inputs = data
                 inputs, labels = inputs.to(model.device), labels.to(
