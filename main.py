@@ -144,6 +144,9 @@ def main(args=None):
 
     if model.NAME == 'DAE':
         from utils.training_dae import train
+    else:
+        from utils.training import train
+        
     if isinstance(dataset, ContinualDataset):
         train(model, dataset, args)
     else:

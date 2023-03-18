@@ -49,7 +49,7 @@ class ProgressBar:
                 epoch,
                 progress_bar,
                 round(3600 / (self.running_sum / i * max_iter), 2),
-                round(loss, 8), 
+                round(loss, 3), 
                 num_params, num_neurons
             ), file=sys.stderr, end='', flush=True)
 
