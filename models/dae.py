@@ -129,3 +129,4 @@ class DAE(ContinualModel):
         self.task += 1
         self.net.freeze()
         self.net.clear_memory()
+        self.net.get_kb_params(self.task)
