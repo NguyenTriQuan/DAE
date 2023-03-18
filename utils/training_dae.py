@@ -97,6 +97,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
     progress_bar = ProgressBar(verbose=not args.non_verbose)
 
+    args.ignore_other_metrics = True
     if not args.ignore_other_metrics:
         dataset_copy = get_dataset(args)
         for t in range(dataset.N_TASKS):
@@ -119,6 +120,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         scheduler = dataset.get_scheduler(model, args)
         num_params, num_neurons = model.net.count_params()
+        print(sum(num_params), num_neurons)
         for epoch in range(model.args.n_epochs):
             if args.model == 'joint':
                 continue
@@ -134,7 +136,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 model.net.proximal_gradient_descent(model.args.lr, model.args.lamb)
                 assert not math.isnan(loss)
                 
-                progress_bar.prog(i, len(train_loader), epoch, t, loss, num_params, num_neurons)
+                progress_bar.prog(i, len(train_loader), epoch, t, loss, sum(num_params), num_neurons)
 
             model.net.squeeze(model.opt.state)
             if scheduler is not None:
