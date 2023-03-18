@@ -130,19 +130,13 @@ class _DynamicModel(nn.Module):
 
     def count_params(self, t=-1):
         if t == -1:
-            t = len(self.DM[-1].shape_out)-2
-        model_count = 0
-        layers_count = []
-        print('| num neurons:', end=' ')
+            t = len(self.DM[-1].num_out)-1
+        num_params = []
+        num_neurons = []
         for m in self.DM:
-            print(m.out_features, end=' ')
-            count = m.count_params(t)
-            model_count += count
-            layers_count.append(count)
-
-        print('| num params:', model_count, end=' |')
-        print()
-        return model_count, layers_count
+            num_params.append(m.count_params(t))
+            num_neurons.append(m.shape_out[t+1])
+        return num_params, num_neurons
 
     def proximal_gradient_descent(self, lr, lamb):
         for m in self.DM[:-1]:

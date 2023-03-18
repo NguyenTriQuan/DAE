@@ -37,7 +37,7 @@ def mask_classes(outputs: torch.Tensor, dataset: ContinualDataset, k: int) -> No
                dataset.N_TASKS * dataset.N_CLASSES_PER_TASK] = -float('inf')
 
 
-def evaluate(model: ContinualModel, dataset: ContinualDataset, last=False) -> Tuple[list, list]:
+def evaluate(model: ContinualModel, dataset: ContinualDataset, last=False, ets=False, kbts=False, jr=False) -> Tuple[list, list]:
     """
     Evaluates the accuracy of the model for each past task.
     :param model: the model to be evaluated
@@ -56,18 +56,14 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, last=False) -> Tu
             with torch.no_grad():
                 inputs, labels = data
                 inputs, labels = inputs.to(model.device), labels.to(model.device)
-                if 'class-il' not in model.COMPATIBILITY:
-                    outputs = model(inputs, k)
-                else:
-                    outputs = model(inputs)
+                
+                pred = model(inputs, None, ets, kbts, jr)
 
-                _, pred = torch.max(outputs.data, 1)
                 correct += torch.sum(pred == labels).item()
                 total += labels.shape[0]
 
                 if dataset.SETTING == 'class-il':
-                    mask_classes(outputs, dataset, k)
-                    _, pred = torch.max(outputs.data, 1)
+                    pred = model(inputs, k, ets, kbts, jr)
                     correct_mask_classes += torch.sum(pred == labels).item()
 
         accs.append(correct / total * 100
@@ -122,6 +118,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
 
         scheduler = dataset.get_scheduler(model, args)
+        num_params, num_neurons = model.net.count_params()
         for epoch in range(model.args.n_epochs):
             if args.model == 'joint':
                 continue
@@ -133,10 +130,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 inputs, labels = inputs.to(model.device), labels.to(
                     model.device)
                 not_aug_inputs = not_aug_inputs.to(model.device)
-                loss = model.meta_observe(inputs, labels, not_aug_inputs)
+                loss = model.meta_observe(inputs, labels, not_aug_inputs, mode='ets')
+                model.net.proximal_gradient_descent(model.args.lr, model.args.lamb)
                 assert not math.isnan(loss)
-                progress_bar.prog(i, len(train_loader), epoch, t, loss)
+                
+                progress_bar.prog(i, len(train_loader), epoch, t, loss, num_params, num_neurons)
 
+            model.net.squeeze(model.opt.state)
             if scheduler is not None:
                 scheduler.step()
 

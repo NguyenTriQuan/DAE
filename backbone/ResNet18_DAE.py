@@ -45,16 +45,16 @@ class BasicBlock(nn.Module):
         if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args),
 
-    def forward(self, x: torch.Tensor, t, kbts=False, jr=False) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, t, mode='ets') -> torch.Tensor:
         """
         Compute a forward pass.
         :param x: input tensor (batch_size, input_size)
         :return: output tensor (10)
         """
-        out = relu(self.conv1(x, t, kbts, jr))
-        out = self.conv2(out, t, kbts, jr)
+        out = relu(self.conv1(x, t, mode))
+        out = self.conv2(out, t, mode)
         if self.shortcut is not None:
-            out += self.shortcut(x, t, kbts, jr)
+            out += self.shortcut(x, t, mode)
         out = relu(out)
         return out
 
@@ -103,19 +103,19 @@ class ResNet(MammothBackbone):
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
 
-    def forward(self, x: torch.Tensor, t, kbts=False, jr=False) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, t, mode) -> torch.Tensor:
 
-        out = relu(self.conv1(x, t, kbts, jr))
+        out = relu(self.conv1(x, t, mode))
         if hasattr(self, 'maxpool'):
             out = self.maxpool(out)
         
         for layer in self.layers:
-            out = layer(out, t, kbts, jr)  
+            out = layer(out, t, mode)  
 
         out = avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
 
-        out = self.linear(feature, t, kbts, jr)
+        out = self.linear(feature, t, mode)
         return out
     
     def expand(self, new_classes, task):
@@ -145,11 +145,11 @@ class ResNet(MammothBackbone):
         self.linear.squeeze(optim_state, mask_in, None)
 
 
-def resnet18(nclasses: int, nf: int=64) -> ResNet:
+def resnet18(nclasses: int, nf: int=64, norm_type='bn', args=None) -> ResNet:
     """
     Instantiates a ResNet18 network.
     :param nclasses: number of output classes
     :param nf: number of filters
     :return: ResNet network
     """
-    return ResNet(BasicBlock, [2, 2, 2, 2], nclasses, nf)
+    return ResNet(BasicBlock, [2, 2, 2, 2], nclasses, nf, norm_type, args)

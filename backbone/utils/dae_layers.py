@@ -150,14 +150,14 @@ class _DynamicLayer(nn.Module):
             self.norm_layer.expand(add_out) 
 
 
-    def forward(self, x, t, kbts=False, jr=False):    
+    def forward(self, x, t, mode='ets'):    
         if x.numel() == 0:
             return torch.empty(0)
         
-        if kbts or jr:
-            weight, bias = self.get_masked_kb_params(t, kbts, jr)
+        if mode == 'ets':
+            weight, bias = self.get_ets_params(t)
         else:
-             weight, bias = self.get_ets_params(t, kbts, jr)
+            weight, bias = self.get_masked_kb_params(t, mode)
 
         if weight.numel() == 0:
             return torch.empty(0)
@@ -190,7 +190,7 @@ class _DynamicLayer(nn.Module):
         weight = weight * bound_std
         return weight, None
     
-    def get_masked_kb_params(self, t, kbts=False, jr=False):
+    def get_masked_kb_params(self, t, mode):
         # select parameters from knowledge base to build: knowledge base task specific model and join rehearsal model
         weight = self.old_weight
         fan_out = max(self.base_out_features, self.shape_out[t])
@@ -210,7 +210,7 @@ class _DynamicLayer(nn.Module):
         bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
         weight = weight * bound_std
         if self.training:
-            if kbts:
+            if mode == 'kbts':
                 mask = GetSubnet.apply(self.score_kbts.abs(), self.sparsity)
                 weight = weight * mask / self.sparsity
                 self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool())
@@ -219,7 +219,7 @@ class _DynamicLayer(nn.Module):
                 weight = weight * mask / self.sparsity
                 self.register_buffer('jr_mask', mask.detach().bool())
         else:
-            if kbts:
+            if mode == 'kbts':
                 weight = weight * getattr(self, 'kbts_mask'+f'_{t}') / self.sparsity
             else:
                 weight = weight * getattr(self, 'jr_mask') / self.sparsity
@@ -428,16 +428,19 @@ class DynamicClassifier(DynamicLinear):
         self.bias_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1]).uniform_(0, 0).to(device)))
 
         bound_std = self.gain / math.sqrt(fan_in_jr)
-        self.weight_jr = nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_jr).normal_(0, bound_std).to(device))
-        self.bias_jr = nn.Parameter(torch.Tensor(self.num_out[-1]).uniform_(0, 0).to(device))
+        self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], fan_in_jr).normal_(0, bound_std).to(device))
+        self.bias_jr = nn.Parameter(torch.Tensor(self.shape_out[-1]).uniform_(0, 0).to(device))
 
-    def forward(self, x, t, kbts=False, jr=False):
-        if kbts:
+    def forward(self, x, t, mode='ets'):
+        if mode == 'kbts':
             weight = self.weight_kbts[t]
             bias = self.bias_kbts[t]
-        elif jr:
+        elif mode == 'jr':
             weight = self.weight_jr
             bias = self.bias_jr
+            if t is not None:
+                weight = weight[self.shape_out[t]:self.shape_out[t+1]]
+                bias = bias[self.shape_out[t]:self.shape_out[t+1]]
         else:
             weight = self.weight_ets[t]
             bias = self.bias_ets[t]
