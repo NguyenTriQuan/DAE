@@ -78,7 +78,7 @@ class DAE(ContinualModel):
             joint_entropy_tasks = []
             outputs_tasks = []
             for i in range(self.task+1):
-                self.net.get_kb_params(t)
+                self.net.get_kb_params(i)
                 outputs = []
                 if ets:
                     outputs.append(self.net(x, i, mode='ets'))
@@ -123,6 +123,7 @@ class DAE(ContinualModel):
         if self.task > 0:
             self.net.freeze()
         self.opt = torch.optim.SGD(self.net.get_optim_params(), lr=self.args.lr)
+        self.net.get_kb_params(self.task)
 
     def end_task(self, dataset) -> None:
         self.task += 1

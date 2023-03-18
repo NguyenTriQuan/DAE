@@ -59,7 +59,7 @@ class BasicBlock(nn.Module):
         return out
 
 
-class ResNet(MammothBackbone):
+class ResNet(_DynamicModel):
     """
     ResNet network architecture. Designed for complex datasets.
     """
