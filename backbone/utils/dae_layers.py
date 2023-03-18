@@ -430,6 +430,11 @@ class DynamicClassifier(DynamicLinear):
         self.weight_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_kbts).normal_(0, bound_std).to(device)))
         self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device)))
 
+        fan_in_jr = max(self.base_in_features, self.shape_in[-1])
+        bound_std = self.gain / math.sqrt(fan_in_jr)
+        self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], fan_in_jr).normal_(0, bound_std).to(device))
+        self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1]).to(device))
+
     def forward(self, x, t, mode='ets'):
         if mode == 'kbts':
             weight = self.weight_kbts[t]
