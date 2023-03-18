@@ -423,15 +423,15 @@ class DynamicClassifier(DynamicLinear):
 
         bound_std = self.gain / math.sqrt(self.shape_in[-1])
         self.weight_ets.append(nn.Parameter(torch.Tensor(self.num_out[-1], self.shape_in[-1]).normal_(0, bound_std).to(device)))
-        self.bias_ets.append(nn.Parameter(torch.Tensor(self.num_out[-1]).zero_().to(device))) 
+        self.bias_ets.append(nn.Parameter(torch.zeros(self.num_out[-1], dtype=torch.FloatTensor).to(device))) 
 
         bound_std = self.gain / math.sqrt(fan_in_kbts)
         self.weight_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_kbts).normal_(0, bound_std).to(device)))
-        self.bias_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1]).zero_().to(device)))
+        self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1], dtype=torch.FloatTensor).to(device)))
 
         bound_std = self.gain / math.sqrt(fan_in_jr)
         self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], fan_in_jr).normal_(0, bound_std).to(device))
-        self.bias_jr = nn.Parameter(torch.Tensor(self.shape_out[-1]).zero_().to(device))
+        self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1], dtype=torch.FloatTensor).to(device))
 
     def forward(self, x, t, mode='ets'):
         if mode == 'kbts':
