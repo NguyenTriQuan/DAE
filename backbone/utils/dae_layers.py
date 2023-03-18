@@ -213,6 +213,7 @@ class _DynamicLayer(nn.Module):
                 dummy_weight_1 = self.dummy_weight[n_0:n_0+n_1].view(fan_out, add_in)
             weight = torch.cat([torch.cat([weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
 
+        print(weight.shape)
         bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
         weight = weight * bound_std
         if self.training:
