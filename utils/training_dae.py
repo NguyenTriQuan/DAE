@@ -120,7 +120,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         scheduler = dataset.get_scheduler(model, args)
         num_params, num_neurons = model.net.count_params()
-        print(sum(num_params), num_neurons)
         for epoch in range(model.args.n_epochs):
             if args.model == 'joint':
                 continue
