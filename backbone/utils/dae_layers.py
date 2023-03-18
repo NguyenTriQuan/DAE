@@ -81,10 +81,10 @@ class _DynamicLayer(nn.Module):
         self.mask_out = None
 
         self.register_buffer('bias', None)
-        self.register_buffer('shape_out', torch.IntTensor([0]))
-        self.register_buffer('shape_in', torch.IntTensor([0]))
-        self.register_buffer('num_out', torch.IntTensor([]))
-        self.register_buffer('num_in', torch.IntTensor([]))
+        self.register_buffer('shape_out', torch.IntTensor([0]).to(device))
+        self.register_buffer('shape_in', torch.IntTensor([0]).to(device))
+        self.register_buffer('num_out', torch.IntTensor([]).to(device))
+        self.register_buffer('num_in', torch.IntTensor([]).to(device))
 
         self.kb_weight = torch.empty(0).to(device)
         self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
@@ -108,11 +108,11 @@ class _DynamicLayer(nn.Module):
             else:
                 add_out = self.base_out_features
 
-        self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out])])
-        self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in])])
+        self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(device)])
+        self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(device)])
 
-        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([self.shape_out[-1] + add_out])])
-        self.shape_in = torch.cat([self.shape_in, torch.IntTensor([self.shape_in[-1] + add_in])])
+        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([self.shape_out[-1] + add_out]).to(device)])
+        self.shape_in = torch.cat([self.shape_in, torch.IntTensor([self.shape_in[-1] + add_in]).to(device)])
 
         fan_out_kbts = max(self.base_out_features, self.shape_out[-2])
         fan_in_kbts = max(self.base_in_features, self.shape_in[-2])
@@ -411,11 +411,11 @@ class DynamicClassifier(DynamicLinear):
             add_out = self.base_out_features
 
 
-        self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out])])
-        self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in])])
+        self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(device)])
+        self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(device)])
 
-        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([self.shape_out[-1] + add_out])])
-        self.shape_in = torch.cat([self.shape_in, torch.IntTensor([self.shape_in[-1] + add_in])])
+        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([self.shape_out[-1] + add_out]).to(device)])
+        self.shape_in = torch.cat([self.shape_in, torch.IntTensor([self.shape_in[-1] + add_in]).to(device)])
 
         fan_in_kbts = max(self.base_in_features, self.shape_in[-2])
         fan_in_jr = max(self.base_in_features, self.shape_in[-1])
