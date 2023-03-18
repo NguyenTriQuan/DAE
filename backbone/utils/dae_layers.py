@@ -182,7 +182,7 @@ class _DynamicLayer(nn.Module):
     def get_ets_params(self, t):
         # get expanded task specific model
         weight = self.old_weight
-        weight = F.dropout(weight, self.p, self.training)
+        weight = F.dropout(weight, self.dropout, self.training)
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
 
