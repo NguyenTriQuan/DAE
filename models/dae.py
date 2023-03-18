@@ -107,7 +107,7 @@ class DAE(ContinualModel):
         if not self.buffer.is_empty() and mode == 'jr':
             buf_inputs, buf_labels = self.buffer.get_data(
                 self.args.minibatch_size, transform=self.transform)
-            outputs = self.net(buf_inputs, self.task+1, mode)
+            outputs = self.net(buf_inputs, self.task, mode)
             loss = self.loss(outputs, buf_labels)
         else:
             outputs = self.net(inputs, self.task, mode)

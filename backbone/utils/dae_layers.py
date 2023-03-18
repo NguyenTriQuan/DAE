@@ -201,6 +201,7 @@ class _DynamicLayer(nn.Module):
         add_in = max(self.base_in_features - self.shape_in[t], 0)
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
+        print(fan_in, fan_out, add_in, add_out)
         if isinstance(self, DynamicConv2D):
             dummy_weight_0 = self.dummy_weight[:n_0].view(add_out, (fan_in-add_in) // self.groups, *self.kernel_size)
             dummy_weight_1 = self.dummy_weight[n_0:n_0+n_1].view(fan_out, add_in // self.groups, *self.kernel_size)
