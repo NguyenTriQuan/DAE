@@ -121,6 +121,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # kbts training
         scheduler = dataset.get_scheduler(model, args)
         for epoch in range(model.args.n_epochs):
+            break
             if args.debug and epoch > 3:
                 break
             for i, data in enumerate(train_loader):
@@ -143,6 +144,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         scheduler = dataset.get_scheduler(model, args)
         num_params, num_neurons = model.net.count_params()
         for epoch in range(model.args.n_epochs):
+            break
             if args.debug and epoch > 3:
                 break
             for i, data in enumerate(train_loader):
