@@ -450,10 +450,10 @@ class DynamicClassifier(DynamicLinear):
         return x
     
     def freeze(self):
-        self.weight_ets[-2].requires_grad = False
-        self.weight_kbts[-2].requires_grad = False
-        self.bias_ets[-2].requires_grad = False
-        self.bias_kbts[-2].requires_grad = False
+        self.weight_ets[-1].requires_grad = False
+        self.weight_kbts[-1].requires_grad = False
+        self.bias_ets[-1].requires_grad = False
+        self.bias_kbts[-1].requires_grad = False
         
 
     def get_optim_params(self):
