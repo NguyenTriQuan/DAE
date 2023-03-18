@@ -120,11 +120,10 @@ class DAE(ContinualModel):
 
     def begin_task(self, dataset):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
-        if self.task > 0:
-            self.net.freeze()
         self.opt = torch.optim.SGD(self.net.get_optim_params(), lr=self.args.lr)
         self.net.get_kb_params(self.task)
 
     def end_task(self, dataset) -> None:
         self.task += 1
+        self.net.freeze()
         self.net.clear_memory()

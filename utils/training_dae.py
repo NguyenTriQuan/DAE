@@ -117,12 +117,33 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             results[t-1] = results[t-1] + accs[0]
             if dataset.SETTING == 'class-il':
                 results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
+        
+        # kbts training
+        scheduler = dataset.get_scheduler(model, args)
+        for epoch in range(model.args.n_epochs):
+            for i, data in enumerate(train_loader):
+                if args.debug_mode and i > 3:
+                    break
+                
+                inputs, labels, not_aug_inputs = data
+                inputs, labels = inputs.to(model.device), labels.to(
+                    model.device)
+                not_aug_inputs = not_aug_inputs.to(model.device)
+                loss = model.meta_observe(inputs, labels, not_aug_inputs, mode='kbts')
+                assert not math.isnan(loss)
+                
+                progress_bar.prog(i, len(train_loader), epoch, t, loss)
 
+            if scheduler is not None:
+                scheduler.step()
+
+        accs = evaluate(model, dataset, last=True, ets=False, kbts=True, jr=False)
+        print('\nKBTS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0], 2)), file=sys.stderr)
+
+        # ets training
         scheduler = dataset.get_scheduler(model, args)
         num_params, num_neurons = model.net.count_params()
         for epoch in range(model.args.n_epochs):
-            if args.model == 'joint':
-                continue
             for i, data in enumerate(train_loader):
                 if args.debug_mode and i > 3:
                     break
@@ -141,8 +162,33 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             if scheduler is not None:
                 scheduler.step()
 
+        accs = evaluate(model, dataset, last=True, ets=True, kbts=False, jr=False)
+        print('\nETS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0], 2)), file=sys.stderr)
+
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
+
+        # jr training
+        scheduler = dataset.get_scheduler(model, args)
+        for epoch in range(model.args.n_epochs):
+            for i, data in enumerate(train_loader):
+                if args.debug_mode and i > 3:
+                    break
+                
+                inputs, labels, not_aug_inputs = data
+                inputs, labels = inputs.to(model.device), labels.to(
+                    model.device)
+                not_aug_inputs = not_aug_inputs.to(model.device)
+                loss = model.meta_observe(inputs, labels, not_aug_inputs, mode='jr')
+                assert not math.isnan(loss)
+                
+                progress_bar.prog(i, len(train_loader), epoch, t, loss)
+
+            if scheduler is not None:
+                scheduler.step()
+
+        accs = evaluate(model, dataset, last=True, ets=False, kbts=False, jr=True)
+        print('\nJR Accuracy for {} task(s): {} %'.format(t+1, round(accs[0], 2)), file=sys.stderr)
 
         accs = evaluate(model, dataset, ets=True, kbts=False, jr=False)
         results.append(accs[0])

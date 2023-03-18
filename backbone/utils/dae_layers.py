@@ -230,13 +230,13 @@ class _DynamicLayer(nn.Module):
             
 
     def freeze(self):
-        self.weight[-2].requires_grad = False
-        self.fwt_weight[-2].requires_grad = False
-        self.bwt_weight[-2].requires_grad = False
+        self.weight[-1].requires_grad = False
+        self.fwt_weight[-1].requires_grad = False
+        self.bwt_weight[-1].requires_grad = False
         if self.norm_layer:
             if self.norm_layer.affine:
-                self.norm_layer.weight[-2].requires_grad = False
-                self.norm_layer.bias[-2].requires_grad = False
+                self.norm_layer.weight[-1].requires_grad = False
+                self.norm_layer.bias[-1].requires_grad = False
 
     def clear_memory(self):
         self.score_jr = None
