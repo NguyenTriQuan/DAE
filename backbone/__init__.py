@@ -135,7 +135,7 @@ class _DynamicModel(nn.Module):
         num_neurons = []
         for m in self.DM:
             num_params.append(m.count_params(t))
-            num_neurons.append(m.shape_out[t+1])
+            num_neurons.append(m.shape_out[t+1].item())
         return num_params, num_neurons
 
     def proximal_gradient_descent(self, lr, lamb):

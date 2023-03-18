@@ -43,7 +43,7 @@ class BasicBlock(nn.Module):
 
         self.shortcut = None
         if stride != 1 or in_planes != self.expansion * planes:
-            self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args),
+            self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args)
 
     def forward(self, x: torch.Tensor, t, mode='ets') -> torch.Tensor:
         """
