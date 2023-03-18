@@ -137,8 +137,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 scheduler.step()
 
         accs = evaluate(model, dataset, last=True, ets=False, kbts=True, jr=False)
-        print(accs)
-        print('\nKBTS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0], 2)), file=sys.stderr)
+        print('\nKBTS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0][0], 2)), file=sys.stderr)
 
         # ets training
         scheduler = dataset.get_scheduler(model, args)
@@ -162,7 +161,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 scheduler.step()
 
         accs = evaluate(model, dataset, last=True, ets=True, kbts=False, jr=False)
-        print('\nETS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0], 2)), file=sys.stderr)
+        print('\nETS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0][0], 2)), file=sys.stderr)
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
@@ -187,7 +186,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 scheduler.step()
 
         accs = evaluate(model, dataset, last=True, ets=False, kbts=False, jr=True)
-        print('\nJR Accuracy for {} task(s): {} %'.format(t+1, round(accs[0], 2)), file=sys.stderr)
+        print('\nJR Accuracy for {} task(s): {} %'.format(t+1, round(accs[0][0], 2)), file=sys.stderr)
 
         accs = evaluate(model, dataset, ets=True, kbts=False, jr=False)
         results.append(accs[0])
