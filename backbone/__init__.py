@@ -157,3 +157,7 @@ class _DynamicModel(nn.Module):
     def get_kb_params(self, t):
         for m in self.DM[:-1]:
             m.get_kb_params(t)
+
+    def get_jr_params(self):
+        for m in self.DM:
+            m.get_jr_params()
