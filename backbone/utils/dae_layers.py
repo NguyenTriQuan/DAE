@@ -178,15 +178,14 @@ class _DynamicLayer(nn.Module):
 
     def get_kb_params(self, t):
         # get knowledge base parameters for task t
-        self.old_weight = torch.empty(0).to(device)
+        self.kb_weight = torch.empty(0).to(device)
         for i in range(t):
-            self.kb_weight = torch.cat([torch.cat([self.old_weight, self.bwt_weight[i]], dim=1), 
+            self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i]], dim=1), 
                                 torch.cat([self.fwt_weight[i], self.weight[i]], dim=1)], dim=0)
-        print(self.old_weight.shape)
 
     def get_ets_params(self, t):
         # get expanded task specific model
-        weight = self.old_weight
+        weight = self.kb_weight
         weight = F.dropout(weight, self.dropout, self.training)
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
@@ -197,7 +196,7 @@ class _DynamicLayer(nn.Module):
     
     def get_masked_kb_params(self, t, mode):
         # select parameters from knowledge base to build: knowledge base task specific model and join rehearsal model
-        weight = self.old_weight
+        weight = self.kb_weight
         fan_out = max(self.base_out_features, self.shape_out[t])
         fan_in = max(self.base_in_features, self.shape_in[t])
         add_out = max(self.base_out_features - self.shape_out[t], 0)
@@ -245,7 +244,7 @@ class _DynamicLayer(nn.Module):
 
     def clear_memory(self):
         self.score = None
-        self.old_weight = None
+        self.kb_weight = None
         
     def update_scale(self):
         for i in range(self.cur_task):
