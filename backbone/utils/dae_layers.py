@@ -144,8 +144,8 @@ class _DynamicLayer(nn.Module):
         self.register_buffer('jr_mask', mask.detach().bool())
 
         self.reg_strength = (
-            (self.in_features + self.num_out[-1] + self.kernel_size[0] + self.kernel_size[1]) 
-            / (self.in_features * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])
+            (self.shape_in[-1] + self.num_out[-1] + self.kernel_size[0] + self.kernel_size[1]) 
+            / (self.shape_in[-1] * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])
         )
 
         if self.norm_layer:
