@@ -31,7 +31,7 @@ def get_parser() -> ArgumentParser:
                         help='Ablation study.', default='')
     parser.add_argument('--fix', action='store_true',
                         help='Do not expand the network.')
-    parser.add_argument('--debug_mode', action='store_true',
+    parser.add_argument('--debug', action='store_true',
                         help='Quick test.')
     return parser
 

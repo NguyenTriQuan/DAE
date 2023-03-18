@@ -122,7 +122,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         scheduler = dataset.get_scheduler(model, args)
         for epoch in range(model.args.n_epochs):
             for i, data in enumerate(train_loader):
-                if args.debug_mode and i > 3:
+                if args.debug and i > 3:
                     break
                 
                 inputs, labels, not_aug_inputs = data
@@ -145,7 +145,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         num_params, num_neurons = model.net.count_params()
         for epoch in range(model.args.n_epochs):
             for i, data in enumerate(train_loader):
-                if args.debug_mode and i > 3:
+                if args.debug and i > 3:
                     break
                 
                 inputs, labels, not_aug_inputs = data
@@ -172,7 +172,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         scheduler = dataset.get_scheduler(model, args)
         for epoch in range(model.args.n_epochs):
             for i, data in enumerate(train_loader):
-                if args.debug_mode and i > 3:
+                if args.debug and i > 3:
                     break
                 
                 inputs, labels, not_aug_inputs = data
