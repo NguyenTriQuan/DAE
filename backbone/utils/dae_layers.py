@@ -62,6 +62,7 @@ class _DynamicLayer(nn.Module):
 
     def __init__(self, in_features, out_features, bias=False, norm_type=None, args=None, s=1):
         super(_DynamicLayer, self).__init__()
+        self.args = args
         self.dropout = args.dropout
         self.s = s
         self.base_in_features = in_features
