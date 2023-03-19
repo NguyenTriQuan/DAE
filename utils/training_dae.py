@@ -172,7 +172,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
         results.append(accs[0])
         results_mask_classes.append(accs[1])
-
+        print('cil', accs[0])
+        print('til', accs[1])
         mean_acc = np.mean(accs, axis=1)
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
