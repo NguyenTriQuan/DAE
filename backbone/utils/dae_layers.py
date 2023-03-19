@@ -143,6 +143,8 @@ class _DynamicLayer(nn.Module):
             self.norm_layer_ets.expand(self.shape_out[-1]) 
             self.norm_layer_kbts.expand(fan_out_kbts)
 
+        print(self.shape_in, self.shape_out)
+
 
     def forward(self, x, t, mode='ets'):    
         if x.numel() == 0:
@@ -432,6 +434,8 @@ class DynamicClassifier(DynamicLinear):
         bound_std = self.gain / math.sqrt(fan_in_jr)
         self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], fan_in_jr).normal_(0, bound_std).to(device))
         self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1]).to(device))
+
+        print(self.shape_in, self.shape_out)
 
     def forward(self, x, t, mode='ets'):
         if mode == 'kbts':

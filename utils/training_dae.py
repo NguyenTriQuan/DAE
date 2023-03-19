@@ -195,7 +195,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         accs = evaluate(model, dataset, task=t, ets=False, kbts=False, jr=True)
         print('\nJR Accuracy for {} task(s): {} %'.format(t+1, round(accs[0][0], 2)), file=sys.stderr)
 
-        accs = evaluate(model, dataset, task=None, ets=True, kbts=False, jr=False)
+        # final evaluation
+        accs = evaluate(model, dataset, task=None, ets=True, kbts=True, jr=True)
         results.append(accs[0])
         results_mask_classes.append(accs[1])
 
