@@ -143,8 +143,6 @@ class _DynamicLayer(nn.Module):
             self.norm_layer_ets.expand(self.shape_out[-1]) 
             self.norm_layer_kbts.expand(fan_out_kbts)
 
-        print(self.shape_in, self.shape_out)
-
 
     def forward(self, x, t, mode='ets'):    
         if x.numel() == 0:
@@ -212,7 +210,6 @@ class _DynamicLayer(nn.Module):
         add_in = max(self.base_in_features - self.shape_in[t], 0)
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
-        # print(fan_in, fan_out, add_in, add_out)
         if add_in != 0 or add_out !=0:
             if isinstance(self, DynamicConv2D):
                 dummy_weight_0 = self.dummy_weight[:n_0].view(add_out, (fan_in-add_in) // self.groups, *self.kernel_size)
@@ -435,7 +432,6 @@ class DynamicClassifier(DynamicLinear):
         self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], fan_in_jr).normal_(0, bound_std).to(device))
         self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1]).to(device))
 
-        print(self.shape_in, self.shape_out)
 
     def forward(self, x, t, mode='ets'):
         if mode == 'kbts':
@@ -484,8 +480,8 @@ class DynamicClassifier(DynamicLinear):
             mask = torch.ones(self.shape_in[-2], dtype=bool, device=device)
             mask = torch.cat([mask, mask_in])
             apply_mask_in(self.weight_ets[-1], mask, optim_state)
-            self.num_in[-1] = self.weight_ets[-1].shape[1]
-            self.shape_in[-1] = self.num_in.sum()
+            # self.num_in[-1] = self.weight_ets[-1].shape[1]
+            self.shape_in[-1] = self.weight_ets[-1].shape[1]
   
 
 class DynamicNorm(nn.Module):
