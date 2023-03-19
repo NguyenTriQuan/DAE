@@ -37,7 +37,7 @@ def mask_classes(outputs: torch.Tensor, dataset: ContinualDataset, k: int) -> No
                dataset.N_TASKS * dataset.N_CLASSES_PER_TASK] = -float('inf')
 
 
-def evaluate(model: ContinualModel, dataset: ContinualDataset, last=False, ets=False, kbts=False, jr=False) -> Tuple[list, list]:
+def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, ets=False, kbts=False, jr=False) -> Tuple[list, list]:
     """
     Evaluates the accuracy of the model for each past task.
     :param model: the model to be evaluated
@@ -49,20 +49,24 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, last=False, ets=F
     model.net.eval()
     accs, accs_mask_classes = [], []
     for k, test_loader in enumerate(dataset.test_loaders):
-        if last and k < len(dataset.test_loaders) - 1:
-            continue
+        if task is not None:
+            if k != task:
+                continue
         correct, correct_mask_classes, total = 0.0, 0.0, 0.0
         for data in test_loader:
             with torch.no_grad():
                 inputs, labels = data
                 inputs, labels = inputs.to(model.device), labels.to(model.device)
                 
-                pred = model(inputs, None, ets, kbts, jr)
+                if task is not None:
+                    pred = model(inputs, k, ets, kbts, jr)
+                else:
+                    pred = model(inputs, None, ets, kbts, jr)
 
                 correct += torch.sum(pred == labels).item()
                 total += labels.shape[0]
 
-                if dataset.SETTING == 'class-il':
+                if dataset.SETTING == 'class-il' and task is None:
                     pred = model(inputs, k, ets, kbts, jr)
                     correct_mask_classes += torch.sum(pred == labels).item()
 
@@ -137,7 +141,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             if scheduler is not None:
                 scheduler.step()
 
-        accs = evaluate(model, dataset, last=True, ets=False, kbts=True, jr=False)
+        accs = evaluate(model, dataset, task=t, ets=False, kbts=True, jr=False)
         print('\nKBTS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0][0], 2)), file=sys.stderr)
 
         # ets training
@@ -163,7 +167,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             if scheduler is not None:
                 scheduler.step()
 
-        accs = evaluate(model, dataset, last=True, ets=True, kbts=False, jr=False)
+        accs = evaluate(model, dataset, task=t, ets=True, kbts=False, jr=False)
         print('\nETS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0][0], 2)), file=sys.stderr)
 
         if hasattr(model, 'end_task'):
@@ -188,10 +192,10 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             if scheduler is not None:
                 scheduler.step()
 
-        accs = evaluate(model, dataset, last=True, ets=False, kbts=False, jr=True)
+        accs = evaluate(model, dataset, task=t, ets=False, kbts=False, jr=True)
         print('\nJR Accuracy for {} task(s): {} %'.format(t+1, round(accs[0][0], 2)), file=sys.stderr)
 
-        accs = evaluate(model, dataset, ets=True, kbts=False, jr=False)
+        accs = evaluate(model, dataset, task=None, ets=True, kbts=False, jr=False)
         results.append(accs[0])
         results_mask_classes.append(accs[1])
 

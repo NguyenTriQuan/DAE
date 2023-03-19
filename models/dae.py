@@ -85,7 +85,7 @@ class DAE(ContinualModel):
             if jr:
                 self.net.get_kb_params(self.task)
                 out_jr = self.net(x, self.task, mode='jr')
-            for i in range(self.task+1):
+            for i in range(self.task):
                 self.net.get_kb_params(i)
                 outputs = []
                 if ets:
