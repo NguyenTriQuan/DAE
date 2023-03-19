@@ -131,9 +131,9 @@ class DAE(ContinualModel):
         # self.opt = torch.optim.SGD(self.net.get_optim_params(), lr=self.args.lr)
         self.net.get_kb_params(self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
-        for n, p in self.net.named_parameters():
-            if p.requires_grad:
-                print(n, p.shape)
+        # for n, p in self.net.named_parameters():
+        #     if p.requires_grad:
+        #         print(n, p.shape)
 
     def end_task(self, dataset) -> None:
         self.net.get_jr_params()
