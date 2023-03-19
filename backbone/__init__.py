@@ -189,7 +189,7 @@ class _DynamicModel(nn.Module):
                 else:
                     rhs += n_ones
                     m.raw_probability = (np.sum(m.score.shape) / np.prod(m.score.shape)) ** erk_power_scale
-                    divisor += m.raw_probabilities * n_param
+                    divisor += m.raw_probability * n_param
 
             epsilon = rhs / divisor
             max_prob = np.max([m.raw_probability for m in self.DM])
