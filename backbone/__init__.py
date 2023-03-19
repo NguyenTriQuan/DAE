@@ -208,9 +208,10 @@ class _DynamicModel(nn.Module):
         for i, m in enumerate(self.DM[:-1]):
             n_param = np.prod(m.score.shape)
             if m in dense_layers:
-                m.sparsity = 0
+                m.sparsity = 0.5
             else:
                 probability_one = epsilon * m.raw_probability
+                probability_one = min(0.5, probability_one)
                 m.sparsity = 1 - probability_one
             print(
                 f"layer: {i}, shape: {m.score.shape}, sparsity: {m.sparsity}"
