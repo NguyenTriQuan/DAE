@@ -545,8 +545,8 @@ class DynamicNorm(nn.Module):
         if self.track_running_stats:
             running_mean = getattr(self, f'running_mean_{self.num.shape[0]-1}')
             running_var = getattr(self, f'running_var_{self.num.shape[0]-1}')
-            running_mean.copy_(running_mean[mask])
-            running_var.copy_(running_var[mask])
+            self.register_buffer(f'running_mean_{self.num.shape[0]-1}', running_mean[mask])
+            self.register_buffer(f'running_var_{self.num.shape[0]-1}', running_var[mask])
 
         self.num[-1] = self.weight[-1].shape[0]
     
