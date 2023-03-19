@@ -37,7 +37,7 @@ def mask_classes(outputs: torch.Tensor, dataset: ContinualDataset, k: int) -> No
                dataset.N_TASKS * dataset.N_CLASSES_PER_TASK] = -float('inf')
 
 
-def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, ets=False, kbts=False, jr=False) -> Tuple[list, list]:
+def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='ets_kbts_jr') -> Tuple[list, list]:
     """
     Evaluates the accuracy of the model for each past task.
     :param model: the model to be evaluated
@@ -59,15 +59,15 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, ets=Fa
                 inputs, labels = inputs.to(model.device), labels.to(model.device)
                 
                 if task is not None:
-                    pred = model(inputs, k, ets, kbts, jr)
+                    pred = model(inputs, k, mode)
                 else:
-                    pred = model(inputs, None, ets, kbts, jr)
+                    pred = model(inputs, None, mode)
 
                 correct += torch.sum(pred == labels).item()
                 total += labels.shape[0]
 
                 if dataset.SETTING == 'class-il' and task is None:
-                    pred = model(inputs, k, ets, kbts, jr)
+                    pred = model(inputs, k, mode)
                     correct_mask_classes += torch.sum(pred == labels).item()
 
         accs.append(correct / total * 100
@@ -76,6 +76,38 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, ets=Fa
 
     model.net.train(status)
     return accs, accs_mask_classes
+
+def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
+    scheduler = dataset.get_scheduler(model, args)
+    if 'ets' in mode:
+        num_params, num_neurons = model.net.count_params()
+    for epoch in range(model.args.n_epochs):
+        if args.debug and epoch > 0:
+            break
+        for i, data in enumerate(train_loader):
+            inputs, labels, not_aug_inputs = data
+            inputs, labels = inputs.to(model.device), labels.to(
+                model.device)
+            not_aug_inputs = not_aug_inputs.to(model.device)
+            loss = model.meta_observe(inputs, labels, not_aug_inputs, mode=mode)
+            if 'ets' in mode:
+                model.net.proximal_gradient_descent(model.args.lr, model.args.lamb)
+                progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0], sum(num_params), num_neurons)
+            else:
+                progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0])
+            assert not math.isnan(loss)
+
+        if 'ets' in mode:
+            model.net.squeeze(model.opt.state)
+            num_params, num_neurons = model.net.count_params()
+
+        accs = evaluate(model, dataset, task=t, mode=mode)
+
+        if scheduler is not None:
+            scheduler.step()
+    
+    accs = evaluate(model, dataset, task=t, mode=mode)
+    print('\n{} Accuracy for {} task(s): {} %'.format(mode, t+1, round(accs[0][0], 2)), file=sys.stderr)
 
 
 def train(model: ContinualModel, dataset: ContinualDataset,
@@ -123,81 +155,19 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
         
         # kbts training
-        scheduler = dataset.get_scheduler(model, args)
-        for epoch in range(model.args.n_epochs):
-            # break
-            if args.debug and epoch > 0:
-                break
-            for i, data in enumerate(train_loader):
-                inputs, labels, not_aug_inputs = data
-                inputs, labels = inputs.to(model.device), labels.to(
-                    model.device)
-                not_aug_inputs = not_aug_inputs.to(model.device)
-                loss = model.meta_observe(inputs, labels, not_aug_inputs, mode='kbts')
-                assert not math.isnan(loss)
-                
-                progress_bar.prog(i, len(train_loader), epoch, t, loss)
-
-            if scheduler is not None:
-                scheduler.step()
-
-        accs = evaluate(model, dataset, task=t, ets=False, kbts=True, jr=False)
-        print('\nKBTS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0][0], 2)), file=sys.stderr)
+        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
 
         # ets training
-        scheduler = dataset.get_scheduler(model, args)
-        num_params, num_neurons = model.net.count_params()
-        for epoch in range(model.args.n_epochs):
-            # break
-            if args.debug and epoch > 0:
-                break
-            for i, data in enumerate(train_loader):
-                inputs, labels, not_aug_inputs = data
-                inputs, labels = inputs.to(model.device), labels.to(
-                    model.device)
-                not_aug_inputs = not_aug_inputs.to(model.device)
-                loss = model.meta_observe(inputs, labels, not_aug_inputs, mode='ets')
-                model.net.proximal_gradient_descent(model.args.lr, model.args.lamb)
-                assert not math.isnan(loss)
-                
-                progress_bar.prog(i, len(train_loader), epoch, t, loss, sum(num_params), num_neurons)
-
-            model.net.squeeze(model.opt.state)
-            num_params, num_neurons = model.net.count_params()
-            if scheduler is not None:
-                scheduler.step()
-
-        accs = evaluate(model, dataset, task=t, ets=True, kbts=False, jr=False)
-        print('\nETS Accuracy for {} task(s): {} %'.format(t+1, round(accs[0][0], 2)), file=sys.stderr)
+        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
 
         # jr training
-        scheduler = dataset.get_scheduler(model, args)
-        for epoch in range(model.args.n_epochs):
-            # break
-            if args.debug and epoch > 0:
-                break
-            for i, data in enumerate(train_loader):
-                
-                inputs, labels, not_aug_inputs = data
-                inputs, labels = inputs.to(model.device), labels.to(
-                    model.device)
-                not_aug_inputs = not_aug_inputs.to(model.device)
-                loss = model.meta_observe(inputs, labels, not_aug_inputs, mode='jr')
-                assert not math.isnan(loss)
-                
-                progress_bar.prog(i, len(train_loader), epoch, t, loss)
-
-            if scheduler is not None:
-                scheduler.step()
-
-        accs = evaluate(model, dataset, task=t, ets=False, kbts=False, jr=True)
-        print('\nJR Accuracy for {} task(s): {} %'.format(t+1, round(accs[0][0], 2)), file=sys.stderr)
+        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
 
         # final evaluation
-        accs = evaluate(model, dataset, task=None, ets=True, kbts=True, jr=True)
+        accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
         results.append(accs[0])
         results_mask_classes.append(accs[1])
 

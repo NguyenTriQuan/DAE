@@ -54,6 +54,7 @@ def add_management_args(parser: ArgumentParser) -> None:
     parser.add_argument('--nowand', default=0, choices=[0, 1], type=int, help='Inhibit wandb logging')
     parser.add_argument('--wandb_entity', type=str, default='regaz', help='Wandb entity')
     parser.add_argument('--wandb_project', type=str, default='mammoth', help='Wandb project name')
+    parser.add_argument('--val_batch_size', type=int, default=256, help='The batch size of evaluation.')
 
 
 def add_rehearsal_args(parser: ArgumentParser) -> None:

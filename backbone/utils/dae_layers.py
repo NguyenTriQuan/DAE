@@ -144,11 +144,11 @@ class _DynamicLayer(nn.Module):
             self.norm_layer_kbts.expand(fan_out_kbts)
 
 
-    def forward(self, x, t, mode='ets'):    
+    def forward(self, x, t, mode):    
         if x.numel() == 0:
             return torch.empty(0)
         
-        if mode == 'ets':
+        if 'ets' in mode:
             weight, bias, norm_layer = self.get_ets_params(t)
         else:
             weight, bias, norm_layer = self.get_masked_kb_params(t, mode)
@@ -221,7 +221,7 @@ class _DynamicLayer(nn.Module):
 
         bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
         weight = weight * bound_std
-        if mode == 'kbts':
+        if 'kbts' in mode:
             if self.training:
                 mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
                 weight = weight * mask / (1-self.sparsity)
@@ -441,11 +441,11 @@ class DynamicClassifier(DynamicLinear):
         self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1]).to(device))
 
 
-    def forward(self, x, t, mode='ets'):
-        if mode == 'kbts':
+    def forward(self, x, t, mode):
+        if 'kbts' in mode:
             weight = self.weight_kbts[t]
             bias = self.bias_kbts[t]
-        elif mode == 'jr':
+        elif 'jr' in mode:
             weight = self.weight_jr
             bias = self.bias_jr
         else:

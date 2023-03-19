@@ -16,7 +16,7 @@ class ProgressBar:
         self.verbose = verbose
 
     def prog(self, i: int, max_iter: int, epoch: Union[int, str],
-                     task_number: int, loss: float, num_params=None, num_neurons=None) -> None:
+                     task_number: int, loss: float, acc, num_params=None, num_neurons=None) -> None:
         """
         Prints out the progress bar on the stderr file.
         :param i: the current iteration
@@ -43,13 +43,14 @@ class ProgressBar:
         if i:  # not (i + 1) % 10 or (i + 1) == max_iter:
             progress = min(float((i + 1) / max_iter), 1)
             progress_bar = ('█' * int(50 * progress)) + ('┈' * (50 - int(50 * progress)))
-            print('\r[ {} ] Task {} | epoch {}: |{}| {} ep/h | loss: {} | params {} | neurons {}|'.format(
+            print('\r[ {} ] Task {} | epoch {}: |{}| {} ep/h | loss: {} | acc: {} | params {} | neurons {}|'.format(
                 datetime.now().strftime("%m-%d | %H:%M"),
                 task_number + 1 if isinstance(task_number, int) else task_number,
                 epoch,
                 progress_bar,
                 round(3600 / (self.running_sum / i * max_iter), 2),
                 round(loss, 3), 
+                round(acc, 2), 
                 num_params, num_neurons
             ), file=sys.stderr, end='', flush=True)
 

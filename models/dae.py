@@ -63,15 +63,15 @@ class DAE(ContinualModel):
         self.buffer = Buffer(self.args.buffer_size, self.device)
         self.task = 0
 
-    def forward(self, x, t=None, ets=False, kbts=False, jr=False):
+    def forward(self, x, t=None, mode='ets_kbts_jr'):
         if t is not None:
             self.net.get_kb_params(t)
             outputs = []
-            if ets:
+            if 'ets' in mode:
                 outputs.append(self.net(x, t, mode='ets'))
-            if kbts:
+            if 'kbts' in mode:
                 outputs.append(self.net(x, t, mode='kbts'))
-            if jr:
+            if 'jr' in mode:
                 self.net.get_kb_params(self.task)
                 out_jr = self.net(x, self.task, mode='jr')
                 out_jr = out_jr[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
@@ -82,17 +82,17 @@ class DAE(ContinualModel):
         else:
             joint_entropy_tasks = []
             outputs_tasks = []
-            if jr:
+            if 'jr' in mode:
                 self.net.get_kb_params(self.task)
                 out_jr = self.net(x, self.task, mode='jr')
             for i in range(self.task):
                 self.net.get_kb_params(i)
                 outputs = []
-                if ets:
+                if 'ets' in mode:
                     outputs.append(self.net(x, i, mode='ets'))
-                if kbts:
+                if 'kbts' in mode:
                     outputs.append(self.net(x, i, mode='kbts'))
-                if jr:
+                if 'jr' in mode:
                     outputs.append(out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]])
                 outputs = ensemble_outputs(outputs)
                 outputs_tasks.append(outputs)
@@ -110,7 +110,7 @@ class DAE(ContinualModel):
 
         self.opt.zero_grad()
 
-        if not self.buffer.is_empty() and mode == 'jr':
+        if not self.buffer.is_empty() and 'jr' in mode:
             buf_inputs, buf_labels = self.buffer.get_data(
                 self.args.minibatch_size, transform=self.transform)
             outputs = self.net(buf_inputs, self.task, mode)
@@ -132,7 +132,8 @@ class DAE(ContinualModel):
         self.net.get_kb_params(self.task)
         # self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for n, p in self.net.named_parameters():
-            print(n, p.shape)
+            if p.requires_grad:
+                print(n, p.shape)
 
     def end_task(self, dataset) -> None:
         self.net.get_jr_params()
