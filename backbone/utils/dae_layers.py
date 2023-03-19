@@ -247,10 +247,9 @@ class _DynamicLayer(nn.Module):
         self.weight[-1].requires_grad = False
         self.fwt_weight[-1].requires_grad = False
         self.bwt_weight[-1].requires_grad = False
-        if self.norm_layer:
-            if self.norm_layer.affine:
-                self.norm_layer.weight[-1].requires_grad = False
-                self.norm_layer.bias[-1].requires_grad = False
+        if self.type:
+            self.norm_layer_ets.freeze()
+            self.norm_layer_kbts.freeze()
 
     def clear_memory(self):
         self.score = None

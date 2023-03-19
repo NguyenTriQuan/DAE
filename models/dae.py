@@ -128,7 +128,7 @@ class DAE(ContinualModel):
 
     def begin_task(self, dataset):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
-        self.opt = torch.optim.SGD(self.net.get_optim_params(), lr=self.args.lr)
+        # self.opt = torch.optim.SGD(self.net.get_optim_params(), lr=self.args.lr)
         self.net.get_kb_params(self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for n, p in self.net.named_parameters():
