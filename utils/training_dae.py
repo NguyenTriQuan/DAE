@@ -159,6 +159,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 progress_bar.prog(i, len(train_loader), epoch, t, loss, sum(num_params), num_neurons)
 
             model.net.squeeze(model.opt.state)
+            num_params, num_neurons = model.net.count_params()
             if scheduler is not None:
                 scheduler.step()
 

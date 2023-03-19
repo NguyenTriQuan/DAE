@@ -274,18 +274,15 @@ class _DynamicLayer(nn.Module):
 
     def get_optim_params(self):
         params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score]
-        if self.norm_layer:
-            if self.norm_layer.affine:
-                params += [self.norm_layer.weight[-1], self.norm_layer.bias[-1]]
         return params
 
     def count_params(self, t):
         count = 0
         for i in range(t+1):
             count += self.weight[i].numel() + self.fwt_weight[i].numel() + self.bwt_weight[i].numel()
-            if self.norm_layer:
-                if self.norm_layer.affine:
-                    count += self.norm_layer.weight[i].numel() + self.norm_layer.bias[i].numel()
+        if self.norm_type is not None:
+            count += self.norm_layer_ets.count_params(t)
+            count += self.norm_layer_kbts.count_params(t)
         return count
 
     def norm_in(self):
@@ -548,6 +545,13 @@ class DynamicNorm(nn.Module):
             running_var.copy_(running_var[mask])
 
         self.num[-1] = self.weight[-1].shape[0]
+    
+    def count_params(self, t):
+        count = 0
+        for i in range(t+1):
+            if self.affine:
+                count += self.weight[i].numel() + self.bias[i].numel()
+        return count
 
     def batch_norm(self, input, t):
         if self.momentum is None:
