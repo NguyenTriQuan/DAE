@@ -132,7 +132,6 @@ class _DynamicLayer(nn.Module):
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
 
         mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-        print(mask.sum(), mask.numel())
         self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool())
 
         self.reg_strength = (
