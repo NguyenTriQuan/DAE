@@ -7,6 +7,7 @@ import math
 
 import torch
 import torch.nn as nn
+import numpy as np
 from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer
 
 def xavier(m: nn.Module) -> None:
@@ -161,3 +162,59 @@ class _DynamicModel(nn.Module):
     def get_jr_params(self):
         for m in self.DM:
             m.get_jr_params()
+
+    def ERK_sparsify(self, sparsity=0.9):
+        print('initialize by ERK')
+        density = 1 - sparsity
+        erk_power_scale = 1
+
+        total_params = 0
+        for m in self.DM[:-1]:
+            total_params += m.score.numel()
+        is_epsilon_valid = False
+
+        dense_layers = set()
+        while not is_epsilon_valid:
+            divisor = 0
+            rhs = 0
+            raw_probabilities = {}
+            for m in self.DM[:-1]:
+                m.raw_probability = 0
+                n_param = np.prod(m.score.shape)
+                n_zeros = n_param * (1 - density)
+                n_ones = n_param * density
+
+                if m in dense_layers:
+                    rhs -= n_zeros
+                else:
+                    rhs += n_ones
+                    m.raw_probability = (np.sum(m.score.shape) / np.prod(m.score.shape)) ** erk_power_scale
+                    divisor += m.raw_probabilities * n_param
+
+            epsilon = rhs / divisor
+            max_prob = np.max([m.raw_probability for m in self.DM])
+            max_prob_one = max_prob * epsilon
+            if max_prob_one > 1:
+                is_epsilon_valid = False
+                for m in self.DM:
+                    if m.raw_probability == max_prob:
+                        # print(f"Sparsity of var:{mask_name} had to be set to 0.")
+                        dense_layers.add(m)
+            else:
+                is_epsilon_valid = True
+
+        total_nonzero = 0.0
+        # With the valid epsilon, we can set sparsities of the remaning layers.
+        for i, m in enumerate(self.DM):
+            n_param = np.prod(m.score.shape)
+            if m in dense_layers:
+                m.sparsity = 0
+            else:
+                probability_one = epsilon * m.raw_probability
+                m.sparsity = 1 - probability_one
+            print(
+                f"layer: {i}, shape: {m.score.shape}, sparsity: {m.sparsity}"
+            )
+            total_nonzero += (1-m.sparsity) * m.score.numel()
+        print(f"Overall sparsity {1-total_nonzero / total_params}")
+

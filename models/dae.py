@@ -58,7 +58,7 @@ class DAE(ContinualModel):
     def __init__(self, backbone, loss, args, transform):
         super(DAE, self).__init__(backbone, loss, args, transform)
         self.dataset = get_dataset(args)
-        self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn', args=args)
+        self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track_affine', args=args)
         # Instantiate buffers
         self.buffer = Buffer(self.args.buffer_size, self.device)
         self.task = 0
@@ -73,13 +73,18 @@ class DAE(ContinualModel):
                 outputs.append(self.net(x, t, mode='kbts'))
             if jr:
                 self.net.get_kb_params(self.task)
-                outputs.append(self.net(x, self.task, mode='jr'))
+                out_jr = self.net(x, self.task, mode='jr')
+                out_jr = out_jr[self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
+                outputs.append(out_jr)
             outputs = ensemble_outputs(outputs)
             _, predicts = outputs.max(1)
             return predicts + t * self.dataset.N_CLASSES_PER_TASK
         else:
             joint_entropy_tasks = []
             outputs_tasks = []
+            if jr:
+                self.net.get_kb_params(self.task)
+                out_jr = self.net(x, self.task, mode='jr')
             for i in range(self.task+1):
                 self.net.get_kb_params(i)
                 outputs = []
@@ -88,8 +93,7 @@ class DAE(ContinualModel):
                 if kbts:
                     outputs.append(self.net(x, i, mode='kbts'))
                 if jr:
-                    self.net.get_kb_params(self.task)
-                    outputs.append(self.net(x, self.task, mode='jr'))
+                    outputs.append(out_jr[self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]])
                 outputs = ensemble_outputs(outputs)
                 outputs_tasks.append(outputs)
                 joint_entropy = -torch.sum(outputs * torch.log(outputs+0.0001), dim=1)
@@ -126,6 +130,9 @@ class DAE(ContinualModel):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
         self.opt = torch.optim.SGD(self.net.get_optim_params(), lr=self.args.lr)
         self.net.get_kb_params(self.task)
+        self.net.ERK_sparsify(sparsity=self.args.sparsity)
+        for n, p in self.net.named_parameters():
+            print(n, p.shape)
 
     def end_task(self, dataset) -> None:
         self.net.get_jr_params()
@@ -133,3 +140,4 @@ class DAE(ContinualModel):
         self.net.freeze()
         # self.net.clear_memory()
         self.net.get_kb_params(self.task)
+        self.net.ERK_sparsify(sparsity=self.args.sparsity)

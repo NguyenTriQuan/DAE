@@ -73,10 +73,10 @@ class _DynamicLayer(nn.Module):
         self.fwt_weight = nn.ParameterList([])
         self.bwt_weight = nn.ParameterList([])
 
+        self.norm_type = norm_type
         if norm_type:
-            self.norm_layer = DynamicNorm(out_features, affine=True, track_running_stats=True, norm_type=norm_type)
-        else:
-            self.norm_layer = None
+            self.norm_layer_ets = DynamicNorm(out_features, affine=True, track_running_stats=True, norm_type=norm_type)
+            self.norm_layer_kbts = DynamicNorm(out_features, affine=True, track_running_stats=True, norm_type=norm_type)
 
         self.mask_in = None
         self.mask_out = None
@@ -139,8 +139,9 @@ class _DynamicLayer(nn.Module):
             / (self.shape_in[-1] * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])
         )
 
-        if self.norm_layer:
-            self.norm_layer.expand(add_out) 
+        if self.norm_type is not None:
+            self.norm_layer_ets.expand(self.shape_out[-1]) 
+            self.norm_layer_kbts.expand(fan_out_kbts)
 
 
     def forward(self, x, t, mode='ets'):    
@@ -148,9 +149,9 @@ class _DynamicLayer(nn.Module):
             return torch.empty(0)
         
         if mode == 'ets':
-            weight, bias = self.get_ets_params(t)
+            weight, bias, norm_layer = self.get_ets_params(t)
         else:
-            weight, bias = self.get_masked_kb_params(t, mode)
+            weight, bias, norm_layer = self.get_masked_kb_params(t, mode)
 
         if weight.numel() == 0:
             return torch.empty(0)
@@ -160,8 +161,11 @@ class _DynamicLayer(nn.Module):
         else:
             output = F.linear(x, weight, bias)
 
-        if self.norm_layer is not None:
-            output = self.norm_layer(output, t)
+        if self.norm_type is not None:
+            if mode == 'jr':
+                output = norm_layer(output, 0)
+            else:
+                output = norm_layer(output, t)
         
         return output
 
@@ -175,6 +179,9 @@ class _DynamicLayer(nn.Module):
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
         mask = GetSubnet.apply(self.score.abs(), self.sparsity)
         self.register_buffer('jr_mask', mask.detach().bool())
+        if self.norm_type is not None:
+            self.norm_layer_jr = DynamicNorm(fan_out_jr, norm_type=self.norm_type)
+            self.norm_layer_jr.expand(fan_out_jr)
 
     def get_kb_params(self, t):
         # get knowledge base parameters for task t
@@ -192,7 +199,7 @@ class _DynamicLayer(nn.Module):
 
         bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
         weight = weight * bound_std
-        return weight, None
+        return weight, None, self.norm_layer_ets
     
     def get_masked_kb_params(self, t, mode):
         # select parameters from knowledge base to build: knowledge base task specific model and join rehearsal model
@@ -215,22 +222,25 @@ class _DynamicLayer(nn.Module):
 
         bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
         weight = weight * bound_std
-        if self.training:
-            if mode == 'kbts':
+        if mode == 'kbts':
+            if self.training:
                 mask = GetSubnet.apply(self.score.abs(), self.sparsity)
                 weight = weight * mask / self.sparsity
                 self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool())
             else:
+                weight = weight * getattr(self, 'kbts_mask'+f'_{t}') / self.sparsity
+            
+            return weight, None, self.norm_layer_kbts
+        else:
+            if self.training:
                 mask = GetSubnet.apply(self.score.abs(), self.sparsity)
                 weight = weight * mask / self.sparsity
                 self.register_buffer('jr_mask', mask.detach().bool())
-        else:
-            if mode == 'kbts':
-                weight = weight * getattr(self, 'kbts_mask'+f'_{t}') / self.sparsity
             else:
                 weight = weight * getattr(self, 'jr_mask') / self.sparsity
+            
+            return weight, None, self.norm_layer_jr
 
-        return weight, None
             
 
     def freeze(self):
@@ -301,15 +311,7 @@ class _DynamicLayer(nn.Module):
                 apply_mask_out(self.bias[-1], mask, optim_state)
 
             if self.norm_layer:
-                if self.norm_layer.affine:
-                    apply_mask_out(self.norm_layer.weight[-1], mask, optim_state)
-                    apply_mask_out(self.norm_layer.bias[-1], mask, optim_state)
-
-                if self.norm_layer.track_running_stats:
-                    self.norm_layer.running_mean[-1] = self.norm_layer.running_mean[-1][mask]
-                    self.norm_layer.running_var[-1] = self.norm_layer.running_var[-1][mask]
-
-                self.norm_layer.shape[-1] = self.shape_out[-1]
+                self.norm_layer.squeeze(mask, optim_state)
         
         if prune_in:
             if self.s != 1:
@@ -442,9 +444,6 @@ class DynamicClassifier(DynamicLinear):
         elif mode == 'jr':
             weight = self.weight_jr
             bias = self.bias_jr
-            if t is not None:
-                weight = weight[self.shape_out[t]:self.shape_out[t+1]]
-                bias = bias[self.shape_out[t]:self.shape_out[t+1]]
         else:
             weight = self.weight_ets[t]
             bias = self.bias_ets[t]
@@ -497,8 +496,6 @@ class DynamicNorm(nn.Module):
         self.track_running_stats = track_running_stats
 
         self.base_num_features = num_features
-        self.num_features = 0
-        self.shape = [0]
         self.norm_type = norm_type
         if 'affine' in norm_type:
             self.affine = True
@@ -511,42 +508,49 @@ class DynamicNorm(nn.Module):
             self.track_running_stats = False
 
         if self.affine:
-            self.weight = []
-            self.bias = []
+            self.weight = nn.ParameterList([])
+            self.bias = nn.ParameterList([])
 
-        if self.track_running_stats:
-            self.running_mean = []
-            self.running_var = []
-            self.num_batches_tracked = 0
-        else:
-            self.running_mean = None
-            self.running_var = None
-            self.num_batches_tracked = None
+        self.register_buffer('num', torch.IntTensor([]).to(device))
+
 
     def expand(self, add_num=None):
         if add_num is None:
             add_num = self.base_num_features
 
-        self.num_features += add_num
-        self.shape.append(self.num_features)
-
+        self.num = torch.cat([self.num, torch.IntTensor([add_num]).to(device)])
         if self.affine:
-            self.weight.append(nn.Parameter(torch.Tensor(self.num_features).uniform_(1,1).to(device)))
-            self.bias.append(nn.Parameter(torch.Tensor(self.num_features).uniform_(0,0).to(device)))
-            if len(self.weight) > 2:
-                self.weight[-2].requires_grad = False
-                self.bias[-2].requires_grad = False
+            self.weight.append(nn.Parameter(torch.ones(add_num).to(device)))
+            self.bias.append(nn.Parameter(torch.zeros(add_num).to(device)))
 
         if self.track_running_stats:
-            self.running_mean.append(torch.zeros(self.num_features).to(device))
-            self.running_var.append(torch.ones(self.num_features).to(device))
+            self.register_buffer(f'running_mean_{self.num.shape[0]-1}', torch.zeros(add_num).to(device))
+            self.register_buffer(f'running_var_{self.num.shape[0]-1}', torch.ones(add_num).to(device))
             self.num_batches_tracked = 0
+        else:
+            self.register_buffer(f'running_mean_{self.num.shape[0]-1}', None)
+            self.register_buffer(f'running_var_{self.num.shape[0]-1}', None)
+            self.num_batches_tracked = None
     
-    def norm(self, t=-1):
-        return (self.weight[t][self.shape[t-1]:]**2 + self.bias[t][self.shape[t-1]:]**2) ** 0.5
+    def freeze(self):
+        if self.affine:
+            self.weight[-1].requires_grad = False
+            self.bias[-1].requires_grad = False
+    
+    def squeeze(self, mask, optim_state):
+        if self.norm_layer.affine:
+            apply_mask_out(self.weight[-1], mask, optim_state)
+            apply_mask_out(self.bias[-1], mask, optim_state)
 
-    def batch_norm(self, input, t=-1):
+        if self.track_running_stats:
+            running_mean = getattr(self, f'running_mean_{self.num.shape[0]-1}')
+            running_var = getattr(self, f'running_var_{self.num.shape[0]-1}')
+            running_mean.copy_(running_mean[mask])
+            running_var.copy_(running_var[mask])
 
+        self.num[-1] = self.weight[-1].shape[0]
+
+    def batch_norm(self, input, t):
         if self.momentum is None:
             exponential_average_factor = 0.0
         else:
@@ -565,10 +569,13 @@ class DynamicNorm(nn.Module):
         Decide whether the mini-batch stats should be used for normalization rather than the buffers.
         Mini-batch stats are used in training mode, and in eval mode when buffers are None.
         """
+        running_mean = getattr(self, f'running_mean_{t}')
+        running_var = getattr(self, f'running_var_{t}')
+
         if self.training:
             bn_training = True
         else:
-            bn_training = (self.running_mean is None) and (self.running_var is None)
+            bn_training = (running_mean is None) and (running_var is None)
 
         if len(input.shape) == 4:
             mean = input.mean([0, 2, 3])
@@ -586,19 +593,14 @@ class DynamicNorm(nn.Module):
             if self.track_running_stats:
                 n = input.numel() / input.size(1)
                 with torch.no_grad():
-                    self.running_mean[t] = exponential_average_factor * mean\
-                        + (1 - exponential_average_factor) * self.running_mean[t]
+                    running_mean.copy_(exponential_average_factor * mean + (1 - exponential_average_factor) * running_mean)
                     # update running_var with unbiased var
-                    self.running_var[t] = exponential_average_factor * var * n / (n - 1)\
-                        + (1 - exponential_average_factor) * self.running_var[t]
+                    running_var.copy_(exponential_average_factor * var * n / (n - 1) + (1 - exponential_average_factor) * running_var)
         else:
-            mean = self.running_mean[t]
-            var = self.running_var[t]
+            mean = running_mean
+            var = running_var
 
-        if 'res' in self.norm_type:
-            return input / (torch.sqrt(var.view(shape) + self.eps))
-        else:
-            return (input - mean.view(shape)) / (torch.sqrt(var.view(shape) + self.eps))
+        return (input - mean.view(shape)) / (torch.sqrt(var.view(shape) + self.eps))
 
 
     def layer_norm(self, input):
@@ -622,7 +624,8 @@ class DynamicNorm(nn.Module):
         return input / norm
 
     def forward(self, input, t=-1):
-        output = self.batch_norm(input, t)
+        if 'bn' in self.norm_type:
+            output = self.batch_norm(input, t)
 
         if self.affine:
             weight = self.weight[t]
