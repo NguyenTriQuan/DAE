@@ -81,7 +81,9 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     scheduler = dataset.get_scheduler(model, args)
     if 'ets' in mode:
         num_params, num_neurons = model.net.count_params()
+    accs = evaluate(model, dataset, task=t, mode=mode)
     for epoch in range(model.args.n_epochs):
+        model.net.train()
         if args.debug and epoch > 0:
             break
         for i, data in enumerate(train_loader):
