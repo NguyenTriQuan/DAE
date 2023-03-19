@@ -224,19 +224,19 @@ class _DynamicLayer(nn.Module):
         if mode == 'kbts':
             if self.training:
                 mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-                weight = weight * mask / self.sparsity
+                weight = weight * mask / (1-self.sparsity)
                 self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool())
             else:
-                weight = weight * getattr(self, 'kbts_mask'+f'_{t}') / self.sparsity
+                weight = weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.sparsity)
             
             return weight, None, self.norm_layer_kbts
         else:
             if self.training:
                 mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-                weight = weight * mask / self.sparsity
+                weight = weight * mask / (1-self.sparsity)
                 self.register_buffer('jr_mask', mask.detach().bool())
             else:
-                weight = weight * getattr(self, 'jr_mask') / self.sparsity
+                weight = weight * getattr(self, 'jr_mask') / (1-self.sparsity)
             
             return weight, None, self.norm_layer_jr
 
