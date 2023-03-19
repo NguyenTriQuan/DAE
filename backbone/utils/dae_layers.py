@@ -536,7 +536,7 @@ class DynamicNorm(nn.Module):
             self.bias[-1].requires_grad = False
     
     def squeeze(self, mask, optim_state):
-        if self.norm_layer.affine:
+        if self.affine:
             apply_mask_out(self.weight[-1], mask, optim_state)
             apply_mask_out(self.bias[-1], mask, optim_state)
 
