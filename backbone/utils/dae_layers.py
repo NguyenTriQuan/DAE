@@ -473,7 +473,9 @@ class DynamicClassifier(DynamicLinear):
         return count
 
     def squeeze(self, optim_state, mask_in=None, mask_out=None):
-        if mask_in is not None:
+        # prune_out = mask_out is not None and mask_out.sum() != self.num_out[-1]
+        prune_in = mask_in is not None and mask_in.sum() != self.num_in[-1]
+        if prune_in:
             if self.s != 1:
                 mask_in = mask_in.view(-1,1,1).expand(mask_in.size(0), self.s, self.s).contiguous().view(-1)
             
