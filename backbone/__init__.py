@@ -192,11 +192,11 @@ class _DynamicModel(nn.Module):
                     divisor += m.raw_probability * n_param
 
             epsilon = rhs / divisor
-            max_prob = np.max([m.raw_probability for m in self.DM])
+            max_prob = np.max([m.raw_probability for m in self.DM[:-1]])
             max_prob_one = max_prob * epsilon
             if max_prob_one > 1:
                 is_epsilon_valid = False
-                for m in self.DM:
+                for m in self.DM[:-1]:
                     if m.raw_probability == max_prob:
                         # print(f"Sparsity of var:{mask_name} had to be set to 0.")
                         dense_layers.add(m)
@@ -205,7 +205,7 @@ class _DynamicModel(nn.Module):
 
         total_nonzero = 0.0
         # With the valid epsilon, we can set sparsities of the remaning layers.
-        for i, m in enumerate(self.DM):
+        for i, m in enumerate(self.DM[:-1]):
             n_param = np.prod(m.score.shape)
             if m in dense_layers:
                 m.sparsity = 0
