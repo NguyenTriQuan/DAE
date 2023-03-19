@@ -321,8 +321,16 @@ class _DynamicLayer(nn.Module):
     def proximal_gradient_descent(self, lr, lamb):
         eps = 0
         with torch.no_grad():
-            strength = self.reg_strength
+            # strength = self.reg_strength
+            weight = torch.cat([self.fwt_weight[-1], self.weight[-1]], dim=1)
+            norm = (weight ** 2).mean(dim=self.dim_in) ** 0.5
 
+            bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
+            strength = (
+                (self.shape_in[-1] + self.num_out[-1] + self.kernel_size[0] + self.kernel_size[1]) 
+                / (self.shape_in[-1] * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])
+            )
+            strength *= bound_std
             # regularize std
             norm = self.norm_in()
             aux = 1 - lamb * lr * strength / norm
