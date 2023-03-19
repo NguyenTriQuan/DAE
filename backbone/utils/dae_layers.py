@@ -131,7 +131,7 @@ class _DynamicLayer(nn.Module):
 
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
 
-        mask = GetSubnet.apply(self.score.abs(), self.sparsity)
+        mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
         self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool())
 
         self.reg_strength = (
@@ -177,7 +177,7 @@ class _DynamicLayer(nn.Module):
         else:
             self.score = nn.Parameter(torch.Tensor(fan_out_jr, fan_in_jr).to(device))
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
-        mask = GetSubnet.apply(self.score.abs(), self.sparsity)
+        mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
         self.register_buffer('jr_mask', mask.detach().bool())
         if self.norm_type is not None:
             self.norm_layer_jr = DynamicNorm(fan_out_jr, norm_type=self.norm_type)
@@ -224,7 +224,7 @@ class _DynamicLayer(nn.Module):
         weight = weight * bound_std
         if mode == 'kbts':
             if self.training:
-                mask = GetSubnet.apply(self.score.abs(), self.sparsity)
+                mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
                 weight = weight * mask / self.sparsity
                 self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool())
             else:
@@ -233,7 +233,7 @@ class _DynamicLayer(nn.Module):
             return weight, None, self.norm_layer_kbts
         else:
             if self.training:
-                mask = GetSubnet.apply(self.score.abs(), self.sparsity)
+                mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
                 weight = weight * mask / self.sparsity
                 self.register_buffer('jr_mask', mask.detach().bool())
             else:
