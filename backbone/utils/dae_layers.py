@@ -305,8 +305,8 @@ class _DynamicLayer(nn.Module):
             if self.bias is not None:
                 apply_mask_out(self.bias[-1], mask, optim_state)
 
-            if self.norm_layer:
-                self.norm_layer.squeeze(mask, optim_state)
+            if self.norm_type:
+                self.norm_layer_ets.squeeze(mask, optim_state)
         
         if prune_in:
             if self.s != 1:
