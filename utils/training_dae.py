@@ -125,7 +125,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # kbts training
         scheduler = dataset.get_scheduler(model, args)
         for epoch in range(model.args.n_epochs):
-            # break
+            break
             if args.debug and epoch > 0:
                 break
             for i, data in enumerate(train_loader):
@@ -176,6 +176,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # jr training
         scheduler = dataset.get_scheduler(model, args)
         for epoch in range(model.args.n_epochs):
+            # break
             if args.debug and epoch > 0:
                 break
             for i, data in enumerate(train_loader):
