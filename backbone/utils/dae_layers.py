@@ -477,7 +477,9 @@ class DynamicClassifier(DynamicLinear):
             if self.s != 1:
                 mask_in = mask_in.view(-1,1,1).expand(mask_in.size(0), self.s, self.s).contiguous().view(-1)
             
-            apply_mask_in(self.weight_ets[-1], mask_in, optim_state)
+            mask = torch.ones(self.shape_in[-2], dtype=bool, device=device)
+            mask = torch.cat([mask, mask_in])
+            apply_mask_in(self.weight_ets[-1], mask, optim_state)
             self.num_in[-1] = self.weight_ets[-1].shape[1]
             self.shape_in[-1] = self.num_in.sum()
   
