@@ -205,14 +205,14 @@ class _DynamicModel(nn.Module):
 
         total_nonzero = 0.0
         # With the valid epsilon, we can set sparsities of the remaning layers.
+        min_sparsity = 0.1
         for i, m in enumerate(self.DM[:-1]):
             n_param = np.prod(m.score.shape)
             if m in dense_layers:
-                m.sparsity = 0.5
+                m.sparsity = min_sparsity
             else:
                 probability_one = epsilon * m.raw_probability
-                probability_one = min(0.5, probability_one)
-                m.sparsity = 1 - probability_one
+                m.sparsity = max(1 - probability_one, min_sparsity)
             print(
                 f"layer: {i}, shape: {m.score.shape}, sparsity: {m.sparsity}"
             )
