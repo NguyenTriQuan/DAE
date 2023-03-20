@@ -99,12 +99,12 @@ class _DynamicLayer(nn.Module):
 
     def expand(self, add_in=None, add_out=None):
         if add_in is None:
-            if self.args.fix:
+            if 'fix' in self.args.ablation:
                 add_in = self.base_in_features - self.shape_in[-1]
             else:
                 add_in = self.base_in_features
         if add_out is None:
-            if self.args.fix:
+            if 'fix' in self.args.ablation:
                 add_out = self.base_out_features - self.shape_out[-1]
             else:
                 add_out = self.base_out_features
@@ -415,7 +415,7 @@ class DynamicClassifier(DynamicLinear):
 
     def expand(self, add_in=None, add_out=None):
         if add_in is None:
-            if self.args.fix:
+            if 'fix' in self.args.ablation:
                 add_in = self.base_in_features - self.shape_in[-1]
             else:
                 add_in = self.base_in_features

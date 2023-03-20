@@ -87,10 +87,10 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [60, 70], gamma=0.1, verbose=False)
     elif 'kbts' in mode:
         n_epochs = 50
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 35], gamma=0.1, verbose=False)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
     elif 'jr' in mode:
-        n_epochs = 25
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [15, 20], gamma=0.1, verbose=False)
+        n_epochs = 30
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [15, 25], gamma=0.1, verbose=False)
 
     accs = evaluate(model, dataset, task=t, mode=mode)
 
@@ -139,7 +139,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     :param args: the arguments of the current execution
     """
     print(args)
-
+    args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
+                                                      args.ablation, args.lamb, args.dropout, args.sparsity)
+    print(args.title)
     if not args.nowand:
         assert wandb is not None, "Wandb not installed, please install it or run without wandb"
         wandb.init(project=args.wandb_project, entity=args.wandb_entity, config=vars(args))

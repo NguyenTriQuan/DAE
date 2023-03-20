@@ -128,8 +128,6 @@ def main(args=None):
     args.disable_log = True
     # set job name
     setproctitle.setproctitle('{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
-    args.title = '{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset)
-    print(args.title)
     if model.NAME == 'DAE':
         from utils.training_dae import train
     else:

@@ -27,13 +27,16 @@ def get_parser() -> ArgumentParser:
                         help='Dropout probability.')
     parser.add_argument('--sparsity', type=float, required=True,
                         help='Super mask sparsity.')
+    parser.add_argument('--temperature', type=float, required=True,
+                        help='Weighted ensemble temperature.')
     parser.add_argument('--ablation', type=str, required=False,
                         help='Ablation study.', default='')
-    parser.add_argument('--fix', action='store_true',
-                        help='Do not expand the network.')
     parser.add_argument('--debug', action='store_true',
                         help='Quick test.')
     return parser
+
+def entropy(x):
+    return -torch.sum(x * torch.log(x), dim=1)
 
 def logmeanexp(x, dim=None, keepdim=False):
     """Stable computation of log(mean(exp(x))"""
@@ -45,11 +48,21 @@ def logmeanexp(x, dim=None, keepdim=False):
 
 def ensemble_outputs(outputs):
     ## a list of outputs with length [num_member], each with shape [bs, num_cls]
-    outputs = torch.stack(outputs, dim=-1)
+    outputs = torch.stack(outputs, dim=-1) #[bs, num_cls, num_member]
     outputs = F.log_softmax(outputs, dim=-2)
     ## with shape [bs, num_cls]
     log_outputs = logmeanexp(outputs, dim=-1)
     return log_outputs
+
+def weighted_ensemble(outputs, weights, temperature):
+    outputs = torch.stack(outputs, dim=-1) #[bs, num_cls, num_member]
+    weights = torch.stack(weights, dim=-1) #[bs, num_member]
+
+    weights = F.softmax(weights / temperature, dim=-1).unsqueeze(1) #[bs, 1, num_member]
+    outputs = F.log_softmax(outputs, dim=-2)
+    output_max, _ = torch.max(outputs, dim=-1, keepdim=True)
+    log_outputs = output_max + torch.log(torch.sum((outputs - output_max).exp() * weights, dim=-1, keepdim=True))
+    return log_outputs.squeeze(-1)
 
 class DAE(ContinualModel):
     NAME = 'DAE'
@@ -92,16 +105,24 @@ class DAE(ContinualModel):
             for i in range(self.task):
                 self.net.get_kb_params(i)
                 outputs = []
+                weights = []
                 if 'ets' in mode:
-                    outputs.append(self.net(x, i, mode='ets'))
+                    out = self.net(x, i, mode='ets')
+                    outputs.append(out)
+                    weights.append(-entropy(F.softmax(out, dim=1)))
                 if 'kbts' in mode:
-                    outputs.append(self.net(x, i, mode='kbts'))
+                    out = self.net(x, i, mode='kbts')
+                    outputs.append(out)
+                    weights.append(-entropy(F.softmax(out, dim=1)))
                 if 'jr' in mode:
-                    outputs.append(out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]])
-                outputs = ensemble_outputs(outputs)
+                    out = out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
+                    outputs.append(out)
+                    weights.append(-entropy(F.softmax(out, dim=1)))
+                # outputs = ensemble_outputs(outputs)
+                outputs = weighted_ensemble(outputs, weights, self.args.temperature)
                 outputs_tasks.append(outputs)
-                outputs = outputs.exp()
-                joint_entropy = -torch.sum(outputs * torch.log(outputs+0.0001), dim=1)
+                print(sum(outputs.exp()))
+                joint_entropy = entropy(outputs.exp())
                 # p =self.dataset.N_CLASSES_PER_TASK // self.dataset.N_CLASSES_PER_TASK
                 # joint_entropy /= p
                 joint_entropy_tasks.append(joint_entropy)
