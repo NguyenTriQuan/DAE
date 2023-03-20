@@ -160,7 +160,7 @@ class ResNet(_DynamicModel):
             self.total_strength += m.strength_in
 
 
-def resnet18(nclasses: int, nf: int=64, norm_type='bn', args=None) -> ResNet:
+def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
     """
     Instantiates a ResNet18 network.
     :param nclasses: number of output classes
