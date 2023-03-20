@@ -102,6 +102,8 @@ class DAE(ContinualModel):
                 outputs_tasks.append(outputs)
                 outputs = outputs.exp()
                 joint_entropy = -torch.sum(outputs * torch.log(outputs+0.0001), dim=1)
+                # p =self.dataset.N_CLASSES_PER_TASK // self.dataset.N_CLASSES_PER_TASK
+                # joint_entropy /= p
                 joint_entropy_tasks.append(joint_entropy)
             
             outputs_tasks = torch.stack(outputs_tasks, dim=1)
@@ -109,7 +111,6 @@ class DAE(ContinualModel):
             predicted_task = torch.argmin(joint_entropy_tasks, axis=1)
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             _, predicts = predicted_outputs.max(1)
-            print(joint_entropy_tasks, predicted_task)
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
 
     def observe(self, inputs, labels, not_aug_inputs, mode):
@@ -137,9 +138,6 @@ class DAE(ContinualModel):
         # self.opt = torch.optim.SGD(self.net.get_optim_params(), lr=self.args.lr)
         self.net.get_kb_params(self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
-        # for n, p in self.net.named_parameters():
-        #     if p.requires_grad:
-        #         print(n, p.shape)
 
     def end_task(self, dataset, train_loader) -> None:
         with torch.no_grad():

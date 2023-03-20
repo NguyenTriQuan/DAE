@@ -34,19 +34,6 @@ from utils.continual_training import train as ctrain
 from utils.distributed import make_dp
 from utils.training import train
 
-# DATASET_NAMES = {}
-# for model in get_all_models():
-#     mod = importlib.import_module('datasets.' + model)
-#     dataset_classes_name = [x for x in mod.__dir__() if 'type' in str(type(getattr(mod, x))) and 'ContinualDataset' in str(inspect.getmro(getattr(mod, x))[1:])]
-#     for d in dataset_classes_name:
-#         c = getattr(mod, d)
-#         DATASET_NAMES[c.NAME] = c
-
-#     gcl_dataset_classes_name = [x for x in mod.__dir__() if 'type' in str(type(getattr(mod, x))) and 'GCLDataset' in str(inspect.getmro(getattr(mod, x))[1:])]
-#     for d in gcl_dataset_classes_name:
-#         c = getattr(mod, d)
-#         DATASET_NAMES[c.NAME] = c
-
 def lecun_fix():
     # Yann moved his website to CloudFlare. You need this now
     from six.moves import urllib  # pyright: ignore
@@ -141,7 +128,8 @@ def main(args=None):
     args.disable_log = True
     # set job name
     setproctitle.setproctitle('{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
-
+    args.title = '{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset)
+    print(args.title)
     if model.NAME == 'DAE':
         from utils.training_dae import train
     else:

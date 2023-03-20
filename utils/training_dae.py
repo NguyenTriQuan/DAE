@@ -15,6 +15,7 @@ from models.utils.continual_model import ContinualModel
 
 from utils.loggers import *
 from utils.status import ProgressBar
+from utils.conf import base_path_memory
 
 # try:
 #     import wandb
@@ -78,7 +79,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
     return accs, accs_mask_classes
 
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
-    model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=args.optim_wd, momentum=args.optim_mom)
+    model.opt = torch.optim.SGD(model.net.get_optim_params(), lr=args.lr, weight_decay=args.optim_wd, momentum=args.optim_mom)
     if 'ets' in mode:
         print('lamb', model.lamb[t])
         num_params, num_neurons = model.net.count_params()
@@ -204,6 +205,15 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         mean_acc = np.mean(accs, axis=1)
         print('ets')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+
+        # save model and buffer
+        torch.save(model, base_path_memory() + args.title + '.model')
+        torch.save(dataset, base_path_memory() + args.title + '.dataset')
+        torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
+        torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
+        # estimate memory size
+        print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
+        print('Buffer size:', os.path.getsize(base_path_memory() + args.title + '.buffer'))
 
         if not args.disable_log:
             logger.log(mean_acc)
