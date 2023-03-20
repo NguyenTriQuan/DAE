@@ -631,9 +631,6 @@ class DynamicNorm(nn.Module):
                     running_mean.copy_(exponential_average_factor * mean + (1 - exponential_average_factor) * running_mean)
                     # update running_var with unbiased var
                     running_var.copy_(exponential_average_factor * var * n / (n - 1) + (1 - exponential_average_factor) * running_var)
-            else:
-                mean = running_mean
-                var = running_var
         else:
             mean = running_mean
             var = running_var
