@@ -165,7 +165,7 @@ class _DynamicModel(nn.Module):
         
     def set_squeeze_state(self, track):
         for m in self.DM[:-1]:
-            m.norm_layer_ets.affine = track
+            # m.norm_layer_ets.affine = track
             m.norm_layer_ets.track_running_stats = track
 
     def ERK_sparsify(self, sparsity=0.9):
