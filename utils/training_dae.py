@@ -209,6 +209,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         # save model and buffer
+        model.net.clear_memory()
         torch.save(model, base_path_memory() + args.title + '.model')
         torch.save(dataset, base_path_memory() + args.title + '.dataset')
         torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
@@ -216,7 +217,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # estimate memory size
         print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
         print('Buffer size:', os.path.getsize(base_path_memory() + args.title + '.buffer'))
-        print(model.net.state_dict().keys())
+        # print(model.net.state_dict().keys())
         if not args.disable_log:
             logger.log(mean_acc)
             logger.log_fullacc(accs)
