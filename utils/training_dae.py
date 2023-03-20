@@ -97,7 +97,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             not_aug_inputs = not_aug_inputs.to(model.device)
             loss = model.meta_observe(inputs, labels, not_aug_inputs, mode=mode)
             if 'ets_squeeze' in mode:
-                model.net.proximal_gradient_descent(model.args.lr, model.args.lamb)
+                model.net.proximal_gradient_descent(scheduler.get_last_lr()[0], model.args.lamb)
                 progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0], sum(num_params), num_neurons)
             else:
                 progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0])
@@ -173,7 +173,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # model.net.set_squeeze_state(False)
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_squeeze')
         # model.net.set_squeeze_state(True)
-        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
+        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
