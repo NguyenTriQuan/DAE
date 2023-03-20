@@ -191,9 +191,10 @@ class _DynamicLayer(nn.Module):
     def get_ets_params(self, t):
         # get expanded task specific model
         weight = self.kb_weight
-        kb_bound = self.gain / math.sqrt(weight.shape[1] * self.ks)
-        bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
-        weight = bound_std * weight / kb_bound
+        if weight.numel() != 0:
+            kb_bound = self.gain / math.sqrt(weight.shape[1] * self.ks)
+            bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
+            weight = bound_std * weight / kb_bound
         weight = F.dropout(weight, self.dropout, self.training)
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
@@ -212,8 +213,9 @@ class _DynamicLayer(nn.Module):
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
         bound_std = self.gain / math.sqrt(fan_in * self.ks)
-        kb_bound = self.gain / math.sqrt(weight.shape[1] * self.ks)
-        weight = bound_std * weight / kb_bound
+        if weight.numel() != 0:
+            kb_bound = self.gain / math.sqrt(weight.shape[1] * self.ks)
+            weight = bound_std * weight / kb_bound
         if add_in != 0 or add_out !=0:
             if isinstance(self, DynamicConv2D):
                 dummy_weight_0 = self.dummy_weight[:n_0].view(add_out, (fan_in-add_in) // self.groups, *self.kernel_size)
