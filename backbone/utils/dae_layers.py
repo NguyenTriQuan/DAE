@@ -143,8 +143,8 @@ class _DynamicLayer(nn.Module):
 
 
     def forward(self, x, t, mode):    
-        if x.numel() == 1:
-            return torch.zeros(1)
+        if x.numel() == 0:
+            return torch.empty(0).to(device)
         
         if 'ets' in mode:
             weight, bias, norm_layer = self.get_ets_params(t)
@@ -152,7 +152,7 @@ class _DynamicLayer(nn.Module):
             weight, bias, norm_layer = self.get_masked_kb_params(t, mode)
 
         if weight.numel() == 0:
-            return torch.zeros(1)
+            return torch.empty(0).to(device)
     
         if isinstance(self, DynamicConv2D):
             output = F.conv2d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)

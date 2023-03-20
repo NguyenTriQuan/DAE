@@ -54,7 +54,14 @@ class BasicBlock(nn.Module):
         out = relu(self.conv1(x, t, mode))
         out = self.conv2(out, t, mode)
         if self.shortcut is not None:
-            out += self.shortcut(x, t, mode)
+            sc_out = self.shortcut(x, t, mode)
+        else:
+            sc_out = x
+        
+        if out.numel() == 0:
+            out = sc_out
+        else:
+            out += sc_out
         out = relu(out)
         return out
 
