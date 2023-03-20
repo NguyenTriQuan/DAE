@@ -157,16 +157,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
         
         # kbts training
-        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
+        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
 
         # ets training
-        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
+        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
 
         # jr training
-        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
+        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
 
         # final evaluation
         accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
