@@ -93,7 +93,7 @@ class _DynamicLayer(nn.Module):
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
-        self.dummy_weight = torch.Tensor(self.base_out_features * self.base_in_features * self.ks).to(device)
+        self.dummy_weight = torch.Tensor(self.base_out_features * self.base_in_features * self.ks * 2).to(device)
         nn.init.normal_(self.dummy_weight, 0, 1)
 
 
