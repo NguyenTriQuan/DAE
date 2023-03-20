@@ -543,14 +543,16 @@ class DynamicNorm(nn.Module):
         if self.affine:
             apply_mask_out(self.weight[-1], mask, optim_state)
             apply_mask_out(self.bias[-1], mask, optim_state)
+            self.shape_out[-1] = self.weight[-1].shape[0]
 
         if self.track_running_stats:
             running_mean = getattr(self, f'running_mean_{self.shape_out.shape[0]-2}')
             running_var = getattr(self, f'running_var_{self.shape_out.shape[0]-2}')
-            self.register_buffer(f'running_mean_{self.shape_out.shape[0]-2}', running_mean[mask])
-            self.register_buffer(f'running_var_{self.shape_out.shape[0]-2}', running_var[mask])
-
-        self.shape_out[-1] = self.weight[-1].shape[0]
+            running_mean = running_mean[mask]
+            running_var = running_var[mask]
+            self.register_buffer(f'running_mean_{self.shape_out.shape[0]-2}', running_mean)
+            self.register_buffer(f'running_var_{self.shape_out.shape[0]-2}', running_var)
+            self.shape_out[-1] = running_mean.shape[0]
     
     def proximal_gradient_descent(self, aux_, lr, lamb, strength):
         t = self.shape_out.shape[0]-2
