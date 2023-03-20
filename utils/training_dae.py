@@ -161,7 +161,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
 
         # ets training
+        model.net.set_squeeze_state(False)
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_squeeze')
+        model.net.set_squeeze_state(True)
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
 
         if hasattr(model, 'end_task'):

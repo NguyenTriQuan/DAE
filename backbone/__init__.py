@@ -162,6 +162,11 @@ class _DynamicModel(nn.Module):
     def get_jr_params(self):
         for m in self.DM:
             m.get_jr_params()
+        
+    def set_squeeze_state(self, track):
+        for m in self.DM[:-1]:
+            m.norm_layer_ets.affine = track
+            m.norm_layer_ets.track_running_stats = track
 
     def ERK_sparsify(self, sparsity=0.9):
         print('initialize by ERK')

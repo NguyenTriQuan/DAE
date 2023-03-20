@@ -512,6 +512,9 @@ class DynamicNorm(nn.Module):
         if self.affine:
             self.weight = nn.ParameterList([])
             self.bias = nn.ParameterList([])
+        else:
+            self.weight = None
+            self.bias = None
 
         self.register_buffer('shape_out', torch.IntTensor([0]).to(device))
 
@@ -540,14 +543,14 @@ class DynamicNorm(nn.Module):
             self.bias[-1].requires_grad = False
     
     def squeeze(self, mask, optim_state):
-        if self.affine:
+        if self.weight is not None:
             apply_mask_out(self.weight[-1], mask, optim_state)
             apply_mask_out(self.bias[-1], mask, optim_state)
             self.shape_out[-1] = self.weight[-1].shape[0]
 
-        if self.track_running_stats:
-            running_mean = getattr(self, f'running_mean_{self.shape_out.shape[0]-2}')
-            running_var = getattr(self, f'running_var_{self.shape_out.shape[0]-2}')
+        running_mean = getattr(self, f'running_mean_{self.shape_out.shape[0]-2}')
+        running_var = getattr(self, f'running_var_{self.shape_out.shape[0]-2}')
+        if running_mean is not None:
             running_mean = running_mean[mask]
             running_var = running_var[mask]
             self.register_buffer(f'running_mean_{self.shape_out.shape[0]-2}', running_mean)
@@ -628,6 +631,9 @@ class DynamicNorm(nn.Module):
                     running_mean.copy_(exponential_average_factor * mean + (1 - exponential_average_factor) * running_mean)
                     # update running_var with unbiased var
                     running_var.copy_(exponential_average_factor * var * n / (n - 1) + (1 - exponential_average_factor) * running_var)
+            else:
+                mean = running_mean
+                var = running_var
         else:
             mean = running_mean
             var = running_var
