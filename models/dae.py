@@ -118,8 +118,8 @@ class DAE(ContinualModel):
                     out = out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
                     outputs.append(out)
                     weights.append(-entropy(F.softmax(out, dim=1)))
-                # outputs = ensemble_outputs(outputs)
-                outputs = weighted_ensemble(outputs, weights, self.args.temperature)
+                outputs = ensemble_outputs(outputs)
+                # outputs = weighted_ensemble(outputs, weights, self.args.temperature)
                 outputs_tasks.append(outputs)
                 print(sum(outputs.exp()))
                 joint_entropy = entropy(outputs.exp())

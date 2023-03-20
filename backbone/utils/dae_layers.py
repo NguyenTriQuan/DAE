@@ -280,8 +280,8 @@ class _DynamicLayer(nn.Module):
     def get_optim_params(self):
         params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score]
         if 'affine' in self.norm_type:
-            params += [self.norm_layer_ets.weight[-1], self.norm_layer_ets.weight[-1]]
-            params += [self.norm_layer_kbts.weight[-1], self.norm_layer_kbts.weight[-1]]
+            params += [self.norm_layer_ets.weight[-1], self.norm_layer_ets.bias[-1]]
+            params += [self.norm_layer_kbts.weight[-1], self.norm_layer_kbts.bias[-1]]
         return params
 
     def count_params(self, t):
