@@ -58,7 +58,7 @@ class DAE(ContinualModel):
     def __init__(self, backbone, loss, args, transform):
         super(DAE, self).__init__(backbone, loss, args, transform)
         self.dataset = get_dataset(args)
-        self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track', args=args)
+        self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track_affine', args=args)
         # Instantiate buffers
         self.buffer = Buffer(self.args.buffer_size, self.device)
         self.task = 0
