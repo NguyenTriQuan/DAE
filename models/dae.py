@@ -135,9 +135,9 @@ class DAE(ContinualModel):
         #     if p.requires_grad:
         #         print(n, p.shape)
 
-    def end_task(self, dataset) -> None:
+    def end_task(self, dataset, train_loader) -> None:
         with torch.no_grad():
-            self.fill_buffer()
+            self.fill_buffer(train_loader)
         self.net.get_jr_params()
         self.task += 1
         self.net.freeze()
@@ -145,7 +145,7 @@ class DAE(ContinualModel):
         self.net.get_kb_params(self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
 
-    def fill_buffer(self) -> None:
+    def fill_buffer(self, train_loader) -> None:
         """
         Adds examples from the current task to the memory buffer
         by means of the herding strategy.
@@ -158,7 +158,7 @@ class DAE(ContinualModel):
         self.net.eval()
         samples_per_class = self.buffer.buffer_size // (self.dataset.N_CLASSES_PER_TASK * self.dataset.N_TASKS)
 
-        loader = self.dataset.train_loader
+        loader = train_loader
         norm_trans = self.dataset.get_normalization_transform()
         if norm_trans is None:
             def norm_trans(x): return x
