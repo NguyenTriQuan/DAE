@@ -154,21 +154,21 @@ def fill_buffer(self, mem_buffer: Buffer, dataset, t_idx: int) -> None:
 
     mode = self.net.training
     self.net.eval()
-    samples_per_class = mem_buffer.buffer_size // len(self.classes_so_far)
+    samples_per_class = mem_buffer.buffer_size // (dataset.N_CLASSES_PER_TASK * dataset.N_TASKS)
 
-    if t_idx > 0:
-        # 1) First, subsample prior classes
-        buf_x, buf_y, buf_l = self.buffer.get_all_data()
+    # if t_idx > 0:
+    #     # 1) First, subsample prior classes
+    #     buf_x, buf_y, buf_l = self.buffer.get_all_data()
 
-        mem_buffer.empty()
-        for _y in buf_y.unique():
-            idx = (buf_y == _y)
-            _y_x, _y_y, _y_l = buf_x[idx], buf_y[idx], buf_l[idx]
-            mem_buffer.add_data(
-                examples=_y_x[:samples_per_class],
-                labels=_y_y[:samples_per_class],
-                logits=_y_l[:samples_per_class]
-            )
+    #     mem_buffer.empty()
+    #     for _y in buf_y.unique():
+    #         idx = (buf_y == _y)
+    #         _y_x, _y_y, _y_l = buf_x[idx], buf_y[idx], buf_l[idx]
+    #         mem_buffer.add_data(
+    #             examples=_y_x[:samples_per_class],
+    #             labels=_y_y[:samples_per_class],
+    #             logits=_y_l[:samples_per_class]
+    #         )
 
     # 2) Then, fill with current tasks
     loader = dataset.train_loader

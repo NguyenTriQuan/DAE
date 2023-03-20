@@ -82,10 +82,10 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     if 'ets_squeeze' in mode:
         num_params, num_neurons = model.net.count_params()
     accs = evaluate(model, dataset, task=t, mode=mode)
-    if 'ets_squeeze' in mode: 
-        nepochs = 100
-    else:
-        nepochs = model.args.n_epochs
+    # if 'ets_squeeze' in mode: 
+    #     nepochs = 100
+    # else:
+    nepochs = model.args.n_epochs
     for epoch in range(nepochs):
         model.net.train()
         if args.debug and epoch > 0:
