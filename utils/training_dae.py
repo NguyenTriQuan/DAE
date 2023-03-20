@@ -82,7 +82,11 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     if 'ets_squeeze' in mode:
         num_params, num_neurons = model.net.count_params()
     accs = evaluate(model, dataset, task=t, mode=mode)
-    for epoch in range(model.args.n_epochs):
+    if 'ets_squeeze' in mode: 
+        nepochs = 100
+    else:
+        nepochs = model.args.n_epochs
+    for epoch in range(nepochs):
         model.net.train()
         if args.debug and epoch > 0:
             break
@@ -109,7 +113,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0], sum(num_params), num_neurons)
         else:
             progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0])
-            
+
         if scheduler is not None:
             if 'ets_squeeze' not in mode:
                 scheduler.step()
@@ -166,9 +170,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
 
         # ets training
-        model.net.set_squeeze_state(False)
+        # model.net.set_squeeze_state(False)
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_squeeze')
-        model.net.set_squeeze_state(True)
+        # model.net.set_squeeze_state(True)
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
 
         if hasattr(model, 'end_task'):
