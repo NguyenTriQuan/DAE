@@ -122,8 +122,8 @@ class DAE(ContinualModel):
                 # outputs = weighted_ensemble(outputs, weights, self.args.temperature)
                 outputs_tasks.append(outputs)
                 outputs = outputs.exp()
-                outputs = outputs / outputs.sum(1).view(-1, 1)
-                print(sum(outputs))
+                # outputs = outputs / outputs.sum(1).view(-1, 1)
+                print(outputs.sum(1))
                 joint_entropy = entropy(outputs)
                 # p =self.dataset.N_CLASSES_PER_TASK // self.dataset.N_CLASSES_PER_TASK
                 # joint_entropy /= p
