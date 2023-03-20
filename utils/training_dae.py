@@ -216,7 +216,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # estimate memory size
         print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
         print('Buffer size:', os.path.getsize(base_path_memory() + args.title + '.buffer'))
-
+        print(model.net.state_dict().keys())
         if not args.disable_log:
             logger.log(mean_acc)
             logger.log_fullacc(accs)
