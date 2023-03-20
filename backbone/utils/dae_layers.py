@@ -561,12 +561,15 @@ class DynamicNorm(nn.Module):
         self.register_buffer(f'running_mean_{t}', running_mean)
         self.register_buffer(f'running_var_{t}', running_var)
 
-        norm = (self.weight[t][self.shape_out[t]:]**2 + self.bias[t][self.shape_out[t]:]**2) ** 0.5
-        aux = 1 - lamb * lr * strength / norm
-        aux = F.threshold(aux, 0, 0, False)
-        mask_out = (aux > 0)
-        self.weight[t].data[self.shape_out[t]:] *= aux
-        self.bias[t].data[self.shape_out[t]:] *= aux
+        if self.affine:
+            norm = (self.weight[t][self.shape_out[t]:]**2 + self.bias[t][self.shape_out[t]:]**2) ** 0.5
+            aux = 1 - lamb * lr * strength / norm
+            aux = F.threshold(aux, 0, 0, False)
+            mask_out = (aux > 0)
+            self.weight[t].data[self.shape_out[t]:] *= aux
+            self.bias[t].data[self.shape_out[t]:] *= aux
+        else:
+            mask_out = 1
         return mask_out
     
     def count_params(self, t):
