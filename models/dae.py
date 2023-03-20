@@ -100,6 +100,7 @@ class DAE(ContinualModel):
                     outputs.append(out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]])
                 outputs = ensemble_outputs(outputs)
                 outputs_tasks.append(outputs)
+                outputs = outputs.exp()
                 joint_entropy = -torch.sum(outputs * torch.log(outputs+0.0001), dim=1)
                 joint_entropy_tasks.append(joint_entropy)
             
