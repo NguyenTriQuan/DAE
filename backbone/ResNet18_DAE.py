@@ -41,9 +41,9 @@ class BasicBlock(nn.Module):
         self.conv1 = conv3x3(in_planes, planes, stride,norm_type=norm_type, args=args)
         self.conv2 = conv3x3(planes, planes, norm_type=norm_type, args=args)
 
-        self.shortcut = None
-        if stride != 1 or in_planes != self.expansion * planes:
-            self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args)
+        # self.shortcut = None
+        # if stride != 1 or in_planes != self.expansion * planes:
+        self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args)
 
     def forward(self, x: torch.Tensor, t, mode='ets') -> torch.Tensor:
         """
