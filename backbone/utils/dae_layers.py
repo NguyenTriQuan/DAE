@@ -556,6 +556,7 @@ class DynamicNorm(nn.Module):
         t = self.shape_out.shape[0]-2
         running_mean = getattr(self, f'running_mean_{t}')
         running_var = getattr(self, f'running_var_{t}')
+        print(t, self.shape_out[t-1])
         running_mean[self.shape_out[t-1]:] *= aux_
         running_var[self.shape_out[t-1]:] *= aux_
         self.register_buffer(f'running_mean_{t}', running_mean)
