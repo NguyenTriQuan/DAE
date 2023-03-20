@@ -513,7 +513,7 @@ class DynamicNorm(nn.Module):
             self.weight = nn.ParameterList([])
             self.bias = nn.ParameterList([])
 
-        self.register_buffer('shape_out', torch.IntTensor([]).to(device))
+        self.register_buffer('shape_out', torch.IntTensor([0]).to(device))
 
 
     def expand(self, add_num=None):
