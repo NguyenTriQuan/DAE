@@ -169,7 +169,7 @@ class _DynamicModel(nn.Module):
             m.norm_layer_ets.track_running_stats = track
 
     def ERK_sparsify(self, sparsity=0.9):
-        print('initialize by ERK')
+        # print('initialize by ERK')
         density = 1 - sparsity
         erk_power_scale = 1
 
@@ -218,9 +218,9 @@ class _DynamicModel(nn.Module):
             else:
                 probability_one = epsilon * m.raw_probability
                 m.sparsity = max(1 - probability_one, min_sparsity)
-            print(
-                f"layer: {i}, shape: {m.score.shape}, sparsity: {m.sparsity}"
-            )
+            # print(
+            #     f"layer: {i}, shape: {m.score.shape}, sparsity: {m.sparsity}"
+            # )
             total_nonzero += (1-m.sparsity) * m.score.numel()
         print(f"Overall sparsity {1-total_nonzero / total_params}")
 

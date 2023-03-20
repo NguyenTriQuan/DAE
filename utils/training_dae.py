@@ -165,7 +165,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
         
         # kbts training
-        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
+        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
 
         # ets training
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
@@ -174,7 +174,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             model.end_task(dataset)
 
         # jr training
-        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
+        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
 
         # final evaluation
         accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
@@ -183,6 +183,17 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print('cil', accs[0])
         print('til', accs[1])
         mean_acc = np.mean(accs, axis=1)
+        print('ets_kbts_jr')
+        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+
+        accs = evaluate(model, dataset, task=None, mode='ets_kbts')
+        mean_acc = np.mean(accs, axis=1)
+        print('ets_kbts')
+        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+
+        accs = evaluate(model, dataset, task=None, mode='ets')
+        mean_acc = np.mean(accs, axis=1)
+        print('ets')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         if not args.disable_log:

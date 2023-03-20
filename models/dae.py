@@ -121,7 +121,7 @@ class DAE(ContinualModel):
 
         loss.backward()
         self.opt.step()
-        self.buffer.add_data(examples=not_aug_inputs, labels=labels)
+        # self.buffer.add_data(examples=not_aug_inputs, labels=labels)
 
         return loss.item()
 
@@ -136,6 +136,8 @@ class DAE(ContinualModel):
         #         print(n, p.shape)
 
     def end_task(self, dataset) -> None:
+        with torch.no_grad():
+            self.fill_buffer()
         self.net.get_jr_params()
         self.task += 1
         self.net.freeze()
@@ -156,29 +158,14 @@ class DAE(ContinualModel):
         self.net.eval()
         samples_per_class = self.buffer.buffer_size // (self.dataset.N_CLASSES_PER_TASK * self.dataset.N_TASKS)
 
-        # if t_idx > 0:
-        #     # 1) First, subsample prior classes
-        #     buf_x, buf_y, buf_l = self.buffer.get_all_data()
-
-        #     mem_buffer.empty()
-        #     for _y in buf_y.unique():
-        #         idx = (buf_y == _y)
-        #         _y_x, _y_y, _y_l = buf_x[idx], buf_y[idx], buf_l[idx]
-        #         mem_buffer.add_data(
-        #             examples=_y_x[:samples_per_class],
-        #             labels=_y_y[:samples_per_class],
-        #             logits=_y_l[:samples_per_class]
-        #         )
-
-        # 2) Then, fill with current tasks
         loader = self.dataset.train_loader
         norm_trans = self.dataset.get_normalization_transform()
         if norm_trans is None:
             def norm_trans(x): return x
         classes_start, classes_end = self.task * self.dataset.N_CLASSES_PER_TASK, (self.task + 1) * self.dataset.N_CLASSES_PER_TASK
 
-        # 2.1 Extract all features
         a_x, a_y, a_l = [], [], []
+        self.net.get_kb_params(self.task)
         for x, y, not_norm_x in loader:
             mask = (y >= classes_start) & (y < classes_end)
             x, y, not_norm_x = x[mask], y[mask], not_norm_x[mask]
@@ -190,32 +177,16 @@ class DAE(ContinualModel):
             outs = self.net(norm_trans(not_norm_x), self.task, mode='ets')
             a_l.append(self.loss(outs, y - self.task * self.dataset.N_CLASSES_PER_TASK))
         a_x, a_y, a_l = torch.cat(a_x), torch.cat(a_y), torch.cat(a_l)
+        print(samples_per_class, a_x.shape, a_y.shape, a_l.shape)
 
-        # 2.2 Compute class means
-        # for _y in a_y.unique():
-        #     idx = (a_y == _y)
-        #     _x, _y, _l = a_x[idx], a_y[idx], a_l[idx]
-        #     feats = a_f[idx]
-        #     mean_feat = feats.mean(0, keepdim=True)
+        for _y in a_y.unique():
+            idx = (a_y == _y)
+            _x, _y, _l = a_x[idx], a_y[idx], a_l[idx]
+            _, indices = _l.sort(dim=0, descending=True)
+            #select samples with highest loss
+            self.buffer.add_data(_x[indices[:samples_per_class]], _y[indices[:samples_per_class]])
 
-        #     running_sum = torch.zeros_like(mean_feat)
-        #     i = 0
-        #     while i < samples_per_class and i < feats.shape[0]:
-        #         cost = (mean_feat - (feats + running_sum) / (i + 1)).norm(2, 1)
+        assert len(self.buffer.examples) <= self.buffer.buffer_size
+        assert self.buffer.num_seen_examples <= self.buffer.buffer_size
 
-        #         idx_min = cost.argmin().item()
-
-        #         mem_buffer.add_data(
-        #             examples=_x[idx_min:idx_min + 1].to(self.device),
-        #             labels=_y[idx_min:idx_min + 1].to(self.device),
-        #             logits=_l[idx_min:idx_min + 1].to(self.device)
-        #         )
-
-        #         running_sum += feats[idx_min:idx_min + 1]
-        #         feats[idx_min] = feats[idx_min] + 1e6
-        #         i += 1
-
-        # assert len(mem_buffer.examples) <= mem_buffer.buffer_size
-        # assert mem_buffer.num_seen_examples <= mem_buffer.buffer_size
-
-        # self.net.train(mode)
+        self.net.train(mode)
