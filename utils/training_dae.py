@@ -106,7 +106,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         accs = evaluate(model, dataset, task=t, mode=mode)
 
         if scheduler is not None:
-            scheduler.step()
+            if 'ets' not in mode:
+                scheduler.step()
     
     accs = evaluate(model, dataset, task=t, mode=mode)
     print('\n{} Accuracy for {} task(s): {} %'.format(mode, t+1, round(accs[0][0], 2)), file=sys.stderr)

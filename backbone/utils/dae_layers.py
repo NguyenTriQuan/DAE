@@ -332,7 +332,7 @@ class _DynamicLayer(nn.Module):
             self.fwt_weight[-1].data *= aux.view(self.view_in)
             
             if self.norm_type is not None:
-                self.norm_layer_ets.proximal_gradient_descent(aux)
+                self.mask_out *= self.norm_layer_ets.proximal_gradient_descent(aux, lr, lamb, strength)
             # group lasso affine weights
             # if self.norm_layer:
             #     if self.norm_layer.affine:
@@ -552,11 +552,22 @@ class DynamicNorm(nn.Module):
 
         self.num[-1] = self.weight[-1].shape[0]
     
-    def proximal_gradient_descent(self, aux):
-        running_mean = getattr(self, f'running_mean_{self.num.shape[0]-1}')
-        running_var = getattr(self, f'running_var_{self.num.shape[0]-1}')
-        self.register_buffer(f'running_mean_{self.num.shape[0]-1}', running_mean * aux)
-        self.register_buffer(f'running_var_{self.num.shape[0]-1}', running_var * aux)
+    def proximal_gradient_descent(self, aux_, lr, lamb, strength):
+        t = self.num.shape[0]-1
+        running_mean = getattr(self, f'running_mean_{t}')
+        running_var = getattr(self, f'running_var_{t}')
+        running_mean[self.num[t-1]:] *= aux_
+        running_var[self.num[t-1]:] *= aux_
+        self.register_buffer(f'running_mean_{t}', running_mean)
+        self.register_buffer(f'running_var_{t}', running_var)
+
+        norm = (self.weight[t][self.num[t-1]:]**2 + self.bias[t][self.num[t-1]:]**2) ** 0.5
+        aux = 1 - lamb * lr * strength / norm
+        aux = F.threshold(aux, 0, 0, False)
+        mask_out = (aux > 0)
+        self.weight[t].data[self.num[t-1]:] *= aux
+        self.bias[t].data[self.num[t-1]:] *= aux
+        return mask_out
     
     def count_params(self, t):
         count = 0
