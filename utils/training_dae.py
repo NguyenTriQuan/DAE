@@ -104,7 +104,12 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             num_params, num_neurons = model.net.count_params()
 
         accs = evaluate(model, dataset, task=t, mode=mode)
-
+        if 'ets_squeeze' in mode:
+            model.net.proximal_gradient_descent(model.args.lr, model.args.lamb)
+            progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0], sum(num_params), num_neurons)
+        else:
+            progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0])
+            
         if scheduler is not None:
             if 'ets_squeeze' not in mode:
                 scheduler.step()
