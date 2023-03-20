@@ -513,25 +513,25 @@ class DynamicNorm(nn.Module):
             self.weight = nn.ParameterList([])
             self.bias = nn.ParameterList([])
 
-        self.register_buffer('num', torch.IntTensor([]).to(device))
+        self.register_buffer('shape_out', torch.IntTensor([]).to(device))
 
 
     def expand(self, add_num=None):
         if add_num is None:
             add_num = self.base_num_features
 
-        self.num = torch.cat([self.num, torch.IntTensor([add_num]).to(device)])
+        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([add_num]).to(device)])
         if self.affine:
             self.weight.append(nn.Parameter(torch.ones(add_num).to(device)))
             self.bias.append(nn.Parameter(torch.zeros(add_num).to(device)))
 
         if self.track_running_stats:
-            self.register_buffer(f'running_mean_{self.num.shape[0]-1}', torch.zeros(add_num).to(device))
-            self.register_buffer(f'running_var_{self.num.shape[0]-1}', torch.ones(add_num).to(device))
+            self.register_buffer(f'running_mean_{self.shape_out.shape[0]-2}', torch.zeros(add_num).to(device))
+            self.register_buffer(f'running_var_{self.shape_out.shape[0]-2}', torch.ones(add_num).to(device))
             self.num_batches_tracked = 0
         else:
-            self.register_buffer(f'running_mean_{self.num.shape[0]-1}', None)
-            self.register_buffer(f'running_var_{self.num.shape[0]-1}', None)
+            self.register_buffer(f'running_mean_{self.shape_out.shape[0]-2}', None)
+            self.register_buffer(f'running_var_{self.shape_out.shape[0]-2}', None)
             self.num_batches_tracked = None
     
     def freeze(self):
@@ -545,28 +545,28 @@ class DynamicNorm(nn.Module):
             apply_mask_out(self.bias[-1], mask, optim_state)
 
         if self.track_running_stats:
-            running_mean = getattr(self, f'running_mean_{self.num.shape[0]-1}')
-            running_var = getattr(self, f'running_var_{self.num.shape[0]-1}')
-            self.register_buffer(f'running_mean_{self.num.shape[0]-1}', running_mean[mask])
-            self.register_buffer(f'running_var_{self.num.shape[0]-1}', running_var[mask])
+            running_mean = getattr(self, f'running_mean_{self.shape_out.shape[0]-2}')
+            running_var = getattr(self, f'running_var_{self.shape_out.shape[0]-2}')
+            self.register_buffer(f'running_mean_{self.shape_out.shape[0]-2}', running_mean[mask])
+            self.register_buffer(f'running_var_{self.shape_out.shape[0]-2}', running_var[mask])
 
-        self.num[-1] = self.weight[-1].shape[0]
+        self.shape_out[-1] = self.weight[-1].shape[0]
     
     def proximal_gradient_descent(self, aux_, lr, lamb, strength):
-        t = self.num.shape[0]-1
+        t = self.shape_out.shape[0]-2
         running_mean = getattr(self, f'running_mean_{t}')
         running_var = getattr(self, f'running_var_{t}')
-        running_mean[self.num[t-1]:] *= aux_
-        running_var[self.num[t-1]:] *= aux_
+        running_mean[self.shape_out[t-1]:] *= aux_
+        running_var[self.shape_out[t-1]:] *= aux_
         self.register_buffer(f'running_mean_{t}', running_mean)
         self.register_buffer(f'running_var_{t}', running_var)
 
-        norm = (self.weight[t][self.num[t-1]:]**2 + self.bias[t][self.num[t-1]:]**2) ** 0.5
+        norm = (self.weight[t][self.shape_out[t-1]:]**2 + self.bias[t][self.shape_out[t-1]:]**2) ** 0.5
         aux = 1 - lamb * lr * strength / norm
         aux = F.threshold(aux, 0, 0, False)
         mask_out = (aux > 0)
-        self.weight[t].data[self.num[t-1]:] *= aux
-        self.bias[t].data[self.num[t-1]:] *= aux
+        self.weight[t].data[self.shape_out[t-1]:] *= aux
+        self.bias[t].data[self.shape_out[t-1]:] *= aux
         return mask_out
     
     def count_params(self, t):
