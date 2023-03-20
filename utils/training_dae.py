@@ -165,9 +165,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     for t in range(dataset.N_TASKS):
         model.net.train()
         train_loader, test_loader = dataset.get_data_loaders()
-        for i, data in enumerate(train_loader):
-            inputs, labels, not_aug_inputs = data
-            print(labels.unique())
         if hasattr(model, 'begin_task'):
             model.begin_task(dataset)
         if t and not args.ignore_other_metrics:

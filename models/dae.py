@@ -108,7 +108,7 @@ class DAE(ContinualModel):
             predicted_task = torch.argmin(joint_entropy_tasks, axis=1)
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             _, predicts = predicted_outputs.max(1)
-            print(predicted_task)
+            print(joint_entropy_tasks, predicted_task)
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
 
     def observe(self, inputs, labels, not_aug_inputs, mode):
@@ -118,7 +118,6 @@ class DAE(ContinualModel):
         if not self.buffer.is_empty() and 'jr' in mode:
             buf_inputs, buf_labels = self.buffer.get_data(
                 self.args.minibatch_size, transform=self.transform)
-            print(buf_labels)
             outputs = self.net(buf_inputs, self.task, mode)
             loss = self.loss(outputs, buf_labels)
         else:
