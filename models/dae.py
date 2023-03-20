@@ -175,8 +175,8 @@ class DAE(ContinualModel):
             a_x.append(not_norm_x.to('cpu'))
             a_y.append(y.to('cpu'))
             outs = self.net(norm_trans(not_norm_x), self.task, mode='ets')
-            a_l.append(self.loss(outs, y - self.task * self.dataset.N_CLASSES_PER_TASK))
-        a_x, a_y, a_l = torch.cat(a_x), torch.cat(a_y), torch.stack(a_l)
+            a_l.append(self.loss(outs, y - self.task * self.dataset.N_CLASSES_PER_TASK, reduce=False))
+        a_x, a_y, a_l = torch.cat(a_x), torch.cat(a_y), torch.cat(a_l)
         print(samples_per_class, a_x.shape, a_y.shape, a_l.shape)
 
         for _y in a_y.unique():
