@@ -569,7 +569,7 @@ class DynamicNorm(nn.Module):
             self.weight[t].data[self.shape_out[t]:] *= aux
             self.bias[t].data[self.shape_out[t]:] *= aux
         else:
-            mask_out = 1
+            mask_out = True
         return mask_out
     
     def count_params(self, t):
