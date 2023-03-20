@@ -127,6 +127,9 @@ class ResNet(_DynamicModel):
         for m in self.DM[1:-1]:
             m.expand(add_in=None, add_out=None)
         self.DM[-1].expand(add_in=None, add_out=new_classes)
+        self.total_strength = 1
+        for m in self.DM[:-1]:
+            self.total_strength += m.strength_in
 
     def squeeze(self, optim_state):
         mask_in = None
@@ -145,6 +148,9 @@ class ResNet(_DynamicModel):
             mask_in = shared_mask
         
         self.linear.squeeze(optim_state, mask_in, None)
+        self.total_strength = 1
+        for m in self.DM[:-1]:
+            self.total_strength += m.strength_in
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn', args=None) -> ResNet:

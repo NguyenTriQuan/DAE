@@ -141,7 +141,7 @@ class _DynamicModel(nn.Module):
 
     def proximal_gradient_descent(self, lr, lamb):
         for m in self.DM[:-1]:
-            m.proximal_gradient_descent(lr, lamb)
+            m.proximal_gradient_descent(lr, lamb, self.total_strength)
 
     def freeze(self):
         for m in self.DM:

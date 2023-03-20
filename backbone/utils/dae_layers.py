@@ -118,15 +118,16 @@ class _DynamicLayer(nn.Module):
         fan_out_kbts = max(self.base_out_features, self.shape_out[-2])
         fan_in_kbts = max(self.base_in_features, self.shape_in[-2])
         
+        bound_std = self.gain / math.sqrt(self.shape_in[-1] * self.ks)
         if isinstance(self, DynamicConv2D):
-            self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in // self.groups, *self.kernel_size).normal_(0, 1).to(device)))
-            self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2] // self.groups, *self.kernel_size).normal_(0, 1).to(device)))
-            self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in // self.groups, *self.kernel_size).normal_(0, 1).to(device)))
+            self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
+            self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2] // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
+            self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
             self.score = nn.Parameter(torch.Tensor(fan_out_kbts, fan_in_kbts // self.groups, *self.kernel_size).to(device))
         else:
-            self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in).normal_(0, 1).to(device)))
-            self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2]).normal_(0, 1).to(device)))
-            self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in).normal_(0, 1).to(device)))
+            self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in).normal_(0, bound_std).to(device)))
+            self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2]).normal_(0, bound_std).to(device)))
+            self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in).normal_(0, bound_std).to(device)))
             self.score = nn.Parameter(torch.Tensor(fan_out_kbts, fan_in_kbts).to(device))
 
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
@@ -134,10 +135,7 @@ class _DynamicLayer(nn.Module):
         mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
         self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool())
 
-        self.reg_strength = (
-            (self.shape_in[-1] + self.num_out[-1] + self.kernel_size[0] + self.kernel_size[1]) 
-            / (self.shape_in[-1] * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])
-        )
+        self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
 
         if self.norm_type is not None:
             self.norm_layer_ets.expand(self.shape_out[-1]) 
@@ -197,8 +195,8 @@ class _DynamicLayer(nn.Module):
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
 
-        bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
-        weight = weight * bound_std
+        # bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
+        # weight = weight * bound_std
         return weight, None, self.norm_layer_ets
     
     def get_masked_kb_params(self, t, mode):
@@ -210,6 +208,7 @@ class _DynamicLayer(nn.Module):
         add_in = max(self.base_in_features - self.shape_in[t], 0)
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
+        bound_std = self.gain / math.sqrt(fan_in * self.ks)
         if add_in != 0 or add_out !=0:
             if isinstance(self, DynamicConv2D):
                 dummy_weight_0 = self.dummy_weight[:n_0].view(add_out, (fan_in-add_in) // self.groups, *self.kernel_size)
@@ -217,10 +216,10 @@ class _DynamicLayer(nn.Module):
             else:
                 dummy_weight_0 = self.dummy_weight[:n_0].view(add_out, (fan_in-add_in))
                 dummy_weight_1 = self.dummy_weight[n_0:n_0+n_1].view(fan_out, add_in)
-            weight = torch.cat([torch.cat([weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
+            weight = torch.cat([torch.cat([weight, dummy_weight_0 * bound_std], dim=0), dummy_weight_1 * bound_std], dim=1)
 
-        bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
-        weight = weight * bound_std
+        # bound_std = self.gain / math.sqrt(fan_in * self.ks)
+        # weight = weight * bound_std
         if 'kbts' in mode:
             if self.training:
                 mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
@@ -317,20 +316,13 @@ class _DynamicLayer(nn.Module):
             self.num_in[-1] = self.weight[-1].shape[1]
             self.shape_in[-1] = self.num_in.sum()
 
+        self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
 
-    def proximal_gradient_descent(self, lr, lamb):
+
+    def proximal_gradient_descent(self, lr, lamb, total_strength):
         eps = 0
         with torch.no_grad():
-            # strength = self.reg_strength
-            weight = torch.cat([self.fwt_weight[-1], self.weight[-1]], dim=1)
-            norm = (weight ** 2).mean(dim=self.dim_in) ** 0.5
-
-            bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
-            strength = (
-                (self.shape_in[-1] + self.num_out[-1] + self.kernel_size[0] + self.kernel_size[1]) 
-                / (self.shape_in[-1] * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])
-            )
-            strength *= bound_std
+            strength = self.strength_in / total_strength
             # regularize std
             norm = self.norm_in()
             aux = 1 - lamb * lr * strength / norm
