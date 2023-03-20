@@ -330,7 +330,9 @@ class _DynamicLayer(nn.Module):
             self.mask_out = (aux > eps)
             self.weight[-1].data *= aux.view(self.view_in)
             self.fwt_weight[-1].data *= aux.view(self.view_in)
-                
+            
+            if self.norm_type is not None:
+                self.norm_layer_ets.proximal_gradient_descent(aux)
             # group lasso affine weights
             # if self.norm_layer:
             #     if self.norm_layer.affine:
@@ -549,6 +551,12 @@ class DynamicNorm(nn.Module):
             self.register_buffer(f'running_var_{self.num.shape[0]-1}', running_var[mask])
 
         self.num[-1] = self.weight[-1].shape[0]
+    
+    def proximal_gradient_descent(self, aux):
+        running_mean = getattr(self, f'running_mean_{self.num.shape[0]-1}')
+        running_var = getattr(self, f'running_var_{self.num.shape[0]-1}')
+        self.register_buffer(f'running_mean_{self.num.shape[0]-1}', running_mean * aux)
+        self.register_buffer(f'running_var_{self.num.shape[0]-1}', running_var * aux)
     
     def count_params(self, t):
         count = 0
