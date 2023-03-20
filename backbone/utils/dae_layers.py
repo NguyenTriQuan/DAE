@@ -567,15 +567,15 @@ class DynamicNorm(nn.Module):
             self.register_buffer(f'running_mean_{t}', running_mean)
             self.register_buffer(f'running_var_{t}', running_var)
 
-        # if self.affine:
-        #     norm = (self.weight[t][self.shape_out[t]:]**2 + self.bias[t][self.shape_out[t]:]**2) ** 0.5
-        #     aux = 1 - lamb * lr * strength / norm
-        #     aux = F.threshold(aux, 0, 0, False)
-        #     mask_out = (aux > 0)
-        #     self.weight[t].data[self.shape_out[t]:] *= aux
-        #     self.bias[t].data[self.shape_out[t]:] *= aux
-        # else:
-        #     mask_out = True
+        if self.affine:
+            # norm = (self.weight[t][self.shape_out[t]:]**2 + self.bias[t][self.shape_out[t]:]**2) ** 0.5
+            # aux = 1 - lamb * lr * strength / norm
+            # aux = F.threshold(aux, 0, 0, False)
+            # mask_out = (aux > 0)
+            self.weight[t].data[self.shape_out[t]:] *= aux_
+            self.bias[t].data[self.shape_out[t]:] *= aux_
+        else:
+            mask_out = True
         # return mask_out
         return True
     
