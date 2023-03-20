@@ -554,12 +554,13 @@ class DynamicNorm(nn.Module):
     
     def proximal_gradient_descent(self, aux_, lr, lamb, strength):
         t = self.shape_out.shape[0]-2
-        running_mean = getattr(self, f'running_mean_{t}')
-        running_var = getattr(self, f'running_var_{t}')
-        running_mean[self.shape_out[t]:] *= aux_
-        running_var[self.shape_out[t]:] *= aux_
-        self.register_buffer(f'running_mean_{t}', running_mean)
-        self.register_buffer(f'running_var_{t}', running_var)
+        if self.track_running_stats:
+            running_mean = getattr(self, f'running_mean_{t}')
+            running_var = getattr(self, f'running_var_{t}')
+            running_mean[self.shape_out[t]:] *= aux_
+            running_var[self.shape_out[t]:] *= aux_
+            self.register_buffer(f'running_mean_{t}', running_mean)
+            self.register_buffer(f'running_var_{t}', running_var)
 
         if self.affine:
             norm = (self.weight[t][self.shape_out[t]:]**2 + self.bias[t][self.shape_out[t]:]**2) ** 0.5
