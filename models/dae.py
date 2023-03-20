@@ -23,6 +23,8 @@ def get_parser() -> ArgumentParser:
     add_rehearsal_args(parser)
     parser.add_argument('--lamb', type=str, required=True,
                         help='capacity control.')
+    parser.add_argument('--alpha', type=float, required=True,
+                        help='Join Rehearsal Distillation penalty weight.')
     parser.add_argument('--dropout', type=float, required=True,
                         help='Dropout probability.')
     parser.add_argument('--sparsity', type=float, required=True,
@@ -34,6 +36,13 @@ def get_parser() -> ArgumentParser:
     parser.add_argument('--debug', action='store_true',
                         help='Quick test.')
     return parser
+
+def smooth(logits, temp, dim):
+    log = logits ** (1 / temp)
+    return log / torch.sum(log, dim).unsqueeze(1)
+
+def modified_kl_div(old, new):
+    return -torch.mean(torch.sum(old * torch.log(new), 1))
 
 def entropy(x):
     return -torch.sum(x * torch.log(x), dim=1)
@@ -79,6 +88,7 @@ class DAE(ContinualModel):
         if len(self.lamb) < self.dataset.N_TASKS:
             self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.dataset.N_TASKS)]
         print('lambda tasks', self.lamb)
+        self.soft = torch.nn.Softmax(dim=1)
 
     def forward(self, x, t=None, mode='ets_kbts_jr'):
         if t is not None:
@@ -143,15 +153,24 @@ class DAE(ContinualModel):
         if not self.buffer.is_empty() and 'jr' in mode:
             buf_inputs, buf_labels = self.buffer.get_data(
                 self.args.minibatch_size, transform=self.transform)
+            
+            self.net.get_kb_params(self.task)
             outputs = self.net(buf_inputs, self.task, mode)
             loss = self.loss(outputs, buf_labels)
+            # distillation loss
+            for i in range(self.task):
+                self.net.get_kb_params(i)
+                out_task = self.net(buf_inputs, i, mode='ets')
+                logits = outputs[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
+
+                loss += self.args.alpha * modified_kl_div(smooth(self.soft(logits), 2, 1),
+                                                      smooth(self.soft(out_task), 2, 1))
         else:
             outputs = self.net(inputs, self.task, mode)
             loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
 
         loss.backward()
         self.opt.step()
-        # self.buffer.add_data(examples=not_aug_inputs, labels=labels)
 
         return loss.item()
 
