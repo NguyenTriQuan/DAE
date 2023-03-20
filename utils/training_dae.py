@@ -78,13 +78,22 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
     return accs, accs_mask_classes
 
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
-    scheduler = dataset.get_scheduler(model, args)
+    model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=args.optim_wd, momentum=args.optim_mom)
     if 'ets' in mode:
+        print('lamb', model.lamb[t])
         num_params, num_neurons = model.net.count_params()
+        n_epochs = 75
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [60, 70], gamma=0.1, verbose=False)
+    elif 'kbts' in mode:
+        n_epochs = 50
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 35], gamma=0.1, verbose=False)
+    elif 'jr' in mode:
+        n_epochs = 25
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [15, 20], gamma=0.1, verbose=False)
+
     accs = evaluate(model, dataset, task=t, mode=mode)
 
-    nepochs = model.args.n_epochs
-    for epoch in range(model.args.n_epochs):
+    for epoch in range(n_epochs):
         model.net.train()
         if args.debug and epoch > 0:
             break
@@ -96,7 +105,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             loss = model.meta_observe(inputs, labels, not_aug_inputs, mode=mode)
             if 'ets' in mode:
                 if epoch < 50:
-                    model.net.proximal_gradient_descent(scheduler.get_last_lr()[0], model.args.lamb)
+                    model.net.proximal_gradient_descent(scheduler.get_last_lr()[0], model.lamb[t])
                 progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0], sum(num_params), num_neurons)
             else:
                 progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0])

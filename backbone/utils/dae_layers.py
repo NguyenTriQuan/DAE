@@ -254,7 +254,7 @@ class _DynamicLayer(nn.Module):
         self.kb_weight = None
         
     def update_scale(self):
-        for i in range(self.cur_task):
+        for i in range(len(self.weight)):
             w = self.weight[i][-1]
             if w.numel() != 0:
                 w_std = w.std(unbiased=False).item()

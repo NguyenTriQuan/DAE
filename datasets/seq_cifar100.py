@@ -128,7 +128,7 @@ class SequentialCIFAR100(ContinualDataset):
 
     @staticmethod
     def get_epochs():
-        return 75
+        return 50
 
     @staticmethod
     def get_batch_size():
@@ -141,6 +141,6 @@ class SequentialCIFAR100(ContinualDataset):
     @staticmethod
     def get_scheduler(model, args) -> torch.optim.lr_scheduler:
         model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=args.optim_wd, momentum=args.optim_mom)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [60, 70], gamma=0.1, verbose=False)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
         return scheduler
 

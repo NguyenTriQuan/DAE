@@ -21,7 +21,7 @@ def get_parser() -> ArgumentParser:
     add_management_args(parser)
     add_experiment_args(parser)
     add_rehearsal_args(parser)
-    parser.add_argument('--lamb', type=float, required=True,
+    parser.add_argument('--lamb', type=str, required=True,
                         help='capacity control.')
     parser.add_argument('--dropout', type=float, required=True,
                         help='Dropout probability.')
@@ -62,6 +62,10 @@ class DAE(ContinualModel):
         # Instantiate buffers
         self.buffer = Buffer(self.args.buffer_size, self.device)
         self.task = 0
+        self.lamb = [float(i) for i in args.lamb.split('_')]
+        if len(self.lamb) < self.dataset.N_TASKS:
+            self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.dataset.N_TASKS)]
+        print('lambda tasks', self.lamb)
 
     def forward(self, x, t=None, mode='ets_kbts_jr'):
         if t is not None:
