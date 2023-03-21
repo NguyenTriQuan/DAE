@@ -195,13 +195,16 @@ class _DynamicLayer(nn.Module):
             weight_scale = getattr(self, f'weight_scale_{i}')
             fwt_weight_scale = getattr(self, f'fwt_weight_scale_{i}')
             bwt_weight_scale = getattr(self, f'bwt_weight_scale_{i}')
-            self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i] / bwt_weight_scale], dim=1), 
-                                torch.cat([self.fwt_weight[i] / fwt_weight_scale, self.weight[i] / weight_scale], dim=1)], dim=0)
+            # self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i] / bwt_weight_scale], dim=1), 
+            #                     torch.cat([self.fwt_weight[i] / fwt_weight_scale, self.weight[i] / weight_scale], dim=1)], dim=0)
+            self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i]], dim=1), 
+                                torch.cat([self.fwt_weight[i], self.weight[i]], dim=1)], dim=0)
 
     def get_ets_params(self, t):
         # get expanded task specific model
         bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
-        weight = self.kb_weight * bound_std
+        weight = self.kb_weight
+        weight = weight * bound_std
 
         weight = F.dropout(weight, self.dropout, self.training)
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
@@ -263,24 +266,24 @@ class _DynamicLayer(nn.Module):
         
     def update_scale(self):
         with torch.no_grad():
-            for i in range(len(self.weight)):
-                if self.weight[i].numel() != 0:
-                    w_std = self.weight[i].std(dim=self.dim_in, unbiased=False)
-                    self.register_buffer(f'weight_scale_{i}', w_std.view(self.view_in))
-                else:
-                    self.register_buffer(f'weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
+            i = len(self.weight)-1
+            if self.weight[i].numel() != 0:
+                w_std = self.weight[i].std(dim=self.dim_in, unbiased=False)
+                self.register_buffer(f'weight_scale_{i}', w_std.view(self.view_in))
+            else:
+                self.register_buffer(f'weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
-                if self.fwt_weight[i].numel() != 0:
-                    w_std = self.fwt_weight[i].std(dim=self.dim_in, unbiased=False)
-                    self.register_buffer(f'fwt_weight_scale_{i}', w_std.view(self.view_in))
-                else:
-                    self.register_buffer(f'fwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
+            if self.fwt_weight[i].numel() != 0:
+                w_std = self.fwt_weight[i].std(dim=self.dim_in, unbiased=False)
+                self.register_buffer(f'fwt_weight_scale_{i}', w_std.view(self.view_in))
+            else:
+                self.register_buffer(f'fwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
-                if self.bwt_weight[i].numel() != 0:
-                    w_std = self.bwt_weight[i].std(dim=self.dim_in, unbiased=False)
-                    self.register_buffer(f'bwt_weight_scale_{i}', w_std.view(self.view_in))
-                else:
-                    self.register_buffer(f'bwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
+            if self.bwt_weight[i].numel() != 0:
+                w_std = self.bwt_weight[i].std(dim=self.dim_in, unbiased=False)
+                self.register_buffer(f'bwt_weight_scale_{i}', w_std.view(self.view_in))
+            else:
+                self.register_buffer(f'bwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
     def get_optim_params(self):
         params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score, self.weight_jr]

@@ -220,8 +220,11 @@ class DAE(ContinualModel):
             x, y, not_norm_x = (a.to(self.device) for a in (x, y, not_norm_x))
             a_x.append(not_norm_x.to('cpu'))
             a_y.append(y.to('cpu'))
-            outs = self.net(norm_trans(not_norm_x), self.task, mode='ets')
-            a_l.append(self.loss(outs, y - self.task * self.dataset.N_CLASSES_PER_TASK, reduce=False).cpu())
+            outs_ets = self.net(norm_trans(not_norm_x), self.task, mode='ets')
+            outs_kbts = self.net(norm_trans(not_norm_x), self.task, mode='kbts')
+            loss_ets = self.loss(outs_ets, y - self.task * self.dataset.N_CLASSES_PER_TASK, reduce=False).cpu()
+            loss_kbts = self.loss(outs_kbts, y - self.task * self.dataset.N_CLASSES_PER_TASK, reduce=False).cpu()
+            a_l.append(loss_ets+loss_kbts)
         a_x, a_y, a_l = torch.cat(a_x), torch.cat(a_y), torch.cat(a_l)
         print(samples_per_class, a_x.shape, a_y.shape, a_l.shape)
 
@@ -229,6 +232,7 @@ class DAE(ContinualModel):
             idx = (a_y == _y)
             _x, _y, _l = a_x[idx], a_y[idx], a_l[idx]
             _, indices = _l.sort(dim=0, descending=True)
+            print(_)
             #select samples with highest loss
             self.buffer.add_data(_x[indices[:samples_per_class]], _y[indices[:samples_per_class]])
 
