@@ -204,7 +204,7 @@ class _DynamicLayer(nn.Module):
         # get expanded task specific model
         bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
         weight = self.kb_weight
-        weight = weight * bound_std
+        # weight = weight * bound_std
 
         weight = F.dropout(weight, self.dropout, self.training)
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
@@ -223,6 +223,7 @@ class _DynamicLayer(nn.Module):
 
         bound_std = self.gain / math.sqrt(fan_in * self.ks)
         weight = self.kb_weight
+        # weight = weight * bound_std
         if add_in != 0 or add_out !=0:
             if isinstance(self, DynamicConv2D):
                 dummy_weight_0 = self.dummy_weight[:n_0].view(add_out, (fan_in-add_in) // self.groups, *self.kernel_size)
@@ -230,9 +231,8 @@ class _DynamicLayer(nn.Module):
             else:
                 dummy_weight_0 = self.dummy_weight[:n_0].view(add_out, (fan_in-add_in))
                 dummy_weight_1 = self.dummy_weight[n_0:n_0+n_1].view(fan_out, add_in)
-            weight = torch.cat([torch.cat([weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
+            weight = torch.cat([torch.cat([weight, dummy_weight_0 * bound_std], dim=0), dummy_weight_1 * bound_std], dim=1)
 
-        weight = weight * bound_std
         if 'kbts' in mode:
             if self.training:
                 mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
