@@ -202,6 +202,7 @@ class _DynamicLayer(nn.Module):
         # get expanded task specific model
         weight = self.kb_weight
         bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
+        print(self.shape_in[t+1])
         self.kb_weight *= bound_std
 
         weight = F.dropout(weight, self.dropout, self.training)
@@ -229,6 +230,7 @@ class _DynamicLayer(nn.Module):
             weight = torch.cat([torch.cat([weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
 
         bound_std = self.gain / math.sqrt(fan_in * self.ks)
+        print(fan_in)
         weight *= bound_std
         if 'kbts' in mode:
             if self.training:
