@@ -270,19 +270,19 @@ class _DynamicLayer(nn.Module):
                     w_std = self.weight[i].std(dim=self.dim_in, unbiased=False)
                     self.register_buffer(f'weight_scale_{i}', w_std.view(self.view_in))
                 else:
-                    self.register_buffer(f'weight_scale_{i}', torch.ones(1).view(self.view_in))
+                    self.register_buffer(f'weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
                 if self.fwt_weight[i].numel() != 0:
                     w_std = self.fwt_weight[i].std(dim=self.dim_in, unbiased=False)
                     self.register_buffer(f'fwt_weight_scale_{i}', w_std.view(self.view_in))
                 else:
-                    self.register_buffer(f'fwt_weight_scale_{i}', torch.ones(1).view(self.view_in))
+                    self.register_buffer(f'fwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
                 if self.bwt_weight[i].numel() != 0:
                     w_std = self.bwt_weight[i].std(dim=self.dim_in, unbiased=False)
                     self.register_buffer(f'bwt_weight_scale_{i}', w_std.view(self.view_in))
                 else:
-                    self.register_buffer(f'bwt_weight_scale_{i}', torch.ones(1).view(self.view_in))
+                    self.register_buffer(f'bwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
     def get_optim_params(self):
         params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score, self.weight_jr]
