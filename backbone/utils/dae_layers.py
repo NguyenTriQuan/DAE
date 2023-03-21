@@ -124,13 +124,16 @@ class _DynamicLayer(nn.Module):
             self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2] // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
             self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
             self.score = nn.Parameter(torch.Tensor(fan_out_kbts, fan_in_kbts // self.groups, *self.kernel_size).to(device))
+            self.weight_jr = nn.Parameter(torch.Tensor(self.base_out_features, self.base_in_features // self.groups, *self.kernel_size).to(device))
         else:
             self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in).normal_(0, bound_std).to(device)))
             self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2]).normal_(0, bound_std).to(device)))
             self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in).normal_(0, bound_std).to(device)))
             self.score = nn.Parameter(torch.Tensor(fan_out_kbts, fan_in_kbts).to(device))
+            self.weight_jr = nn.Parameter(torch.Tensor(self.base_out_features, self.base_in_features).to(device))
 
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.weight_jr, a=math.sqrt(5))
 
         mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
         self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool())
@@ -140,6 +143,8 @@ class _DynamicLayer(nn.Module):
         if self.norm_type is not None:
             self.norm_layer_ets.expand(self.shape_out[-1]) 
             self.norm_layer_kbts.expand(fan_out_kbts)
+            self.norm_layer_jr = DynamicNorm(self.base_out_features, norm_type=self.norm_type)
+            self.norm_layer_jr.expand(self.base_out_features)
 
 
     def forward(self, x, t, mode):    
@@ -148,8 +153,10 @@ class _DynamicLayer(nn.Module):
         
         if 'ets' in mode:
             weight, bias, norm_layer = self.get_ets_params(t)
-        else:
+        elif 'kbts' in mode:
             weight, bias, norm_layer = self.get_masked_kb_params(t, mode)
+        elif 'jr' in mode:
+            weight, bias, norm_layer = self.weight_jr, None, self.norm_layer_jr
 
         if weight.numel() == 0:
             return torch.empty(0).to(device)
@@ -278,7 +285,7 @@ class _DynamicLayer(nn.Module):
                     self.register_buffer(f'bwt_weight_scale_{i}', 1.0)
 
     def get_optim_params(self):
-        params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score]
+        params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score, self.weight_jr]
         if 'affine' in self.norm_type:
             params += [self.norm_layer_ets.weight[-1], self.norm_layer_ets.bias[-1]]
             params += [self.norm_layer_kbts.weight[-1], self.norm_layer_kbts.bias[-1]]
@@ -439,11 +446,12 @@ class DynamicClassifier(DynamicLinear):
         self.weight_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_kbts).normal_(0, bound_std).to(device)))
         self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device)))
 
-        fan_in_jr = max(self.base_in_features, self.shape_in[-1])
-        bound_std = self.gain / math.sqrt(fan_in_jr)
-        self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], fan_in_jr).normal_(0, bound_std).to(device))
+        # fan_in_jr = max(self.base_in_features, self.shape_in[-1])
+        # bound_std = self.gain / math.sqrt(fan_in_jr)
+        # self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], fan_in_jr).normal_(0, bound_std).to(device))
+        # self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1]).to(device))
+        self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], self.base_in_features).normal_(0, bound_std).to(device))
         self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1]).to(device))
-
 
     def forward(self, x, t, mode):
         if 'kbts' in mode:

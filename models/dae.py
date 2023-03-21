@@ -154,7 +154,7 @@ class DAE(ContinualModel):
             buf_inputs, buf_labels = self.buffer.get_data(
                 self.args.minibatch_size, transform=self.transform)
             
-            self.net.get_kb_params(self.task)
+            # self.net.get_kb_params(self.task)
             outputs = self.net(buf_inputs, self.task, mode)
             loss = self.loss(outputs, buf_labels)
             # distillation loss
@@ -184,12 +184,12 @@ class DAE(ContinualModel):
     def end_task(self, dataset, train_loader) -> None:
         with torch.no_grad():
             self.fill_buffer(train_loader)
-        self.net.get_jr_params()
+        # self.net.get_jr_params()
         self.task += 1
         self.net.freeze()
         self.net.update_scale()
-        self.net.get_kb_params(self.task)
-        self.net.ERK_sparsify(sparsity=self.args.sparsity)
+        # self.net.get_kb_params(self.task)
+        # self.net.ERK_sparsify(sparsity=self.args.sparsity)
 
     def fill_buffer(self, train_loader) -> None:
         """
