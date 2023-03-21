@@ -232,7 +232,7 @@ class DAE(ContinualModel):
             idx = (a_y == _y)
             _x, _y, _l = a_x[idx], a_y[idx], a_l[idx]
             values, indices = _l.sort(dim=0, descending=True)
-            print(values.shape, values)
+            # print(values.shape, values)
             #select samples with highest loss
             self.buffer.add_data(_x[indices[:samples_per_class]], _y[indices[:samples_per_class]])
 
