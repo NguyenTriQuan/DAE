@@ -197,7 +197,7 @@ class _DynamicLayer(nn.Module):
             bwt_weight_scale = getattr(self, f'bwt_weight_scale_{i}')
             self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i] / bwt_weight_scale], dim=1), 
                                 torch.cat([self.fwt_weight[i] / fwt_weight_scale, self.weight[i] / weight_scale], dim=1)], dim=0)
-        # print(self.kb_weight)
+        print(self.kb_weight.sum())
 
     def get_ets_params(self, t):
         # get expanded task specific model
