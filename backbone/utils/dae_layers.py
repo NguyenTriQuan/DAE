@@ -197,18 +197,17 @@ class _DynamicLayer(nn.Module):
             bwt_weight_scale = getattr(self, f'bwt_weight_scale_{i}')
             self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i] / bwt_weight_scale], dim=1), 
                                 torch.cat([self.fwt_weight[i] / fwt_weight_scale, self.weight[i] / weight_scale], dim=1)], dim=0)
-        bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
-        self.kb_weight *= bound_std
 
     def get_ets_params(self, t):
         # get expanded task specific model
         weight = self.kb_weight
+        bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
+        self.kb_weight *= bound_std
+
         weight = F.dropout(weight, self.dropout, self.training)
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
 
-        # bound_std = self.gain / math.sqrt(weight.shape[1] * self.ks)
-        # weight = weight * bound_std
         return weight, None, self.norm_layer_ets
     
     def get_masked_kb_params(self, t, mode):
@@ -220,7 +219,6 @@ class _DynamicLayer(nn.Module):
         add_in = max(self.base_in_features - self.shape_in[t], 0)
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
-        bound_std = self.gain / math.sqrt(fan_in * self.ks)
         if add_in != 0 or add_out !=0:
             if isinstance(self, DynamicConv2D):
                 dummy_weight_0 = self.dummy_weight[:n_0].view(add_out, (fan_in-add_in) // self.groups, *self.kernel_size)
@@ -228,10 +226,10 @@ class _DynamicLayer(nn.Module):
             else:
                 dummy_weight_0 = self.dummy_weight[:n_0].view(add_out, (fan_in-add_in))
                 dummy_weight_1 = self.dummy_weight[n_0:n_0+n_1].view(fan_out, add_in)
-            weight = torch.cat([torch.cat([weight, dummy_weight_0 * bound_std], dim=0), dummy_weight_1 * bound_std], dim=1)
+            weight = torch.cat([torch.cat([weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
 
-        # bound_std = self.gain / math.sqrt(fan_in * self.ks)
-        # weight = weight * bound_std
+        bound_std = self.gain / math.sqrt(fan_in * self.ks)
+        weight *= bound_std
         if 'kbts' in mode:
             if self.training:
                 mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
