@@ -186,7 +186,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             model.end_task(dataset, train_loader)
 
         # jr training
-        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
+        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
 
         # final evaluation
         accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
