@@ -187,7 +187,7 @@ class DAE(ContinualModel):
         self.net.get_jr_params()
         self.task += 1
         self.net.freeze()
-        # self.net.clear_memory()
+        self.net.update_scale()
         self.net.get_kb_params(self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
 

@@ -185,16 +185,17 @@ class _DynamicLayer(nn.Module):
         # get knowledge base parameters for task t
         self.kb_weight = torch.empty(0).to(device)
         for i in range(t):
-            self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i]], dim=1), 
-                                torch.cat([self.fwt_weight[i], self.weight[i]], dim=1)], dim=0)
+            weight_scale = getattr(self, f'weight_scale_{i}')
+            fwt_weight_scale = getattr(self, f'fwt_weight_scale_{i}')
+            bwt_weight_scale = getattr(self, f'bwt_weight_scale_{i}')
+            self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i] / bwt_weight_scale], dim=1), 
+                                torch.cat([self.fwt_weight[i] / fwt_weight_scale, self.weight[i] / weight_scale], dim=1)], dim=0)
+        bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
+        self.kb_weight *= bound_std
 
     def get_ets_params(self, t):
         # get expanded task specific model
         weight = self.kb_weight
-        if weight.numel() != 0:
-            kb_bound = self.gain / math.sqrt(weight.shape[1] * self.ks)
-            bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
-            weight = bound_std * weight / kb_bound
         weight = F.dropout(weight, self.dropout, self.training)
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
@@ -213,9 +214,6 @@ class _DynamicLayer(nn.Module):
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
         bound_std = self.gain / math.sqrt(fan_in * self.ks)
-        if weight.numel() != 0:
-            kb_bound = self.gain / math.sqrt(weight.shape[1] * self.ks)
-            weight = bound_std * weight / kb_bound
         if add_in != 0 or add_out !=0:
             if isinstance(self, DynamicConv2D):
                 dummy_weight_0 = self.dummy_weight[:n_0].view(add_out, (fan_in-add_in) // self.groups, *self.kernel_size)
@@ -246,8 +244,6 @@ class _DynamicLayer(nn.Module):
             
             return weight, None, self.norm_layer_jr
 
-            
-
     def freeze(self):
         self.weight[-1].requires_grad = False
         self.fwt_weight[-1].requires_grad = False
@@ -261,21 +257,25 @@ class _DynamicLayer(nn.Module):
         self.kb_weight = None
         
     def update_scale(self):
-        for i in range(len(self.weight)):
-            w = self.weight[i][-1]
-            if w.numel() != 0:
-                w_std = w.std(unbiased=False).item()
-                self.scale[i][-1] = w_std
+        with torch.no_grad():
+            for i in range(len(self.weight)):
+                if self.weight[i].numel() != 0:
+                    w_std = self.weight[i].std(dim=self.dim_in, unbiased=False)
+                    self.register_buffer(f'weight_scale_{i}', w_std.view(self.view_in))
+                else:
+                    self.register_buffer(f'weight_scale_{i}', 1.0)
 
-            w = self.weight[-1][i]
-            if w.numel() != 0:
-                w_std = w.std(unbiased=False).item()
-                self.scale[-1][i] = w_std
+                if self.fwt_weight[i].numel() != 0:
+                    w_std = self.fwt_weight[i].std(dim=self.dim_in, unbiased=False)
+                    self.register_buffer(f'fwt_weight_scale_{i}', w_std.view(self.view_in))
+                else:
+                    self.register_buffer(f'fwt_weight_scale_{i}', 1.0)
 
-        w = self.weight[-1][-1]
-        if w.numel() != 0:
-            w_std = w.std(unbiased=False).item()
-            self.scale[-1][-1] = w_std
+                if self.bwt_weight[i].numel() != 0:
+                    w_std = self.bwt_weight[i].std(dim=self.dim_in, unbiased=False)
+                    self.register_buffer(f'bwt_weight_scale_{i}', w_std.view(self.view_in))
+                else:
+                    self.register_buffer(f'bwt_weight_scale_{i}', 1.0)
 
     def get_optim_params(self):
         params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score]
