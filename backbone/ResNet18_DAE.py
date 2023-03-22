@@ -203,6 +203,8 @@ class ResNet(_DynamicModel):
             block.shortcut.set_jr_params(add_in=add_in, add_out=add_out)
             add_in = add_out
 
+        self.linear.set_jr_params(add_in=add_in)
+
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
     """
