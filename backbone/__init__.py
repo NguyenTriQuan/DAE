@@ -111,8 +111,8 @@ class _DynamicModel(nn.Module):
             params += m.get_optim_params()
         return params
 
-    def expand(self, new_classes, task):
-        if task == 0:
+    def expand(self, new_classes, t):
+        if t == 0:
             add_in = self.DM[0].expand(add_in=self.DM[0].base_in_features)
         else:
             add_in = self.DM[0].expand(add_in=0)

@@ -129,8 +129,8 @@ class ResNet(_DynamicModel):
         out = self.linear(feature, t, mode)
         return out
     
-    def expand(self, new_classes, task):
-        if task == 0:
+    def expand(self, new_classes, t):
+        if t == 0:
             add_in = self.conv1.expand(add_in=self.conv1.base_in_features)
         else:
             add_in = self.conv1.expand(add_in=0)
@@ -176,6 +176,32 @@ class ResNet(_DynamicModel):
         self.total_strength = 1
         for m in self.DM[:-1]:
             self.total_strength += m.strength_in
+
+    def get_masked_kb_params(self, t):
+        if t == 0:
+            add_in = self.conv1.get_masked_kb_params(t, add_in=self.conv1.base_in_features)
+        else:
+            add_in = self.conv1.get_masked_kb_params(t, add_in=0)
+
+        for block in self.layers:
+            add_in_1 = block.conv1.get_masked_kb_params(t, add_in=add_in)
+            _, _, _, add_out_2 = block.conv2.get_expand_shape(t, add_in_1)
+            _, _, _, add_out_sc = block.shortcut.get_expand_shape(t, add_in)
+            add_out = min(add_out_2, add_out_sc)
+            block.conv2.get_masked_kb_params(t, add_in=add_in_1, add_out=add_out)
+            block.shortcut.get_masked_kb_params(t, add_in=add_in, add_out=add_out)
+            add_in = add_out
+
+    def set_jr_params(self):
+        add_in = self.conv1.set_jr_params(-1, add_in=0)
+        for block in self.layers:
+            add_in_1 = block.conv1.set_jr_params(-1, add_in=add_in)
+            _, _, _, add_out_2 = block.conv2.get_expand_shape(-1, add_in_1)
+            _, _, _, add_out_sc = block.shortcut.get_expand_shape(-1, add_in)
+            add_out = min(add_out_2, add_out_sc)
+            block.conv2.set_jr_params(-1, add_in=add_in_1, add_out=add_out)
+            block.shortcut.set_jr_params(-1, add_in=add_in, add_out=add_out)
+            add_in = add_out
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
