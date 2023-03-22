@@ -207,16 +207,15 @@ class DAE(ContinualModel):
 
         if self.task > 1:
         # 1) First, subsample prior classes
-            buf_x, buf_y, buf_l = self.buffer.get_all_data()
+            buf_x, buf_y = self.buffer.get_all_data()
 
             self.buffer.empty()
             for _y in buf_y.unique():
                 idx = (buf_y == _y)
-                _y_x, _y_y, _y_l = buf_x[idx], buf_y[idx], buf_l[idx]
+                _y_x, _y_y = buf_x[idx], buf_y[idx]
                 self.buffer.add_data(
                     examples=_y_x[:samples_per_class],
                     labels=_y_y[:samples_per_class],
-                    logits=_y_l[:samples_per_class]
                 )
 
         loader = train_loader

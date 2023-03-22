@@ -71,9 +71,10 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
                     pred = model(inputs, k, mode)
                     correct_mask_classes += torch.sum(pred == labels).item()
 
-        accs.append(correct / total * 100
-                    if 'class-il' in model.COMPATIBILITY else 0)
-        accs_mask_classes.append(correct_mask_classes / total * 100)
+        acc = correct / total * 100 if 'class-il' in model.COMPATIBILITY else 0
+        accs.append(round(acc, 2))
+        acc = correct_mask_classes / total * 100
+        accs_mask_classes.append(round(acc, 2))
 
     model.net.train(status)
     return accs, accs_mask_classes
@@ -96,9 +97,9 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
 
     for epoch in range(n_epochs):
         model.net.train()
-        if args.debug and epoch > 0:
-            break
         for i, data in enumerate(train_loader):
+            if args.debug and i > 3:
+                break
             inputs, labels, not_aug_inputs = data
             inputs, labels = inputs.to(model.device), labels.to(
                 model.device)
@@ -201,9 +202,15 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
+        print('checking forgetting')
         accs = evaluate(model, dataset, task=None, mode='ets')
         mean_acc = np.mean(accs, axis=1)
         print(f'ets accs: cil {accs[0]}, til {accs[1]}')
+        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+
+        accs = evaluate(model, dataset, task=None, mode='kbts')
+        mean_acc = np.mean(accs, axis=1)
+        print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         with torch.no_grad():
