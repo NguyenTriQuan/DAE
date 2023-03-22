@@ -111,15 +111,20 @@ class _DynamicModel(nn.Module):
             params += m.get_optim_params()
         return params
 
-    def expand(self, new_classes):
-        if self.task == 0:
-            self.DM[0].expand(add_in=None, add_out=None)
+    def expand(self, new_classes, task):
+        if task == 0:
+            add_in = self.DM[0].expand(add_in=self.DM[0].base_in_features)
         else:
-            self.DM[0].expand(add_in=0, add_out=None)
+            add_in = self.DM[0].expand(add_in=0)
 
         for m in self.DM[1:-1]:
-            m.expand(add_in=None, add_out=None)
-        self.DM[-1].expand(add_in=None, add_out=new_classes)
+            add_in = m.expand(add_in=add_in)
+
+        self.DM[-1].expand(add_in=add_in, add_out=new_classes)
+
+        self.total_strength = 1
+        for m in self.DM[:-1]:
+            self.total_strength += m.strength_in
 
     def squeeze(self, optim_state):
         mask_in = None
@@ -158,15 +163,20 @@ class _DynamicModel(nn.Module):
     def get_kb_params(self, t):
         for m in self.DM[:-1]:
             m.get_kb_params(t)
+    
+    def get_masked_kb_params(self, t):
+        if t == 0:
+            add_in = self.DM[0].base_in_features
+        else:
+            add_in = 0
 
-    def get_jr_params(self):
-        for m in self.DM:
-            m.get_jr_params()
-        
-    def set_squeeze_state(self, track):
         for m in self.DM[:-1]:
-            # m.norm_layer_ets.affine = track
-            m.norm_layer_ets.track_running_stats = track
+            add_in = m.get_masked_kb_params(t, add_in)
+
+    def set_jr_params(self):
+        add_in = 0
+        for m in self.DM:
+            add_in = m.set_jr_params(add_in)
 
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')
@@ -210,7 +220,7 @@ class _DynamicModel(nn.Module):
 
         total_nonzero = 0.0
         # With the valid epsilon, we can set sparsities of the remaning layers.
-        min_sparsity = 0.0
+        min_sparsity = 0.5
         for i, m in enumerate(self.DM[:-1]):
             n_param = np.prod(m.score.shape)
             if m in dense_layers:

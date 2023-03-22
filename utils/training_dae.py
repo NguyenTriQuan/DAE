@@ -83,8 +83,6 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=args.optim_wd, momentum=args.optim_mom)
     if 'ets' in mode:
         lamb = model.lamb[t]
-        if args.debug:
-            lamb *= len(train_loader) / 3
         print('lamb', lamb)
         num_params, num_neurons = model.net.count_params()
         n_epochs = 75

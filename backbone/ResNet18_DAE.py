@@ -111,6 +111,10 @@ class ResNet(_DynamicModel):
         return nn.ModuleList(layers)
 
     def forward(self, x: torch.Tensor, t, mode) -> torch.Tensor:
+        if 'ets' in mode:
+            self.get_kb_params(t)
+        else:
+            self.get_masked_kb_params(t)
 
         out = relu(self.conv1(x, t, mode))
         if hasattr(self, 'maxpool'):
@@ -124,19 +128,6 @@ class ResNet(_DynamicModel):
 
         out = self.linear(feature, t, mode)
         return out
-    
-    def expand(self, new_classes, task):
-        if task == 0:
-            self.DM[0].expand(add_in=None, add_out=None)
-        else:
-            self.DM[0].expand(add_in=0, add_out=None)
-
-        for m in self.DM[1:-1]:
-            m.expand(add_in=None, add_out=None)
-        self.DM[-1].expand(add_in=None, add_out=new_classes)
-        self.total_strength = 1
-        for m in self.DM[:-1]:
-            self.total_strength += m.strength_in
 
     def squeeze(self, optim_state):
         mask_in = None
