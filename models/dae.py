@@ -194,7 +194,7 @@ class DAE(ContinualModel):
 
         mode = self.net.training
         self.net.eval()
-        samples_per_class = self.buffer.buffer_size // (self.dataset.N_CLASSES_PER_TASK * self.dataset.N_TASKS)
+        samples_per_class = self.buffer.buffer_size // (self.dataset.N_CLASSES_PER_TASK * self.task)
 
         if self.task > 1:
         # 1) First, subsample prior classes
