@@ -400,12 +400,7 @@ class DynamicLinear(_DynamicLayer):
 class _DynamicConvNd(_DynamicLayer):
     def __init__(self, in_features, out_features, kernel_size, 
                 stride, padding, dilation, transposed, output_padding, groups, bias, norm_type, args, s):
-        super(_DynamicConvNd, self).__init__(in_features, out_features, bias, norm_type, args, s)
-        if in_features % groups != 0:
-            raise ValueError('in_channels must be divisible by groups')
-        if out_features % groups != 0:
-            raise ValueError('out_channels must be divisible by groups')
-
+        
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
@@ -413,6 +408,11 @@ class _DynamicConvNd(_DynamicLayer):
         self.transposed = transposed
         self.output_padding = output_padding
         self.groups = groups
+        super(_DynamicConvNd, self).__init__(in_features, out_features, bias, norm_type, args, s)
+        if in_features % groups != 0:
+            raise ValueError('in_channels must be divisible by groups')
+        if out_features % groups != 0:
+            raise ValueError('out_channels must be divisible by groups')
 
 
 class DynamicConv2D(_DynamicConvNd):
