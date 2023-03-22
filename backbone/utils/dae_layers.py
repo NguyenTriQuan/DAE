@@ -213,6 +213,7 @@ class _DynamicLayer(nn.Module):
                                 torch.cat([self.fwt_weight[i] / fwt_weight_scale, self.weight[i] / weight_scale], dim=1)], dim=0)
             # self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i]], dim=1), 
             #                     torch.cat([self.fwt_weight[i], self.weight[i]], dim=1)], dim=0)
+        print(self.kb_weight.max(), self.kb_weight.min())
     
     def get_masked_kb_params(self, t, add_in, add_out=None):
         # kb weight std = bound of the model size
