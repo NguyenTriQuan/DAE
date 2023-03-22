@@ -183,7 +183,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
 
         if hasattr(model, 'end_task'):
-            model.end_task(dataset, train_loader)
+            model.end_task(dataset)
 
         # jr training
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
