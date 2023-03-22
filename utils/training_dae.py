@@ -94,7 +94,10 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         n_epochs = 50
         scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
 
-    accs = evaluate(model, dataset, task=t, mode=mode)
+    if not args.debug:
+        accs = evaluate(model, dataset, task=t, mode=mode)
+    else:
+        accs = [[0]]
 
     for epoch in range(n_epochs):
         model.net.train()
@@ -119,11 +122,12 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
                 model.net.squeeze(model.opt.state)
                 num_params, num_neurons = model.net.count_params()
 
-        accs = evaluate(model, dataset, task=t, mode=mode)
-        if 'ets' in mode:
-            progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0], sum(num_params), num_neurons)
-        else:
-            progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0])
+        if not args.debug:
+            accs = evaluate(model, dataset, task=t, mode=mode)
+            if 'ets' in mode:
+                progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0], sum(num_params), num_neurons)
+            else:
+                progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0])            
 
         if scheduler is not None:
             scheduler.step()
