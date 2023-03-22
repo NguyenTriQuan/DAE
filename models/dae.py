@@ -150,21 +150,25 @@ class DAE(ContinualModel):
 
         self.opt.zero_grad()
 
-        if not self.buffer.is_empty() and 'jr' in mode:
-            buf_inputs, buf_labels = self.buffer.get_data(
-                self.args.minibatch_size, transform=self.transform)
-            
-            # self.net.get_kb_params(self.task)
+        if 'jr' in mode:
             outputs = self.net(buf_inputs, self.task, mode)
-            loss = self.loss(outputs, buf_labels)
+            if not self.buffer.is_empty():
+                buf_inputs, buf_labels = self.buffer.get_data(
+                    self.args.minibatch_size, transform=self.transform)
+                inputs = torch.cat([inputs, buf_inputs], dim=0)
+                labels = torch.cat([labels, buf_labels], dim=0)
+            
+            self.net.get_kb_params(self.task)
+            outputs = self.net(inputs, self.task, mode)
+            loss = self.loss(outputs, labels)
             # distillation loss
             for i in range(self.task):
                 self.net.get_kb_params(i)
-                out_task = self.net(buf_inputs, i, mode='ets')
+                out_task = self.net(inputs, i, mode='ets')
                 logits = outputs[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
 
                 loss += self.args.alpha * modified_kl_div(smooth(self.soft(logits), 2, 1),
-                                                      smooth(self.soft(out_task), 2, 1))
+                                                    smooth(self.soft(out_task), 2, 1))
         else:
             outputs = self.net(inputs, self.task, mode)
             loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
@@ -181,15 +185,13 @@ class DAE(ContinualModel):
         self.net.get_kb_params(self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
 
-    def end_task(self, dataset, train_loader) -> None:
-        with torch.no_grad():
-            self.fill_buffer(train_loader)
-        # self.net.get_jr_params()
+    def end_task(self, dataset) -> None:
+        self.net.get_jr_params()
         self.task += 1
         self.net.freeze()
         self.net.update_scale()
-        # self.net.get_kb_params(self.task)
-        # self.net.ERK_sparsify(sparsity=self.args.sparsity)
+        self.net.get_kb_params(self.task)
+        self.net.ERK_sparsify(sparsity=self.args.sparsity)
 
     def fill_buffer(self, train_loader) -> None:
         """
@@ -203,6 +205,20 @@ class DAE(ContinualModel):
         mode = self.net.training
         self.net.eval()
         samples_per_class = self.buffer.buffer_size // (self.dataset.N_CLASSES_PER_TASK * self.dataset.N_TASKS)
+
+        if self.task > 1:
+        # 1) First, subsample prior classes
+            buf_x, buf_y, buf_l = self.buffer.get_all_data()
+
+            self.buffer.empty()
+            for _y in buf_y.unique():
+                idx = (buf_y == _y)
+                _y_x, _y_y, _y_l = buf_x[idx], buf_y[idx], buf_l[idx]
+                self.buffer.add_data(
+                    examples=_y_x[:samples_per_class],
+                    labels=_y_y[:samples_per_class],
+                    logits=_y_l[:samples_per_class]
+                )
 
         loader = train_loader
         norm_trans = self.dataset.get_normalization_transform()

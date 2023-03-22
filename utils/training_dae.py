@@ -79,7 +79,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
     return accs, accs_mask_classes
 
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
-    model.opt = torch.optim.SGD(model.net.get_optim_params(), lr=args.lr, weight_decay=args.optim_wd, momentum=args.optim_mom)
+    model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=args.optim_wd, momentum=args.optim_mom)
     if 'ets' in mode:
         print('lamb', model.lamb[t])
         num_params, num_neurons = model.net.count_params()
@@ -186,28 +186,28 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             model.end_task(dataset, train_loader)
 
         # jr training
-        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
+        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
 
         # final evaluation
         accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
         results.append(accs[0])
         results_mask_classes.append(accs[1])
-        print('cil', accs[0])
-        print('til', accs[1])
         mean_acc = np.mean(accs, axis=1)
-        print('ets_kbts_jr')
+        print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         accs = evaluate(model, dataset, task=None, mode='ets_kbts')
         mean_acc = np.mean(accs, axis=1)
-        print('ets_kbts')
+        print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         accs = evaluate(model, dataset, task=None, mode='ets')
         mean_acc = np.mean(accs, axis=1)
-        print('ets')
+        print(f'ets accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
+        with torch.no_grad():
+            model.fill_buffer(train_loader)
         # save model and buffer
         model.net.clear_memory()
         torch.save(model, base_path_memory() + args.title + '.model')
