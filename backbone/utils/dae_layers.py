@@ -305,9 +305,9 @@ class _DynamicLayer(nn.Module):
             else:
                 self.register_buffer(f'bwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
-            print(getattr(self, f'weight_scale_{i}'))
-            print(getattr(self, f'fwt_weight_scale_{i}'))
-            print(getattr(self, f'bwt_weight_scale_{i}'))
+            print(getattr(self, f'weight_scale_{i}').view(-1).max())
+            print(getattr(self, f'fwt_weight_scale_{i}').view(-1).max())
+            print(getattr(self, f'bwt_weight_scale_{i}').view(-1).max())
 
     def get_optim_params(self):
         params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score]
