@@ -315,9 +315,6 @@ class _DynamicLayer(nn.Module):
         count = 0
         for i in range(t+1):
             count += self.weight[i].numel() + self.fwt_weight[i].numel() + self.bwt_weight[i].numel()
-        if self.norm_type is not None:
-            count += self.norm_layer_ets.count_params(t)
-            count += self.norm_layer_kbts.count_params(t)
         return count
 
     def norm_in(self):
