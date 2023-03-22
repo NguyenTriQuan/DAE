@@ -203,15 +203,14 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         print('checking forgetting')
-        accs = evaluate(model, dataset, task=None, mode='ets')
-        mean_acc = np.mean(accs, axis=1)
-        print(f'ets accs: cil {accs[0]}, til {accs[1]}')
-        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
-
         accs = evaluate(model, dataset, task=None, mode='kbts')
-        mean_acc = np.mean(accs, axis=1)
         print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
-        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+
+        accs = evaluate(model, dataset, task=None, mode='ets')
+        print(f'ets accs: cil {accs[0]}, til {accs[1]}')
+
+        accs = evaluate(model, dataset, task=None, mode='jr')
+        print(f'jr accs: cil {accs[0]}, til {accs[1]}')
 
         with torch.no_grad():
             model.fill_buffer(train_loader)
