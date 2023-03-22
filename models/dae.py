@@ -92,14 +92,12 @@ class DAE(ContinualModel):
 
     def forward(self, x, t=None, mode='ets_kbts_jr'):
         if t is not None:
-            # self.net.get_kb_params(t)
             outputs = []
             if 'ets' in mode:
                 outputs.append(self.net(x, t, mode='ets'))
             if 'kbts' in mode:
                 outputs.append(self.net(x, t, mode='kbts'))
             if 'jr' in mode:
-                # self.net.get_kb_params(self.task)
                 out_jr = self.net(x, self.task, mode='jr')
                 out_jr = out_jr[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
                 outputs.append(out_jr)
@@ -110,10 +108,8 @@ class DAE(ContinualModel):
             joint_entropy_tasks = []
             outputs_tasks = []
             if 'jr' in mode:
-                # self.net.get_kb_params(self.task)
                 out_jr = self.net(x, self.task, mode='jr')
             for i in range(self.task):
-                # self.net.get_kb_params(i)
                 outputs = []
                 weights = []
                 if 'ets' in mode:
@@ -157,12 +153,10 @@ class DAE(ContinualModel):
                 inputs = torch.cat([inputs, buf_inputs], dim=0)
                 labels = torch.cat([labels, buf_labels], dim=0)
             
-            # self.net.get_kb_params(self.task)
             outputs = self.net(inputs, self.task, mode)
             loss = self.loss(outputs, labels)
             # distillation loss
             for i in range(self.task):
-                # self.net.get_kb_params(i)
                 out_task = self.net(inputs, i, mode='ets')
                 logits = outputs[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
 
@@ -180,15 +174,13 @@ class DAE(ContinualModel):
 
     def begin_task(self, dataset):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
-        # self.net.get_kb_params(self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
 
     def end_task(self, dataset) -> None:
-        self.net.get_jr_params()
+        self.net.set_jr_params()
         self.task += 1
         self.net.freeze()
         self.net.update_scale()
-        # self.net.get_kb_params(self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
 
     def fill_buffer(self, train_loader) -> None:
@@ -224,7 +216,6 @@ class DAE(ContinualModel):
         classes_start, classes_end = (self.task-1) * self.dataset.N_CLASSES_PER_TASK, self.task * self.dataset.N_CLASSES_PER_TASK
 
         a_x, a_y, a_l = [], [], []
-        # self.net.get_kb_params(self.task-1)
         for x, y, not_norm_x in loader:
             mask = (y >= classes_start) & (y < classes_end)
             x, y, not_norm_x = x[mask], y[mask], not_norm_x[mask]
@@ -239,7 +230,7 @@ class DAE(ContinualModel):
             loss_kbts = self.loss(outs_kbts, y - (self.task-1) * self.dataset.N_CLASSES_PER_TASK, reduce=False).cpu()
             a_l.append(loss_ets+loss_kbts)
         a_x, a_y, a_l = torch.cat(a_x), torch.cat(a_y), torch.cat(a_l)
-        print(samples_per_class, a_x.shape, a_y.shape, a_l.shape)
+        print(samples_per_class, classes_start, classes_end, a_x.shape, a_y.shape, a_l.shape)
 
         for _y in a_y.unique():
             idx = (a_y == _y)
