@@ -283,7 +283,6 @@ class _DynamicLayer(nn.Module):
 
     def clear_memory(self):
         self.score = None
-        self.kb_weight = None
         
     def update_scale(self):
         with torch.no_grad():
@@ -305,6 +304,10 @@ class _DynamicLayer(nn.Module):
                 self.register_buffer(f'bwt_weight_scale_{i}', w_std.view(self.view_in))
             else:
                 self.register_buffer(f'bwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
+
+            print(getattr(self, f'weight_scale_{i}'))
+            print(getattr(self, f'fwt_weight_scale_{i}'))
+            print(getattr(self, f'bwt_weight_scale_{i}'))
 
     def get_optim_params(self):
         params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score]
