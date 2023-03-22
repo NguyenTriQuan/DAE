@@ -82,7 +82,10 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=args.optim_wd, momentum=args.optim_mom)
     if 'ets' in mode:
-        print('lamb', model.lamb[t])
+        lamb = model.lamb[t]
+        if args.debug:
+            lamb *= len(train_loader) / 3
+        print('lamb', lamb)
         num_params, num_neurons = model.net.count_params()
         n_epochs = 75
         scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [60, 70], gamma=0.1, verbose=False)
@@ -107,7 +110,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             loss = model.meta_observe(inputs, labels, not_aug_inputs, mode=mode)
             if 'ets' in mode:
                 if epoch < 50:
-                    model.net.proximal_gradient_descent(scheduler.get_last_lr()[0], model.lamb[t])
+                    model.net.proximal_gradient_descent(scheduler.get_last_lr()[0], lamb)
                 progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0], sum(num_params), num_neurons)
             else:
                 progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0])
