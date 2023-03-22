@@ -147,7 +147,7 @@ class _DynamicLayer(nn.Module):
 
     def expand(self, add_in, add_out=None):
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(-1, add_in, add_out)
-        print(fan_in, fan_out)
+        print(fan_in, fan_out, self._get_name())
         self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(device)])
         self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(device)])
 
