@@ -223,10 +223,10 @@ class DAE(ContinualModel):
         norm_trans = self.dataset.get_normalization_transform()
         if norm_trans is None:
             def norm_trans(x): return x
-        classes_start, classes_end = self.task * self.dataset.N_CLASSES_PER_TASK, (self.task + 1) * self.dataset.N_CLASSES_PER_TASK
+        classes_start, classes_end = (self.task-1) * self.dataset.N_CLASSES_PER_TASK, self.task * self.dataset.N_CLASSES_PER_TASK
 
         a_x, a_y, a_l = [], [], []
-        self.net.get_kb_params(self.task)
+        self.net.get_kb_params(self.task-1)
         for x, y, not_norm_x in loader:
             mask = (y >= classes_start) & (y < classes_end)
             x, y, not_norm_x = x[mask], y[mask], not_norm_x[mask]
@@ -235,10 +235,10 @@ class DAE(ContinualModel):
             x, y, not_norm_x = (a.to(self.device) for a in (x, y, not_norm_x))
             a_x.append(not_norm_x.to('cpu'))
             a_y.append(y.to('cpu'))
-            outs_ets = self.net(norm_trans(not_norm_x), self.task, mode='ets')
-            outs_kbts = self.net(norm_trans(not_norm_x), self.task, mode='kbts')
-            loss_ets = self.loss(outs_ets, y - self.task * self.dataset.N_CLASSES_PER_TASK, reduce=False).cpu()
-            loss_kbts = self.loss(outs_kbts, y - self.task * self.dataset.N_CLASSES_PER_TASK, reduce=False).cpu()
+            outs_ets = self.net(norm_trans(not_norm_x), self.task-1, mode='ets')
+            outs_kbts = self.net(norm_trans(not_norm_x), self.task-1, mode='kbts')
+            loss_ets = self.loss(outs_ets, y - (self.task-1) * self.dataset.N_CLASSES_PER_TASK, reduce=False).cpu()
+            loss_kbts = self.loss(outs_kbts, y - (self.task-1) * self.dataset.N_CLASSES_PER_TASK, reduce=False).cpu()
             a_l.append(loss_ets+loss_kbts)
         a_x, a_y, a_l = torch.cat(a_x), torch.cat(a_y), torch.cat(a_l)
         print(samples_per_class, a_x.shape, a_y.shape, a_l.shape)
