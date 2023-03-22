@@ -151,7 +151,6 @@ class DAE(ContinualModel):
         self.opt.zero_grad()
 
         if 'jr' in mode:
-            outputs = self.net(buf_inputs, self.task, mode)
             if not self.buffer.is_empty():
                 buf_inputs, buf_labels = self.buffer.get_data(
                     self.args.minibatch_size, transform=self.transform)
