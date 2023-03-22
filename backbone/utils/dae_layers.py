@@ -534,7 +534,7 @@ class DynamicNorm(nn.Module):
 
         if self.track_running_stats:
             self.register_buffer(f'running_mean', torch.zeros(num_features).to(device))
-            self.register_buffer(f'running_var', torch.ones(1).to(device))
+            self.register_buffer(f'running_var', torch.ones(num_features).to(device))
             self.register_buffer(f'num_batches_tracked', torch.tensor(0, dtype=torch.long).to(device))
         else:
             self.register_buffer(f'running_mean', None)
@@ -569,12 +569,10 @@ class DynamicNorm(nn.Module):
             mean = input.mean([0, 2, 3])
             shape = (1, -1, 1, 1)
             var = ((input - mean.view(shape)) ** 2).mean([0, 2, 3])
-            var = var.mean()
         else:
             mean = input.mean([0])
             shape = (1, -1)
             var = ((input - mean.view(shape)) ** 2).mean([0])
-            var = var.mean()
 
         # calculate running estimates
         if bn_training:
@@ -589,6 +587,7 @@ class DynamicNorm(nn.Module):
                 mean = self.running_mean
                 var = self.running_var
 
+        var = var.mean()
         output = (input - mean.view(shape)) / (torch.sqrt(var.view(shape) + self.eps))
     
         if self.affine:
