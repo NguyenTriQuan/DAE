@@ -193,14 +193,14 @@ class ResNet(_DynamicModel):
             add_in = add_out
 
     def set_jr_params(self):
-        add_in = self.conv1.set_jr_params(-1, add_in=0)
+        add_in = self.conv1.set_jr_params(add_in=0)
         for block in self.layers:
-            add_in_1 = block.conv1.set_jr_params(-1, add_in=add_in)
+            add_in_1 = block.conv1.set_jr_params(add_in=add_in)
             _, _, _, add_out_2 = block.conv2.get_expand_shape(-1, add_in_1)
             _, _, _, add_out_sc = block.shortcut.get_expand_shape(-1, add_in)
             add_out = min(add_out_2, add_out_sc)
-            block.conv2.set_jr_params(-1, add_in=add_in_1, add_out=add_out)
-            block.shortcut.set_jr_params(-1, add_in=add_in, add_out=add_out)
+            block.conv2.set_jr_params(add_in=add_in_1, add_out=add_out)
+            block.shortcut.set_jr_params(add_in=add_in, add_out=add_out)
             add_in = add_out
 
 
