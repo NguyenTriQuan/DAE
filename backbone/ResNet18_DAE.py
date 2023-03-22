@@ -45,7 +45,7 @@ class BasicBlock(nn.Module):
         # if stride != 1 or in_planes != self.expansion * planes:
         self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args)
 
-    def forward(self, x: torch.Tensor, t, mode='ets') -> torch.Tensor:
+    def forward(self, x: torch.Tensor, t, mode) -> torch.Tensor:
         """
         Compute a forward pass.
         :param x: input tensor (batch_size, input_size)
@@ -128,6 +128,31 @@ class ResNet(_DynamicModel):
 
         out = self.linear(feature, t, mode)
         return out
+    
+    def expand(self, new_classes, task):
+        if task == 0:
+            add_in = self.conv1.expand(add_in=self.conv1.base_in_features)
+        else:
+            add_in = self.conv1.expand(add_in=0)
+
+        for block in self.layers:
+            add_in_1 = block.conv1.expand(add_in=add_in)
+            _, _, _, add_out_2 = block.conv2.get_expand_shape(-1, add_in_1)
+            _, _, _, add_out_sc = block.shortcut.get_expand_shape(-1, add_in)
+            add_out = min(add_out_2, add_out_sc)
+            block.conv2.expand(add_in=add_in_1, add_out=add_out)
+            block.shortcut.expand(add_in=add_in, add_out=add_out)
+            add_in = add_out
+
+            max_strength = max(block.conv2.strength_in, block.shortcut.strength_in)
+            block.conv2.strength_in = max_strength
+            block.shortcut.strength_in = max_strength
+
+        self.linear.expand(add_in=add_in, add_out=new_classes)
+
+        self.total_strength = 1
+        for m in self.DM[:-1]:
+            self.total_strength += m.strength_in
 
     def squeeze(self, optim_state):
         mask_in = None
@@ -138,12 +163,14 @@ class ResNet(_DynamicModel):
         for block in self.layers:
             mask_out = block.conv1.mask_out
             block.conv1.squeeze(optim_state, mask_in, mask_out)
-            shared_mask = block.conv2.mask_out
-            if block.shortcut is not None:
-                shared_mask += block.shortcut.mask_out
-                block.shortcut.squeeze(optim_state, mask_in, shared_mask)
+            shared_mask = block.conv2.mask_out + block.shortcut.mask_out
+            block.shortcut.squeeze(optim_state, mask_in, shared_mask)
             block.conv2.squeeze(optim_state, mask_out, shared_mask)
             mask_in = shared_mask
+
+            max_strength = max(block.conv2.strength_in, block.shortcut.strength_in)
+            block.conv2.strength_in = max_strength
+            block.shortcut.strength_in = max_strength
         
         self.linear.squeeze(optim_state, mask_in, None)
         self.total_strength = 1
