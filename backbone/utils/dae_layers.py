@@ -500,7 +500,7 @@ class DynamicClassifier(DynamicLinear):
         for i in range(t+1):
             count += self.weight_ets[i].numel() + self.weight_kbts[-1].numel()
             count += self.bias_ets[i].numel() + self.bias_kbts[-1].numel()
-        count += self.weight_jr.numel() + self.bias_jr.numel()
+        # count += self.weight_jr.numel() + self.bias_jr.numel()
         return count
 
     def squeeze(self, optim_state, mask_in=None, mask_out=None):
