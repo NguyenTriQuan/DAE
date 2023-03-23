@@ -164,7 +164,7 @@ class ResNet(_DynamicModel):
         for block in self.layers:
             mask_out = block.conv1.mask_out
             block.conv1.squeeze(optim_state, mask_in, mask_out)
-            print((block.conv2.mask_out - block.shortcut.mask_out).abs().sum())
+            print((block.conv2.mask_out.int() - block.shortcut.mask_out.int()).abs().sum())
             shared_mask = block.conv2.mask_out + block.shortcut.mask_out
             block.shortcut.squeeze(optim_state, mask_in, shared_mask)
             block.conv2.squeeze(optim_state, mask_out, shared_mask)

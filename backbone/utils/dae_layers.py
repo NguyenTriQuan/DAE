@@ -199,7 +199,6 @@ class _DynamicLayer(nn.Module):
         # kb weight std = 1
         if self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
             return
-        # print(t, self.kb_weight.shape)
         
         if isinstance(self, DynamicConv2D):
             self.kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)
@@ -222,7 +221,7 @@ class _DynamicLayer(nn.Module):
 
         if self.kb_weight.shape[0] == fan_out and self.kb_weight.shape[1] == fan_in:
             return add_out * self.s * self.s
-        print(t, self.kb_weight.shape, fan_in, fan_out)
+        
         self.get_kb_params(t)
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
