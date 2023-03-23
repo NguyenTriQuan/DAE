@@ -169,7 +169,7 @@ class _DynamicLayer(nn.Module):
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
 
         mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-        self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool())
+        self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool().clone())
 
         self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
 
@@ -188,7 +188,7 @@ class _DynamicLayer(nn.Module):
             self.score = nn.Parameter(torch.Tensor(fan_out, fan_in).to(device))
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
         mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-        self.register_buffer('jr_mask', mask.detach().bool())
+        self.register_buffer('jr_mask', mask.detach().bool().clone())
         if self.norm_type is not None:
             self.norm_layer_jr = DynamicNorm(fan_out, affine=False, track_running_stats=True)
         
@@ -197,8 +197,8 @@ class _DynamicLayer(nn.Module):
     def get_kb_params(self, t):
         # get knowledge base parameters for task t
         # kb weight std = 1
-        if self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
-            return
+        # if self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
+        #     return
         
         if isinstance(self, DynamicConv2D):
             self.kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)
@@ -219,8 +219,8 @@ class _DynamicLayer(nn.Module):
         # kb weight std = bound of the model size
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(t, add_in, add_out)
 
-        if self.kb_weight.shape[0] == fan_out and self.kb_weight.shape[1] == fan_in:
-            return add_out * self.s * self.s
+        # if self.kb_weight.shape[0] == fan_out and self.kb_weight.shape[1] == fan_in:
+        #     return add_out * self.s * self.s
         
         self.get_kb_params(t)
         n_0 = add_out * (fan_in-add_in) * self.ks
@@ -254,7 +254,7 @@ class _DynamicLayer(nn.Module):
         if self.training:
             mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
             weight = self.kb_weight * mask / (1-self.sparsity)
-            self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool())
+            self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
         else:
             weight = self.kb_weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.sparsity)
         
@@ -264,7 +264,7 @@ class _DynamicLayer(nn.Module):
         if self.training:
             mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
             weight = self.kb_weight * mask / (1-self.sparsity)
-            self.register_buffer('jr_mask', mask.detach().bool())
+            self.register_buffer('jr_mask', mask.detach().bool().clone())
         else:
             weight = self.kb_weight * getattr(self, 'jr_mask') / (1-self.sparsity)
         
