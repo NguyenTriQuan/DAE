@@ -199,8 +199,8 @@ class _DynamicLayer(nn.Module):
     def get_kb_params(self, t):
         # get knowledge base parameters for task t
         # kb weight std = 1
-        if self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
-            return
+        # if self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
+        #     return
         
         if isinstance(self, DynamicConv2D):
             self.kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)

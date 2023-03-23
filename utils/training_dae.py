@@ -53,6 +53,8 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
         if task is not None:
             if k != task:
                 continue
+        else:
+            print(k)
         correct, correct_mask_classes, total = 0.0, 0.0, 0.0
         for data in test_loader:
             with torch.no_grad():
