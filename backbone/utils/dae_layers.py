@@ -198,8 +198,8 @@ class _DynamicLayer(nn.Module):
         # get knowledge base parameters for task t
         # kb weight std = 1
         if self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
-            print(t, self.kb_weight.shape)
             return
+        print(t, self.kb_weight.shape)
         
         if isinstance(self, DynamicConv2D):
             self.kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)
@@ -218,13 +218,12 @@ class _DynamicLayer(nn.Module):
     
     def get_masked_kb_params(self, t, add_in, add_out=None):
         # kb weight std = bound of the model size
+        self.get_kb_params(t)
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(t, add_in, add_out)
 
         if self.kb_weight.shape[0] == fan_out and self.kb_weight.shape[1] == fan_in:
-            print(t, self.kb_weight.shape)
             return add_out * self.s * self.s
-        
-        self.get_kb_params(t)
+        print(t, self.kb_weight.shape)
 
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
