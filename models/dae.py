@@ -182,6 +182,8 @@ class DAE(ContinualModel):
         self.net.freeze()
         self.net.update_scale()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
+        for n, p in self.net.named_parameters():
+            print(n, p.requires_grad)
 
     def fill_buffer(self, train_loader) -> None:
         """

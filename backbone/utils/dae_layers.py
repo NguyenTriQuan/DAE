@@ -105,11 +105,11 @@ class _DynamicLayer(nn.Module):
         if x.numel() == 0:
             return torch.empty(0).to(device)
         
-        if 'ets' in mode:
+        if 'ets' == mode:
             weight, bias, norm_layer = self.get_ets_params(t)
-        elif 'kbts' in mode:
+        elif 'kbts' == mode:
             weight, bias, norm_layer = self.get_kbts_params(t)
-        elif 'jr' in mode:
+        elif 'jr' == mode:
             weight, bias, norm_layer = self.get_jr_params()
 
         if weight.numel() == 0:
@@ -453,13 +453,13 @@ class DynamicClassifier(DynamicLinear):
         self.bias_kbts = nn.ParameterList([])
 
     def forward(self, x, t, mode):
-        if 'kbts' in mode:
+        if 'kbts' == mode:
             weight = self.weight_kbts[t]
             bias = self.bias_kbts[t]
-        elif 'jr' in mode:
+        elif 'jr' == mode:
             weight = self.weight_jr
             bias = self.bias_jr
-        else:
+        elif 'ets' == mode:
             weight = self.weight_ets[t]
             bias = self.bias_ets[t]
         x = F.linear(x, weight, bias)
@@ -511,7 +511,6 @@ class DynamicClassifier(DynamicLinear):
         for i in range(t+1):
             count += self.weight_ets[i].numel() + self.weight_kbts[-1].numel()
             count += self.bias_ets[i].numel() + self.bias_kbts[-1].numel()
-        # count += self.weight_jr.numel() + self.bias_jr.numel()
         return count
 
     def squeeze(self, optim_state, mask_in=None, mask_out=None):

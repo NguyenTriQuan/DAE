@@ -111,7 +111,7 @@ class ResNet(_DynamicModel):
         return nn.ModuleList(layers)
 
     def forward(self, x: torch.Tensor, t, mode) -> torch.Tensor:
-        if 'ets' in mode:
+        if mode == 'ets':
             self.get_kb_params(t)
         else:
             self.get_masked_kb_params(t)
@@ -140,7 +140,6 @@ class ResNet(_DynamicModel):
             _, _, _, add_out_2 = block.conv2.get_expand_shape(-1, add_in_1)
             _, _, _, add_out_sc = block.shortcut.get_expand_shape(-1, add_in)
             add_out = min(add_out_2, add_out_sc)
-            print(add_out, add_out_2, add_out_sc)
             block.conv2.expand(add_in=add_in_1, add_out=add_out)
             block.shortcut.expand(add_in=add_in, add_out=add_out)
             add_in = add_out
@@ -164,7 +163,6 @@ class ResNet(_DynamicModel):
         for block in self.layers:
             mask_out = block.conv1.mask_out
             block.conv1.squeeze(optim_state, mask_in, mask_out)
-            print((block.conv2.mask_out.int() - block.shortcut.mask_out.int()).abs().sum())
             shared_mask = block.conv2.mask_out + block.shortcut.mask_out
             block.shortcut.squeeze(optim_state, mask_in, shared_mask)
             block.conv2.squeeze(optim_state, mask_out, shared_mask)
