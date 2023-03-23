@@ -149,16 +149,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
 
-    # save model and buffer
-    model.net.clear_memory()
-    torch.save(model, base_path_memory() + args.title + '.model')
-    torch.save(dataset, base_path_memory() + args.title + '.dataset')
-    torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
-    torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
-    # estimate memory size
-    print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
-    print('Buffer size:', os.path.getsize(base_path_memory() + args.title + '.buffer'))
-    
     if not args.nowand:
         assert wandb is not None, "Wandb not installed, please install it or run without wandb"
         wandb.init(project=args.wandb_project, entity=args.wandb_entity, config=vars(args))
@@ -187,6 +177,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         train_loader, test_loader = dataset.get_data_loaders()
         if hasattr(model, 'begin_task'):
             model.begin_task(dataset)
+    
         if t and not args.ignore_other_metrics:
             accs = evaluate(model, dataset, last=True, ets=True, kbts=False, jr=False)
             results[t-1] = results[t-1] + accs[0]
@@ -204,6 +195,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         # jr training
         # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
+
+        # with torch.no_grad():
+        #     model.fill_buffer(train_loader)
 
         print('checking forgetting')
         accs = evaluate(model, dataset, task=None, mode='kbts')
@@ -227,9 +221,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         mean_acc = np.mean(accs, axis=1)
         print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
-
-        # with torch.no_grad():
-        #     model.fill_buffer(train_loader)
 
         # save model and buffer
         model.net.clear_memory()
