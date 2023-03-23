@@ -194,6 +194,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # jr training
         # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
 
+        print('checking forgetting')
+        accs = evaluate(model, dataset, task=None, mode='kbts')
+        print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
+
+        accs = evaluate(model, dataset, task=None, mode='ets')
+        print(f'ets accs: cil {accs[0]}, til {accs[1]}')
+
+        accs = evaluate(model, dataset, task=None, mode='jr')
+        print(f'jr accs: cil {accs[0]}, til {accs[1]}')
+        
         # final evaluation
         accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
         results.append(accs[0])
@@ -206,16 +216,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         mean_acc = np.mean(accs, axis=1)
         print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
-
-        print('checking forgetting')
-        accs = evaluate(model, dataset, task=None, mode='kbts')
-        print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
-
-        accs = evaluate(model, dataset, task=None, mode='ets')
-        print(f'ets accs: cil {accs[0]}, til {accs[1]}')
-
-        accs = evaluate(model, dataset, task=None, mode='jr')
-        print(f'jr accs: cil {accs[0]}, til {accs[1]}')
 
         # with torch.no_grad():
         #     model.fill_buffer(train_loader)
