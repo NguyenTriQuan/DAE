@@ -148,6 +148,17 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
+
+    # save model and buffer
+    model.net.clear_memory()
+    torch.save(model, base_path_memory() + args.title + '.model')
+    torch.save(dataset, base_path_memory() + args.title + '.dataset')
+    torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
+    torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
+    # estimate memory size
+    print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
+    print('Buffer size:', os.path.getsize(base_path_memory() + args.title + '.buffer'))
+    
     if not args.nowand:
         assert wandb is not None, "Wandb not installed, please install it or run without wandb"
         wandb.init(project=args.wandb_project, entity=args.wandb_entity, config=vars(args))
@@ -217,8 +228,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
-        with torch.no_grad():
-            model.fill_buffer(train_loader)
+        # with torch.no_grad():
+        #     model.fill_buffer(train_loader)
 
         # save model and buffer
         model.net.clear_memory()
