@@ -194,7 +194,7 @@ class _DynamicLayer(nn.Module):
         if self.norm_type is not None:
             self.norm_layer_jr = DynamicNorm(fan_out, affine=False, track_running_stats=True)
         
-        return add_out
+        return add_out * self.s * self.s
 
     def get_kb_params(self, t):
         # get knowledge base parameters for task t
