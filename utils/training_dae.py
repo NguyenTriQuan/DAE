@@ -63,14 +63,12 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
                     pred = model(inputs, k, mode)
                 else:
                     pred = model(inputs, None, mode)
-                    print('cil', pred)
 
                 correct += torch.sum(pred == labels).item()
                 total += labels.shape[0]
 
                 if dataset.SETTING == 'class-il' and task is None:
                     pred = model(inputs, k, mode)
-                    print('til', pred)
                     correct_mask_classes += torch.sum(pred == labels).item()
 
         acc = correct / total * 100 if 'class-il' in model.COMPATIBILITY else 0
