@@ -218,13 +218,12 @@ class _DynamicLayer(nn.Module):
     
     def get_masked_kb_params(self, t, add_in, add_out=None):
         # kb weight std = bound of the model size
-        self.get_kb_params(t)
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(t, add_in, add_out)
 
         if self.kb_weight.shape[0] == fan_out and self.kb_weight.shape[1] == fan_in:
             return add_out * self.s * self.s
         print(t, self.kb_weight.shape, fan_in, fan_out)
-
+        self.get_kb_params(t)
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
 
