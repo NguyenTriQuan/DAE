@@ -73,7 +73,7 @@ class _DynamicLayer(nn.Module):
         self.fwt_weight = nn.ParameterList([])
         self.bwt_weight = nn.ParameterList([])
 
-        self.norm_type = norm_type
+        self.norm_type = None
         if norm_type is not None:
             self.norm_layer_ets = nn.ModuleList([])
             self.norm_layer_kbts = nn.ModuleList([])
