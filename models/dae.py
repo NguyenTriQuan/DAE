@@ -140,8 +140,6 @@ class DAE(ContinualModel):
             predicted_task = torch.argmin(joint_entropy_tasks, axis=1)
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             _, predicts = predicted_outputs.max(1)
-            print('task', predicted_task)
-            print('predicts', predicts)
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
 
     def observe(self, inputs, labels, not_aug_inputs, mode):
