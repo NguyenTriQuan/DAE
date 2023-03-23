@@ -46,7 +46,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
     :return: a tuple of lists, containing the class-il
              and task-il accuracy for each task
     """
-    status = model.net.training
+    # status = model.net.training
     model.net.eval()
     accs, accs_mask_classes = [], []
     for k, test_loader in enumerate(dataset.test_loaders):
@@ -76,7 +76,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
         acc = correct_mask_classes / total * 100
         accs_mask_classes.append(round(acc, 2))
 
-    model.net.train(status)
+    # model.net.train(status)
     return accs, accs_mask_classes
 
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):

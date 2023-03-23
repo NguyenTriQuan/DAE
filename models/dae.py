@@ -91,6 +91,7 @@ class DAE(ContinualModel):
         self.soft = torch.nn.Softmax(dim=1)
 
     def forward(self, x, t=None, mode='ets_kbts_jr'):
+        print(self.net.training)
         if t is not None:
             outputs = []
             if 'jr' in mode:
@@ -146,7 +147,7 @@ class DAE(ContinualModel):
 
         self.opt.zero_grad()
 
-        if 'jr' in mode:
+        if 'jr' == mode:
             if not self.buffer.is_empty():
                 buf_inputs, buf_labels = self.buffer.get_data(
                     self.args.minibatch_size, transform=self.transform)
