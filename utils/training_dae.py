@@ -53,8 +53,6 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
         if task is not None:
             if k != task:
                 continue
-        else:
-            print(k)
         correct, correct_mask_classes, total = 0.0, 0.0, 0.0
         for data in test_loader:
             with torch.no_grad():
@@ -221,7 +219,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         with torch.no_grad():
             model.fill_buffer(train_loader)
-            
+
         # save model and buffer
         model.net.clear_memory()
         torch.save(model, base_path_memory() + args.title + '.model')
