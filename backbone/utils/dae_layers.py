@@ -219,8 +219,8 @@ class _DynamicLayer(nn.Module):
         # kb weight std = bound of the model size
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(t, add_in, add_out)
 
-        if self.kb_weight.shape[0] == fan_out and self.kb_weight.shape[1] == fan_in:
-            return add_out * self.s * self.s
+        # if self.kb_weight.shape[0] == fan_out and self.kb_weight.shape[1] == fan_in:
+        #     return add_out * self.s * self.s
         
         self.get_kb_params(t)
         n_0 = add_out * (fan_in-add_in) * self.ks
