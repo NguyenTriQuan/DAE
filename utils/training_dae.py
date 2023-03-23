@@ -208,10 +208,10 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         print('checking forgetting')
-        accs = evaluate(model, dataset, task=None, mode='kbts')
+        accs = evaluate(model, dataset, task=t, mode='kbts')
         print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
 
-        accs = evaluate(model, dataset, task=None, mode='ets')
+        accs = evaluate(model, dataset, task=t, mode='ets')
         print(f'ets accs: cil {accs[0]}, til {accs[1]}')
 
         accs = evaluate(model, dataset, task=None, mode='jr')
