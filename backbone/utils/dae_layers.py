@@ -249,6 +249,8 @@ class _DynamicLayer(nn.Module):
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
         if self.norm_type is not None:
             norm_layer = self.norm_layer_ets[t]
+        else:
+            norm_layer = None
         return weight, None, norm_layer
     
     def get_kbts_params(self, t):
@@ -261,6 +263,8 @@ class _DynamicLayer(nn.Module):
         
         if self.norm_type is not None:
             norm_layer = self.norm_layer_kbts[t]
+        else:
+            norm_layer = None
         return weight, None, norm_layer
     
     def get_jr_params(self):
@@ -273,6 +277,8 @@ class _DynamicLayer(nn.Module):
         
         if self.norm_type is not None:
             norm_layer = self.norm_layer_jr
+        else:
+            norm_layer = None
         return weight, None, norm_layer
 
     def freeze(self):
