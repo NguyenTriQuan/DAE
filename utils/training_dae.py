@@ -85,8 +85,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         lamb = model.lamb[t]
         print('lamb', lamb)
         num_params, num_neurons = model.net.count_params()
-        n_epochs = 100
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
+        n_epochs = 75
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [60, 70], gamma=0.1, verbose=False)
     elif 'kbts' in mode:
         n_epochs = 50
         scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
@@ -110,7 +110,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             not_aug_inputs = not_aug_inputs.to(model.device)
             loss = model.meta_observe(inputs, labels, not_aug_inputs, mode=mode)
             if 'ets' in mode:
-                if epoch < 70:
+                if epoch < 50:
                     model.net.proximal_gradient_descent(scheduler.get_last_lr()[0], lamb)
                 progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0], sum(num_params), num_neurons)
             else:
@@ -185,7 +185,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
         
         # kbts training
-        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
+        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
 
         # ets training
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
@@ -194,10 +194,10 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             model.end_task(dataset)
 
         # jr training
-        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
+        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
 
-        # with torch.no_grad():
-        #     model.fill_buffer(train_loader)
+        with torch.no_grad():
+            model.fill_buffer(train_loader)
 
         print('checking forgetting')
         accs = evaluate(model, dataset, task=None, mode='kbts')
@@ -206,16 +206,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         accs = evaluate(model, dataset, task=None, mode='ets')
         print(f'ets accs: cil {accs[0]}, til {accs[1]}')
 
-        # accs = evaluate(model, dataset, task=None, mode='jr')
-        # print(f'jr accs: cil {accs[0]}, til {accs[1]}')
+        accs = evaluate(model, dataset, task=None, mode='jr')
+        print(f'jr accs: cil {accs[0]}, til {accs[1]}')
 
         # final evaluation
-        # accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
-        # results.append(accs[0])
-        # results_mask_classes.append(accs[1])
-        # mean_acc = np.mean(accs, axis=1)
-        # print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
-        # print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+        accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
+        results.append(accs[0])
+        results_mask_classes.append(accs[1])
+        mean_acc = np.mean(accs, axis=1)
+        print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
+        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         accs = evaluate(model, dataset, task=None, mode='ets_kbts')
         mean_acc = np.mean(accs, axis=1)
