@@ -293,8 +293,8 @@ class _DynamicLayer(nn.Module):
                 self.norm_layer_kbts[-1].weight.requires_grad = False
                 self.norm_layer_ets[-1].bias.requires_grad = False
                 self.norm_layer_kbts[-1].bias.requires_grad = False
-            # self.norm_layer_ets[-1].track_running_stats = False
-            # self.norm_layer_kbts[-1].track_running_stats = False
+            self.norm_layer_ets[-1].track_running_stats = False
+            self.norm_layer_kbts[-1].track_running_stats = False
 
     def clear_memory(self):
         self.score = None
