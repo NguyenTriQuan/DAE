@@ -168,8 +168,9 @@ class _DynamicLayer(nn.Module):
 
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
 
-        mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-        self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool().clone())
+        # mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
+        # self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool().clone())
+        self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', torch.ones_like(self.score).to(device))
 
         self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
 
@@ -187,8 +188,9 @@ class _DynamicLayer(nn.Module):
         else:
             self.score = nn.Parameter(torch.Tensor(fan_out, fan_in).to(device))
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
-        mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-        self.register_buffer('jr_mask', mask.detach().bool().clone())
+        # mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
+        # self.register_buffer('jr_mask', mask.detach().bool().clone())
+        self.register_buffer('jr_mask', torch.ones_like(self.score).to(device))
         if self.norm_type is not None:
             self.norm_layer_jr = DynamicNorm(fan_out, affine=False, track_running_stats=True)
         
