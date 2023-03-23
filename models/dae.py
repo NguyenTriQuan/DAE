@@ -177,7 +177,7 @@ class DAE(ContinualModel):
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
 
     def end_task(self, dataset) -> None:
-        # self.net.set_jr_params()
+        self.net.set_jr_params()
         self.task += 1
         self.net.freeze()
         # self.net.update_scale()
