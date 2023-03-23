@@ -91,7 +91,6 @@ class DAE(ContinualModel):
         self.soft = torch.nn.Softmax(dim=1)
 
     def forward(self, x, t=None, mode='ets_kbts_jr'):
-        print(self.net.training)
         if t is not None:
             outputs = []
             if 'jr' in mode:
