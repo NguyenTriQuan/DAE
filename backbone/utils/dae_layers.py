@@ -247,8 +247,9 @@ class _DynamicLayer(nn.Module):
         weight = F.dropout(weight, self.dropout, self.training)
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
-
-        return weight, None, self.norm_layer_ets[t]
+        if self.norm_type is not None:
+            norm_layer = self.norm_layer_ets[t]
+        return weight, None, norm_layer
     
     def get_kbts_params(self, t):
         if self.training:
@@ -258,7 +259,9 @@ class _DynamicLayer(nn.Module):
         else:
             weight = self.kb_weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.sparsity)
         
-        return weight, None, self.norm_layer_kbts[t]
+        if self.norm_type is not None:
+            norm_layer = self.norm_layer_kbts[t]
+        return weight, None, norm_layer
     
     def get_jr_params(self):
         if self.training:
@@ -268,7 +271,9 @@ class _DynamicLayer(nn.Module):
         else:
             weight = self.kb_weight * getattr(self, 'jr_mask') / (1-self.sparsity)
         
-        return weight, None, self.norm_layer_jr
+        if self.norm_type is not None:
+            norm_layer = self.norm_layer_jr
+        return weight, None, norm_layer
 
     def freeze(self):
         self.weight[-1].requires_grad = False
