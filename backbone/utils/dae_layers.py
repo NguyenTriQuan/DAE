@@ -73,7 +73,7 @@ class _DynamicLayer(nn.Module):
         self.fwt_weight = nn.ParameterList([])
         self.bwt_weight = nn.ParameterList([])
 
-        self.norm_type = None
+        self.norm_type = norm_type
         if norm_type is not None:
             self.norm_layer_ets = nn.ModuleList([])
             self.norm_layer_kbts = nn.ModuleList([])
@@ -174,8 +174,8 @@ class _DynamicLayer(nn.Module):
         self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
 
         if self.norm_type is not None:
-            self.norm_layer_ets.append(DynamicNorm(fan_out, affine=False, track_running_stats=False)) 
-            self.norm_layer_kbts.append(DynamicNorm(fan_out, affine=False, track_running_stats=False))
+            self.norm_layer_ets.append(DynamicNorm(fan_out, affine=False, track_running_stats=True)) 
+            self.norm_layer_kbts.append(DynamicNorm(fan_out, affine=False, track_running_stats=True))
             
         return add_out * self.s * self.s
 
@@ -190,7 +190,7 @@ class _DynamicLayer(nn.Module):
         mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
         self.register_buffer('jr_mask', mask.detach().bool().clone())
         if self.norm_type is not None:
-            self.norm_layer_jr = DynamicNorm(fan_out, affine=False, track_running_stats=False)
+            self.norm_layer_jr = DynamicNorm(fan_out, affine=False, track_running_stats=True)
         
         return add_out
 
