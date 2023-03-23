@@ -197,8 +197,8 @@ class _DynamicLayer(nn.Module):
     def get_kb_params(self, t):
         # get knowledge base parameters for task t
         # kb weight std = 1
-        # if self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
-        #     return
+        if self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
+            return
         
         if isinstance(self, DynamicConv2D):
             self.kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)
@@ -219,8 +219,8 @@ class _DynamicLayer(nn.Module):
         # kb weight std = bound of the model size
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(t, add_in, add_out)
 
-        # if self.kb_weight.shape[0] == fan_out and self.kb_weight.shape[1] == fan_in:
-        #     return add_out * self.s * self.s
+        if self.kb_weight.shape[0] == fan_out and self.kb_weight.shape[1] == fan_in:
+            return add_out * self.s * self.s
         
         self.get_kb_params(t)
         n_0 = add_out * (fan_in-add_in) * self.ks
@@ -591,9 +591,8 @@ class DynamicNorm(nn.Module):
                     # update running_var with unbiased var
                     self.running_var = exponential_average_factor * var * n / (n - 1) + (1 - exponential_average_factor) * self.running_var
         else:
-            if self.track_running_stats:
-                mean = self.running_mean
-                var = self.running_var
+            mean = self.running_mean
+            var = self.running_var
 
         var = var.mean()
         output = (input - mean.view(shape)) / (torch.sqrt(var.view(shape) + self.eps))
