@@ -180,7 +180,7 @@ class DAE(ContinualModel):
         # self.net.set_jr_params()
         self.task += 1
         self.net.freeze()
-        self.net.update_scale()
+        # self.net.update_scale()
         # self.net.ERK_sparsify(sparsity=self.args.sparsity)
 
     def fill_buffer(self, train_loader) -> None:
