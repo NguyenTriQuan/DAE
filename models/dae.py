@@ -93,14 +93,14 @@ class DAE(ContinualModel):
     def forward(self, x, t=None, mode='ets_kbts_jr'):
         if t is not None:
             outputs = []
-            if 'ets' in mode:
-                outputs.append(self.net(x, t, mode='ets'))
-            if 'kbts' in mode:
-                outputs.append(self.net(x, t, mode='kbts'))
             if 'jr' in mode:
                 out_jr = self.net(x, self.task, mode='jr')
                 out_jr = out_jr[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
                 outputs.append(out_jr)
+            if 'ets' in mode:
+                outputs.append(self.net(x, t, mode='ets'))
+            if 'kbts' in mode:
+                outputs.append(self.net(x, t, mode='kbts'))
             outputs = ensemble_outputs(outputs)
             _, predicts = outputs.max(1)
             return predicts + t * self.dataset.N_CLASSES_PER_TASK
