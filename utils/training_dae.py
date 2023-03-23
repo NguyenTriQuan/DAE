@@ -217,8 +217,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         accs = evaluate(model, dataset, task=None, mode='jr')
         print(f'jr accs: cil {accs[0]}, til {accs[1]}')
 
-        with torch.no_grad():
-            model.fill_buffer(train_loader)
+        # with torch.no_grad():
+        #     model.fill_buffer(train_loader)
         # save model and buffer
         model.net.clear_memory()
         torch.save(model, base_path_memory() + args.title + '.model')
