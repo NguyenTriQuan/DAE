@@ -89,8 +89,10 @@ class _DynamicLayer(nn.Module):
 
         if isinstance(self, DynamicConv2D):
             self.kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)
+            self.masked_kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)
         else:
             self.kb_weight = torch.empty(0, 0).to(device)
+            self.masked_kb_weight = torch.empty(0, 0).to(device)
 
         self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
 
