@@ -198,6 +198,7 @@ class _DynamicLayer(nn.Module):
         # get knowledge base parameters for task t
         # kb weight std = 1
         if self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
+            print(t, self.kb_weight.shape)
             return
         
         if isinstance(self, DynamicConv2D):
@@ -220,6 +221,7 @@ class _DynamicLayer(nn.Module):
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(t, add_in, add_out)
 
         if self.kb_weight.shape[0] == fan_out and self.kb_weight.shape[1] == fan_in:
+            print(t, self.kb_weight.shape)
             return add_out * self.s * self.s
         
         self.get_kb_params(t)
