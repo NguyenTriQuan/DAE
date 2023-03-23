@@ -189,10 +189,10 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
 
         print('checking forgetting')
-        accs = evaluate(model, dataset, task=t, mode='kbts')
+        accs = evaluate(model, dataset, task=None, mode='kbts')
         print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
 
-        accs = evaluate(model, dataset, task=t, mode='ets')
+        accs = evaluate(model, dataset, task=None, mode='ets')
         print(f'ets accs: cil {accs[0]}, til {accs[1]}')
 
         if hasattr(model, 'end_task'):
@@ -202,13 +202,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
 
         print('checking forgetting')
-        accs = evaluate(model, dataset, task=t, mode='kbts')
+        accs = evaluate(model, dataset, task=None, mode='kbts')
         print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
 
-        accs = evaluate(model, dataset, task=t, mode='ets')
+        accs = evaluate(model, dataset, task=None, mode='ets')
         print(f'ets accs: cil {accs[0]}, til {accs[1]}')
 
-        accs = evaluate(model, dataset, task=t, mode='jr')
+        accs = evaluate(model, dataset, task=None, mode='jr')
         print(f'jr accs: cil {accs[0]}, til {accs[1]}')
 
         # final evaluation
