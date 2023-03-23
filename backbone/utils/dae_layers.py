@@ -206,9 +206,9 @@ class _DynamicLayer(nn.Module):
             self.kb_weight = torch.empty(0, 0).to(device)
 
         for i in range(t):
-            weight_scale = getattr(self, f'weight_scale_{i}')
-            fwt_weight_scale = getattr(self, f'fwt_weight_scale_{i}')
-            bwt_weight_scale = getattr(self, f'bwt_weight_scale_{i}')
+            # weight_scale = getattr(self, f'weight_scale_{i}')
+            # fwt_weight_scale = getattr(self, f'fwt_weight_scale_{i}')
+            # bwt_weight_scale = getattr(self, f'bwt_weight_scale_{i}')
             # self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i] / bwt_weight_scale], dim=1), 
             #                     torch.cat([self.fwt_weight[i] / fwt_weight_scale, self.weight[i] / weight_scale], dim=1)], dim=0)
             self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i]], dim=1), 
