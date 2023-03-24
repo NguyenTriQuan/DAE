@@ -85,8 +85,9 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         lamb = model.lamb[t]
         print('lamb', lamb)
         num_params, num_neurons = model.net.count_params()
-        n_epochs = 75
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [60, 70], gamma=0.1, verbose=False)
+        n_epochs = 100
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
+        num_squeeze = 70
     elif 'kbts' in mode:
         n_epochs = 50
         scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
@@ -110,7 +111,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             not_aug_inputs = not_aug_inputs.to(model.device)
             loss = model.meta_observe(inputs, labels, not_aug_inputs, mode=mode)
             if 'ets' in mode:
-                if epoch < 50:
+                if epoch < num_squeeze:
                     model.net.proximal_gradient_descent(scheduler.get_last_lr()[0], lamb)
                 progress_bar.prog(i, len(train_loader), epoch, t, loss, accs[0][0], sum(num_params), num_neurons)
             else:
@@ -118,7 +119,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             assert not math.isnan(loss)
 
         if 'ets' in mode:
-            if epoch < 70:
+            if epoch < num_squeeze:
                 model.net.squeeze(model.opt.state)
                 num_params, num_neurons = model.net.count_params()
 
