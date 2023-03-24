@@ -178,7 +178,7 @@ class _DynamicLayer(nn.Module):
 
         if self.norm_type is not None:
             self.norm_layer_ets.append(DynamicNorm(fan_out, affine=False, track_running_stats=True)) 
-            self.norm_layer_kbts.append(DynamicNorm(fan_out, affine=False, track_running_stats=True))
+            self.norm_layer_kbts.append(DynamicNorm(fan_out, affine=True, track_running_stats=True))
             
         return add_out * self.s * self.s
 
@@ -194,7 +194,7 @@ class _DynamicLayer(nn.Module):
         # self.register_buffer('jr_mask', mask.detach().bool().clone())
         self.register_buffer('jr_mask', torch.ones_like(self.score).to(device))
         if self.norm_type is not None:
-            self.norm_layer_jr = DynamicNorm(fan_out, affine=False, track_running_stats=True)
+            self.norm_layer_jr = DynamicNorm(fan_out, affine=True, track_running_stats=True)
         
         return add_out * self.s * self.s
 
