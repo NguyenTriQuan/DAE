@@ -174,14 +174,11 @@ class _DynamicLayer(nn.Module):
         # self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool().clone())
         self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', torch.ones_like(self.score).to(device))
 
-        # self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
-        self.strength_in = 1 - ((self.shape_in[-1] + self.num_out[-1] + self.kernel_size[0] + self.kernel_size[1]) / 
-                                (self.shape_in[-1] * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])) 
-
         if self.norm_type is not None:
             self.norm_layer_ets.append(DynamicNorm(fan_out, affine=True, track_running_stats=True)) 
             self.norm_layer_kbts.append(DynamicNorm(fan_out, affine=True, track_running_stats=True))
-            
+        
+        self.set_reg_strength()
         return add_out * self.s * self.s
 
     def set_jr_params(self, add_in, add_out=None):
@@ -351,6 +348,10 @@ class _DynamicLayer(nn.Module):
         # norm = (weight ** 2).mean(dim=self.dim_in) ** 0.5
         return norm
     
+    def set_reg_strength(self):
+        self.strength_in = 1 - ((self.shape_in[-1] + self.shape_out[-1] + self.kernel_size[0] + self.kernel_size[1]) / 
+                                (self.shape_in[-1] * self.shape_out[-1] * self.kernel_size[0] * self.kernel_size[1])) 
+    
     def set_squeeze_state(self, squeeze):
         # not using batch norm affine when squeezing the network
         self.norm_layer_ets[-1].affine = not squeeze
@@ -392,9 +393,7 @@ class _DynamicLayer(nn.Module):
             self.num_in[-1] = self.weight[-1].shape[1]
             self.shape_in[-1] = self.num_in.sum()
 
-        # self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
-        self.strength_in = 1 - ((self.shape_in[-1] + self.num_out[-1] + self.kernel_size[0] + self.kernel_size[1]) / 
-                                (self.shape_in[-1] * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])) 
+        self.set_reg_strength()
 
 
     def proximal_gradient_descent(self, lr, lamb, total_strength):
