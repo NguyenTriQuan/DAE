@@ -373,10 +373,10 @@ class _DynamicLayer(nn.Module):
                     apply_mask_out(norm_layer.weight, mask, optim_state)
                     apply_mask_out(norm_layer.bias, mask, optim_state)
                 
-                factor = mask.sum()/mask.numel()
+                # factor = mask.sum()/mask.numel()
                 if norm_layer.track_running_stats:
-                    norm_layer.running_mean = norm_layer.running_mean[mask] * factor
-                    norm_layer.running_var = norm_layer.running_var[mask] * factor
+                    norm_layer.running_mean = norm_layer.running_mean[mask]
+                    norm_layer.running_var = norm_layer.running_var[mask]
         
         if prune_in:
             if self.s != 1:
@@ -408,7 +408,7 @@ class _DynamicLayer(nn.Module):
                 norm_layer = self.norm_layer_ets[-1]
                 if norm_layer.track_running_stats:
                     norm_layer.running_mean[self.shape_out[-2]:] *= aux
-                    norm_layer.running_var[self.shape_out[-2]:] *= aux
+                    norm_layer.running_var[self.shape_out[-2]:] *= (aux ** 2)
 
                 if norm_layer.affine:
                     norm_layer.weight.data[self.shape_out[-2]:] *= aux
