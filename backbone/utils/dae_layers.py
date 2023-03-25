@@ -174,7 +174,9 @@ class _DynamicLayer(nn.Module):
         # self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool().clone())
         self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', torch.ones_like(self.score).to(device))
 
-        self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
+        # self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
+        self.strength_in = 1 - ((self.shape_in[-1] + self.num_out[-1] + self.kernel_size[0] + self.kernel_size[1]) / 
+                                (self.shape_in[-1] * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])) 
 
         if self.norm_type is not None:
             self.norm_layer_ets.append(DynamicNorm(fan_out, affine=False, track_running_stats=True)) 
@@ -385,7 +387,9 @@ class _DynamicLayer(nn.Module):
             self.num_in[-1] = self.weight[-1].shape[1]
             self.shape_in[-1] = self.num_in.sum()
 
-        self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
+        # self.strength_in = (self.weight[-1].numel() + self.fwt_weight[-1].numel()) 
+        self.strength_in = 1 - ((self.shape_in[-1] + self.num_out[-1] + self.kernel_size[0] + self.kernel_size[1]) / 
+                                (self.shape_in[-1] * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])) 
 
 
     def proximal_gradient_descent(self, lr, lamb, total_strength):

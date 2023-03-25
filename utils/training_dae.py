@@ -119,10 +119,11 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             assert not math.isnan(loss)
 
         if 'ets' in mode:
+            num_neurons = [m.mask_out.sum().item() for m in model.net.DM]
             if epoch == num_squeeze-1:
                 model.net.squeeze(model.opt.state)
                 num_params, num_neurons = model.net.count_params()
-
+            
         if not args.debug:
             accs = evaluate(model, dataset, task=t, mode=mode)
             if 'ets' in mode:
