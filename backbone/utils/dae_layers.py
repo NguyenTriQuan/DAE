@@ -179,7 +179,7 @@ class _DynamicLayer(nn.Module):
                                 (self.shape_in[-1] * self.num_out[-1] * self.kernel_size[0] * self.kernel_size[1])) 
 
         if self.norm_type is not None:
-            self.norm_layer_ets.append(DynamicNorm(fan_out, affine=False, track_running_stats=True)) 
+            self.norm_layer_ets.append(DynamicNorm(fan_out, affine=True, track_running_stats=True)) 
             self.norm_layer_kbts.append(DynamicNorm(fan_out, affine=True, track_running_stats=True))
             
         return add_out * self.s * self.s
@@ -350,6 +350,10 @@ class _DynamicLayer(nn.Module):
         norm = weight.norm(2, dim=self.dim_in)
         # norm = (weight ** 2).mean(dim=self.dim_in) ** 0.5
         return norm
+    
+    def set_squeeze_state(self, squeeze):
+        # not using batch norm affine when squeezing the network
+        self.norm_layer_ets[-1].affine = not squeeze
 
     def squeeze(self, optim_state, mask_in=None, mask_out=None):
         prune_out = mask_out is not None and mask_out.sum() != self.num_out[-1]
@@ -369,7 +373,8 @@ class _DynamicLayer(nn.Module):
             if self.norm_type:
                 norm_layer = self.norm_layer_ets[-1]
                 norm_layer.num_features = self.shape_out[-1]
-                if norm_layer.affine:
+                # if norm_layer.affine:
+                if hasattr(norm_layer, 'weight'):
                     apply_mask_out(norm_layer.weight, mask, optim_state)
                     apply_mask_out(norm_layer.bias, mask, optim_state)
                 

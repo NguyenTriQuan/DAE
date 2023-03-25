@@ -177,6 +177,10 @@ class _DynamicModel(nn.Module):
         add_in = 0
         for m in self.DM:
             add_in = m.set_jr_params(add_in)
+    
+    def set_squeeze_state(self, squeeze):
+        for m in self.DM[:-1]:
+            m.set_squeeze_state(squeeze)
 
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')
