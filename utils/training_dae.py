@@ -121,6 +121,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             assert not math.isnan(loss)
 
         if 'ets' in mode:
+            model.net.update_strength()
             if epoch == num_squeeze-1:
                 model.net.squeeze(model.opt.state)
                 num_params, num_neurons = model.net.count_params()

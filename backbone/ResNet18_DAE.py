@@ -180,8 +180,8 @@ class ResNet(_DynamicModel):
     def proximal_gradient_descent(self, lr, lamb):
         for m in self.DM[:-1]:
             m.proximal_gradient_descent(lr, lamb, self.total_strength)
-        
-        # set compress mask
+                
+    def update_strength(self):
         self.conv1.mask_in = None
         mask_in = self.conv1.mask_out
 
@@ -209,6 +209,7 @@ class ResNet(_DynamicModel):
             self.total_strength += block.conv1.strength_in
             self.total_strength += block.conv2.strength_in
             self.total_strength += block.shortcut.strength_in
+        
 
     def get_masked_kb_params(self, t):
         if t == 0:
