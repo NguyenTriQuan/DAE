@@ -177,6 +177,39 @@ class ResNet(_DynamicModel):
         for m in self.DM[:-1]:
             self.total_strength += m.strength_in
 
+    def proximal_gradient_descent(self, lr, lamb):
+        for m in self.DM[:-1]:
+            m.proximal_gradient_descent(lr, lamb, self.total_strength)
+        
+        # set compress mask
+        self.conv1.mask_in = None
+        mask_in = self.conv1.mask_out
+
+        for block in self.layers:
+            block.conv1.mask_in = mask_in
+            block.shortcut.mask_in = mask_in
+            block.conv2.mask_in = block.conv1.mask_out
+            mask_in = block.conv2.mask_out + block.shortcut.mask_out
+        
+        self.linear.mask_in = mask_in
+
+        # update regularization strength
+        self.total_strength = 1
+        self.conv1.set_reg_strength()
+        self.total_strength += self.conv1.strength_in
+
+        for block in self.layers:
+            block.conv1.set_reg_strength()
+            block.shortcut.set_reg_strength()
+            block.conv2.set_reg_strength()
+            max_strength = max(block.conv2.strength_in, block.shortcut.strength_in)
+            block.conv2.strength_in = max_strength
+            block.shortcut.strength_in = max_strength
+
+            self.total_strength += block.conv1.strength_in
+            self.total_strength += block.conv2.strength_in
+            self.total_strength += block.shortcut.strength_in
+
     def get_masked_kb_params(self, t):
         if t == 0:
             add_in = self.conv1.get_masked_kb_params(t, add_in=self.conv1.base_in_features)

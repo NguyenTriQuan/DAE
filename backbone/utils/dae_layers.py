@@ -352,8 +352,16 @@ class _DynamicLayer(nn.Module):
         return norm
     
     def set_reg_strength(self):
-        self.strength_in = 1 - ((self.shape_in[-1] + self.shape_out[-1] + self.kernel_size[0] + self.kernel_size[1]) / 
-                                (self.shape_in[-1] * self.shape_out[-1] * self.kernel_size[0] * self.kernel_size[1])) 
+        if self.mask_in is not None:
+            fan_in = self.shape_in[-2] + sum(self.mask_in).item()
+            fan_out = self.shape_out[-2] + sum(self.mask_out).item()
+        else:
+            fan_in = self.shape_in[-1]
+            fan_out = self.shape_out[-1]
+        self.strength_in = 1 - ((fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1]) / 
+                                (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1])) 
+        # self.strength_in = 1 - ((self.shape_in[-1] + self.shape_out[-1] + self.kernel_size[0] + self.kernel_size[1]) / 
+        #                         (self.shape_in[-1] * self.shape_out[-1] * self.kernel_size[0] * self.kernel_size[1])) 
     
     def set_squeeze_state(self, squeeze):
         # not using batch norm affine when squeezing the network
