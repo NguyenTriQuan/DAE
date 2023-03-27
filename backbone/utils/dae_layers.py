@@ -209,13 +209,16 @@ class _DynamicLayer(nn.Module):
             self.kb_weight = torch.empty(0, 0).to(device)
 
         for i in range(t):
-            weight_scale = getattr(self, f'weight_scale_{i}')
-            fwt_weight_scale = getattr(self, f'fwt_weight_scale_{i}')
-            bwt_weight_scale = getattr(self, f'bwt_weight_scale_{i}')
-            self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i] / bwt_weight_scale], dim=1), 
-                                torch.cat([self.fwt_weight[i] / fwt_weight_scale, self.weight[i] / weight_scale], dim=1)], dim=0)
-            # self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i]], dim=1), 
-            #                     torch.cat([self.fwt_weight[i], self.weight[i]], dim=1)], dim=0)
+            # weight_scale = getattr(self, f'weight_scale_{i}')
+            # fwt_weight_scale = getattr(self, f'fwt_weight_scale_{i}')
+            # bwt_weight_scale = getattr(self, f'bwt_weight_scale_{i}')
+            # self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i] / bwt_weight_scale], dim=1), 
+            #                     torch.cat([self.fwt_weight[i] / fwt_weight_scale, self.weight[i] / weight_scale], dim=1)], dim=0)
+            self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i]], dim=1), 
+                                torch.cat([self.fwt_weight[i], self.weight[i]], dim=1)], dim=0)
+        if self.kb_weight.numel() != 0:
+            old_bound_std = self.gain / math.sqrt(self.kb_weight.shape[1] * self.ks)
+            self.kb_weight = self.kb_weight / old_bound_std
 
     
     def get_masked_kb_params(self, t, add_in, add_out=None):
@@ -250,11 +253,7 @@ class _DynamicLayer(nn.Module):
         weight = F.dropout(weight, self.dropout, self.training)
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
-        if self.norm_type is not None:
-            norm_layer = self.norm_layer_ets[t]
-        else:
-            norm_layer = None
-        return weight, None, norm_layer
+        return weight, None, self.norm_layer_ets[t] if self.norm_type is not None else None
     
     def get_kbts_params(self, t):
         if self.training:
@@ -264,11 +263,7 @@ class _DynamicLayer(nn.Module):
         else:
             weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}')
         
-        if self.norm_type is not None:
-            norm_layer = self.norm_layer_kbts[t]
-        else:
-            norm_layer = None
-        return weight, None, norm_layer
+        return weight, None, self.norm_layer_kbts[t] if self.norm_type is not None else None
     
     def get_jr_params(self):
         if self.training:
@@ -278,11 +273,7 @@ class _DynamicLayer(nn.Module):
         else:
             weight = self.masked_kb_weight * getattr(self, 'jr_mask')
         
-        if self.norm_type is not None:
-            norm_layer = self.norm_layer_jr
-        else:
-            norm_layer = None
-        return weight, None, norm_layer
+        return weight, None, self.norm_layer_jr if self.norm_type is not None else None
 
     def freeze(self):
         self.weight[-1].requires_grad = False
@@ -428,6 +419,13 @@ class _DynamicLayer(nn.Module):
                 if norm_layer.affine:
                     norm_layer.weight.data[self.shape_out[-2]:] *= aux
                     norm_layer.bias.data[self.shape_out[-2]:] *= aux
+
+    def weight_normalize(self):
+        weight = torch.cat([self.fwt_weight[-1], self.weight[-1]], dim=1)
+        mean = weight.mean(dim=self.dim_in)
+        std = weight.var(dim=self.dim_in, unbiased=False).sum()
+        self.weight[-1].data = self.num_out[-1] * (self.weight[-1].data - mean.view(self.view_in)) / std
+        self.fwt_weight[-1].data = self.num_out[-1] * (self.fwt_weight[-1].data - mean.view(self.view_in)) / std
 
 
 class DynamicLinear(_DynamicLayer):
