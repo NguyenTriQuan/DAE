@@ -302,7 +302,7 @@ class DAE(ContinualModel):
                 continue
             a_x.append(x)
             a_y.append(y)
-            x = self.dataset.test_transfrom(x.to(self.device))
+            x = self.dataset.test_transform(x.to(self.device))
             y = y.to(self.device)
             outs_ets = self.net(x, self.task-1, mode='ets')
             outs_kbts = self.net(x, self.task-1, mode='kbts')
