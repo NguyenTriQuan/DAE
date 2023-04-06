@@ -19,21 +19,21 @@ def base_path() -> str:
     """
     Returns the base bath where to log accuracies and tensorboard data.
     """
-    os.makedirs('/tmp/log/', exist_ok=True)
+    os.makedirs('./tmp/log/', exist_ok=True)
     return './tmp/log/'
 
 def base_path_dataset() -> str:
     """
     Returns the base bath where to log accuracies and tensorboard data.
     """
-    os.makedirs('/tmp/data/', exist_ok=True)
+    os.makedirs('./tmp/data/', exist_ok=True)
     return './tmp/data/'
 
 def base_path_memory() -> str:
     """
     Returns the base bath where to store model and buffer.
     """
-    os.makedirs('/tmp/memory/', exist_ok=True)
+    os.makedirs('./tmp/memory/', exist_ok=True)
     return './tmp/memory/'
 
 
