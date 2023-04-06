@@ -34,7 +34,7 @@ class SequentialCIFAR100(ContinualDataset):
                 K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
                                         (0.2675, 0.2565, 0.2761)),
             )
-    test_trasnform = train_transform = torch.nn.Sequential(
+    test_transform = torch.nn.Sequential(
                 K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
                                         (0.2675, 0.2565, 0.2761)),
             )
