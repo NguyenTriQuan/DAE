@@ -47,8 +47,8 @@ class GetSubnet(torch.autograd.Function):
 
         # flat_out and out access the same memory.
         flat_out = out.flatten()
-        flat_out[idx[:j]] = False
-        flat_out[idx[j:]] = True
+        flat_out[idx[:j]] = 0
+        flat_out[idx[j:]] = 1
 
         return out
 

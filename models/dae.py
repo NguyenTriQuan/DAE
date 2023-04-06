@@ -14,6 +14,8 @@ from utils.args import add_management_args, add_experiment_args, add_rehearsal_a
 from utils.batch_norm import bn_track_stats
 from utils.buffer import Buffer, icarl_replay
 from backbone.ResNet18_DAE import resnet18
+from torch.utils.data import DataLoader, Dataset, TensorDataset
+from itertools import cycle
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Continual Learning with Dynamic Architecture and Ensemble of Knowledge Base.')
@@ -82,7 +84,8 @@ class DAE(ContinualModel):
         self.dataset = get_dataset(args)
         self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_affine_track', args=args)
         # Instantiate buffers
-        self.buffer = Buffer(self.args.buffer_size, self.device)
+        # self.buffer = Buffer(self.args.buffer_size, self.device)
+        self.buffer = None
         self.task = 0
         self.lamb = [float(i) for i in args.lamb.split('_')]
         if len(self.lamb) < self.dataset.N_TASKS:
@@ -115,34 +118,24 @@ class DAE(ContinualModel):
                 if 'ets' in mode:
                     out = self.net(x, i, mode='ets')
                     outputs.append(out)
-                    weights.append(-entropy(F.softmax(out, dim=1)))
                 if 'kbts' in mode:
                     out = self.net(x, i, mode='kbts')
                     outputs.append(out)
-                    weights.append(-entropy(F.softmax(out, dim=1)))
                 if 'jr' in mode:
                     out = out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
-                    outputs.append(out)
-                    weights.append(-entropy(F.softmax(out, dim=1)))
                 outputs = ensemble_outputs(outputs)
-                # outputs = weighted_ensemble(outputs, weights, self.args.temperature)
                 outputs_tasks.append(outputs)
-                outputs = outputs.exp()
-                # outputs = outputs / outputs.sum(1).view(-1, 1)
-                # print(outputs.sum(1))
-                joint_entropy = entropy(outputs)
-                # p =self.dataset.N_CLASSES_PER_TASK // self.dataset.N_CLASSES_PER_TASK
-                # joint_entropy /= p
+                joint_entropy = entropy(outputs.exp())
                 joint_entropy_tasks.append(joint_entropy)
             
             outputs_tasks = torch.stack(outputs_tasks, dim=1)
             joint_entropy_tasks = torch.stack(joint_entropy_tasks, dim=1)
-            predicted_task = torch.argmin(joint_entropy_tasks, axis=1)
+            predicted_task = torch.argmin(joint_entropy_tasks, dim=1)
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             _, predicts = predicted_outputs.max(1)
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
 
-    def observe(self, inputs, labels, not_aug_inputs, mode):
+    def observe(self, inputs, labels, not_aug_inputs, logits, mode):
 
         self.opt.zero_grad()
 
@@ -170,11 +163,82 @@ class DAE(ContinualModel):
         self.opt.step()
 
         return loss.item()
+    
+    def train(self, train_loader, progress_bar, mode, squeeze, epoch):
+        self.net.train()
+        total = 0
+        correct = 0
+        for i, data in enumerate(train_loader):
+            if self.args.debug and i > 3:
+                break
+            inputs, labels = data
+            inputs, labels = inputs.to(self.device), labels.to(self.device)
+            inputs = self.dataset.train_transform(inputs)
+            self.opt.zero_grad()
+            outputs = self.net(inputs, self.task, mode)
+            loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
+            loss.backward()
+            self.opt.step()
+            # print(outputs.shape, labels.shape)
+            _, predicts = outputs.max(1)
+            correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
+            total += labels.shape[0]
+            if squeeze:
+                self.net.proximal_gradient_descent(self.args.lr, self.lamb[self.task])
+                num_neurons = [m.mask_out.sum().item() for m in self.net.DM[:-1]]
+                progress_bar.prog(i, len(train_loader), epoch, self.task, loss.item(), correct/total*100, 0, num_neurons)
+            else:
+                progress_bar.prog(i, len(train_loader), epoch, self.task, loss.item(), correct/total*100)
+        if squeeze:
+            self.net.update_strength()
+            self.net.squeeze(self.opt.state)
+
+    def train_rehearsal(self, train_loader, progress_bar, epoch):
+        with torch.no_grad():
+            self.get_rehearsal_logits(train_loader)
+        self.net.train()
+        total = 0
+        correct = 0
+        if len(self.logits_loader) > len(self.buffer):
+            logits_loader = self.logits_loader
+            buffer_loader = cycle(self.buffer)
+        else:
+            logits_loader = cycle(self.logits_loader)
+            buffer_loader = self.buffer
+
+        for i, data in enumerate(zip(buffer_loader, logits_loader)):
+            if self.args.debug and i > 3:
+                break
+            buffer_data = data[0]
+            logits_data = data[1]
+            buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+            logits_data = [tmp.to(self.device) for tmp in logits_data]
+
+            inputs = torch.cat([buffer_data[0], logits_data[0]])
+            inputs = self.dataset.train_transform(inputs)
+            labels = torch.cat([buffer_data[1], logits_data[1]])
+            self.opt.zero_grad()
+            outputs = self.net(inputs, self.task, mode='jr')
+            # join rehearsal loss
+            loss = self.loss(outputs, labels)
+            correct += torch.sum(outputs == labels).item()
+            total += labels.shape[0]
+
+            # distillattion loss
+            outputs = self.net(self.dataset.train_transform(logits_data[0]), self.task, mode='jr')
+            for i in range(self.task):
+                logits = outputs[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
+                loss += self.args.alpha * modified_kl_div(smooth(self.soft(logits), 2, 1),
+                                                    smooth(self.soft(logits_data[i+2]), 2, 1))
+            loss.backward()
+            self.opt.step()
+            progress_bar.prog(i, len(train_loader), epoch, self.task, loss.item(), correct/total*100)
 
 
     def begin_task(self, dataset):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
+        self.opt = torch.optim.SGD(self.net.parameters(), lr=self.args.lr, weight_decay=0, momentum=self.args.optim_mom)
 
     def end_task(self, dataset) -> None:
         self.net.set_jr_params()
@@ -182,6 +246,21 @@ class DAE(ContinualModel):
         self.net.freeze()
         self.net.update_scale()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
+
+    def get_rehearsal_logits(self, train_loader):
+        self.net.eval()
+        data = [[] for i in range(self.task+2)]
+        for inputs, labels in train_loader:
+            data[0].append(inputs)
+            data[1].append(labels)
+            inputs = inputs.to(self.device)
+            for i in range(self.task):
+                outputs = [self.net(inputs, i, mode='ets'), self.net(inputs, i, mode='kbts')]
+                data[i+2].append(ensemble_outputs(outputs))
+
+        data = [torch.cat(temp) for temp in data]
+        self.logits_loader = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
+
 
     def fill_buffer(self, train_loader) -> None:
         """
@@ -191,56 +270,49 @@ class DAE(ContinualModel):
         :param dataset: the dataset from which take the examples
         :param t_idx: the task index
         """
-
         mode = self.net.training
         self.net.eval()
         samples_per_class = self.buffer.buffer_size // (self.dataset.N_CLASSES_PER_TASK * self.task)
 
+        buf_x, buf_y, buf_l = [], [], []
         if self.task > 1:
-        # 1) First, subsample prior classes
-            buf_x, buf_y = self.buffer.get_all_data()
+            for _y in self.buffer.dataset.tensors[1].unique():
+                idx = (self.buffer.dataset.tensors[1] == _y)
+                buf_x += [self.buffer.dataset.tensors[0][idx][:samples_per_class]]
+                buf_y += [self.buffer.dataset.tensors[1][idx][:samples_per_class]]
+                buf_l += [self.buffer.dataset.tensors[2][idx][:samples_per_class]]
 
-            self.buffer.empty()
-            for _y in buf_y.unique():
-                idx = (buf_y == _y)
-                _y_x, _y_y = buf_x[idx], buf_y[idx]
-                self.buffer.add_data(
-                    examples=_y_x[:samples_per_class],
-                    labels=_y_y[:samples_per_class],
-                )
-
-        loader = train_loader
-        norm_trans = self.dataset.get_normalization_transform()
-        if norm_trans is None:
-            def norm_trans(x): return x
         classes_start, classes_end = (self.task-1) * self.dataset.N_CLASSES_PER_TASK, self.task * self.dataset.N_CLASSES_PER_TASK
 
-        a_x, a_y, a_l = [], [], []
-        for x, y, not_norm_x in loader:
+        a_x, a_y, a_l, a_e = [], [], [], []
+        for x, y in train_loader:
             mask = (y >= classes_start) & (y < classes_end)
-            x, y, not_norm_x = x[mask], y[mask], not_norm_x[mask]
+            x, y = x[mask], y[mask]
             if not x.size(0):
                 continue
-            x, y, not_norm_x = (a.to(self.device) for a in (x, y, not_norm_x))
-            a_x.append(not_norm_x.to('cpu'))
-            a_y.append(y.to('cpu'))
-            outs_ets = self.net(norm_trans(not_norm_x), self.task-1, mode='ets')
-            outs_kbts = self.net(norm_trans(not_norm_x), self.task-1, mode='kbts')
-            loss_ets = self.loss(outs_ets, y - (self.task-1) * self.dataset.N_CLASSES_PER_TASK, reduce=False).cpu()
-            loss_kbts = self.loss(outs_kbts, y - (self.task-1) * self.dataset.N_CLASSES_PER_TASK, reduce=False).cpu()
-            a_l.append(loss_ets+loss_kbts)
-        a_x, a_y, a_l = torch.cat(a_x), torch.cat(a_y), torch.cat(a_l)
+            a_x.append(x)
+            a_y.append(y)
+            x = self.dataset.test_transfrom(x.to(self.device))
+            y = y.to(self.device)
+            outs_ets = self.net(x, self.task-1, mode='ets')
+            outs_kbts = self.net(x, self.task-1, mode='kbts')
+            logits = ensemble_outputs([outs_ets, outs_kbts])
+            a_l.append(logits)
+            a_e.append(entropy(logits.exp()))
+        a_x, a_y, a_l, a_e = torch.cat(a_x), torch.cat(a_y), torch.cat(a_l), torch.cat(a_e)
         print(samples_per_class, classes_start, classes_end, a_x.shape, a_y.shape, a_l.shape)
 
         for _y in a_y.unique():
             idx = (a_y == _y)
-            _x, _y, _l = a_x[idx], a_y[idx], a_l[idx]
-            values, indices = _l.sort(dim=0, descending=True)
+            _x, _y, _l, _e = a_x[idx], a_y[idx], a_l[idx], a_e[idx]
+            values, indices = _e.sort(dim=0, descending=True)
             # print(values.shape, values)
-            #select samples with highest loss
-            self.buffer.add_data(_x[indices[:samples_per_class]], _y[indices[:samples_per_class]])
+            #select samples with highest entropy
+            buf_x += [_x[indices[:samples_per_class]]]
+            buf_y += [_y[indices[:samples_per_class]]]
+            buf_l += [_l[indices[:samples_per_class]]]
 
-        assert len(self.buffer.examples) <= self.buffer.buffer_size
-        assert self.buffer.num_seen_examples <= self.buffer.buffer_size
+        
+        self.buffer = DataLoader(TensorDataset(torch.cat(buf_x), torch.cat(buf_y), torch.cat(buf_l)), batch_size=self.args.batch_size, shuffle=True)
 
         self.net.train(mode)
