@@ -343,12 +343,9 @@ class _DynamicLayer(nn.Module):
         return norm
     
     def set_reg_strength(self):
-        if self.mask_in is not None:
-            fan_in = self.shape_in[-2] + sum(self.mask_in).item()
-            fan_out = self.shape_out[-2] + sum(self.mask_out).item()
-        else:
-            fan_in = self.shape_in[-1]
-            fan_out = self.shape_out[-1]
+        fan_in = self.shape_in[-1]
+        fan_out = self.shape_out[-1]
+
         self.strength_in = 1 - ((fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1]) / 
                                 (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1])) 
         # self.strength_in = 1 - ((self.shape_in[-1] + self.shape_out[-1] + self.kernel_size[0] + self.kernel_size[1]) / 
@@ -395,6 +392,7 @@ class _DynamicLayer(nn.Module):
             self.num_in[-1] = self.weight[-1].shape[1]
             self.shape_in[-1] = self.num_in.sum()
 
+        self.mask_out = None
         self.set_reg_strength()
 
 
@@ -406,7 +404,7 @@ class _DynamicLayer(nn.Module):
             norm = self.norm_in()
             aux = 1 - lamb * lr * strength / norm
             aux = F.threshold(aux, 0, eps, False)
-            self.mask_out = (aux > eps)
+            self.mask_out = (aux > eps).clone().detach()
             self.weight[-1].data *= aux.view(self.view_in)
             self.fwt_weight[-1].data *= aux.view(self.view_in)
             
