@@ -240,8 +240,7 @@ class DAE(ContinualModel):
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == logits_data[1]).item()
             total += logits_data[1].shape[0]
-            print('log')
-            progress_bar.prog(i, len(train_loader), epoch, self.task, loss.item(), correct/total*100)
+            progress_bar.prog(i, len(self.logits_loader), epoch, self.task, loss.item(), correct/total*100)
 
 
     def begin_task(self, dataset):
