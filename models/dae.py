@@ -123,6 +123,7 @@ class DAE(ContinualModel):
                     outputs.append(out)
                 if 'jr' in mode:
                     out = out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
+                    outputs.append(out)
                 outputs = ensemble_outputs(outputs)
                 outputs_tasks.append(outputs)
                 joint_entropy = entropy(outputs.exp())
