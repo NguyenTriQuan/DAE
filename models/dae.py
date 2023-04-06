@@ -207,7 +207,7 @@ class DAE(ContinualModel):
         # else:
         #     logits_loader = cycle(self.logits_loader)
         #     buffer_loader = self.buffer
-
+        print(len(self.logits_loader))
         for i, logits_data in enumerate(self.logits_loader):
             # if self.args.debug and i > 3:
             #     break
@@ -307,8 +307,8 @@ class DAE(ContinualModel):
             outs_ets = self.net(x, self.task-1, mode='ets')
             outs_kbts = self.net(x, self.task-1, mode='kbts')
             logits = ensemble_outputs([outs_ets, outs_kbts])
-            a_l.append(logits)
-            a_e.append(entropy(logits.exp()))
+            a_l.append(logits.cpu())
+            a_e.append(entropy(logits.exp()).cpu())
         a_x, a_y, a_l, a_e = torch.cat(a_x), torch.cat(a_y), torch.cat(a_l), torch.cat(a_e)
         print(samples_per_class, classes_start, classes_end, a_x.shape, a_y.shape, a_l.shape)
 
