@@ -169,8 +169,8 @@ class DAE(ContinualModel):
         total = 0
         correct = 0
         for i, data in enumerate(train_loader):
-            if self.args.debug and i > 3:
-                break
+            # if self.args.debug and i > 3:
+            #     break
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             inputs = self.dataset.train_transform(inputs)
@@ -209,8 +209,8 @@ class DAE(ContinualModel):
         #     buffer_loader = self.buffer
 
         for i, logits_data in enumerate(self.logits_loader):
-            if self.args.debug and i > 3:
-                break
+            # if self.args.debug and i > 3:
+            #     break
             self.opt.zero_grad()
             loss = 0
             logits_data = [tmp.to(self.device) for tmp in logits_data]
@@ -240,7 +240,7 @@ class DAE(ContinualModel):
             self.opt.step()
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == logits_data[1]).item()
-            total += logits_data[1]
+            total += logits_data[1].shape[0]
             progress_bar.prog(i, len(train_loader), epoch, self.task, loss.item(), correct/total*100)
 
 
