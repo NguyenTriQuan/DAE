@@ -282,7 +282,7 @@ class DAE(ContinualModel):
         """
         mode = self.net.training
         self.net.eval()
-        samples_per_class = self.buffer.buffer_size // (self.dataset.N_CLASSES_PER_TASK * self.task)
+        samples_per_class = self.args.buffer_size // (self.dataset.N_CLASSES_PER_TASK * self.task)
 
         buf_x, buf_y, buf_l = [], [], []
         if self.task > 1:
