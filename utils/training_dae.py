@@ -57,7 +57,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
             with torch.no_grad():
                 inputs, labels = data
                 inputs, labels = inputs.to(model.device), labels.to(model.device)
-                
+                inputs = dataset.test_transform(inputs)
                 if task is not None:
                     pred = model(inputs, k, mode)
                 else:

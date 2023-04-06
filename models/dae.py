@@ -199,39 +199,48 @@ class DAE(ContinualModel):
         self.net.train()
         total = 0
         correct = 0
-        if len(self.logits_loader) > len(self.buffer):
-            logits_loader = self.logits_loader
-            buffer_loader = cycle(self.buffer)
-        else:
-            logits_loader = cycle(self.logits_loader)
-            buffer_loader = self.buffer
+        if self.buffer is not None:
+            buffer_loader = iter(self.buffer)
+        # if len(self.logits_loader) > len(self.buffer):
+        #     logits_loader = self.logits_loader
+        #     buffer_loader = cycle(self.buffer)
+        # else:
+        #     logits_loader = cycle(self.logits_loader)
+        #     buffer_loader = self.buffer
 
-        for i, data in enumerate(zip(buffer_loader, logits_loader)):
+        for i, logits_data in enumerate(self.logits_loader):
             if self.args.debug and i > 3:
                 break
-            buffer_data = data[0]
-            logits_data = data[1]
-            buffer_data = [tmp.to(self.device) for tmp in buffer_data]
-            logits_data = [tmp.to(self.device) for tmp in logits_data]
-
-            inputs = torch.cat([buffer_data[0], logits_data[0]])
-            inputs = self.dataset.train_transform(inputs)
-            labels = torch.cat([buffer_data[1], logits_data[1]])
             self.opt.zero_grad()
-            outputs = self.net(inputs, self.task, mode='jr')
-            # join rehearsal loss
-            loss = self.loss(outputs, labels)
-            correct += torch.sum(outputs == labels).item()
-            total += labels.shape[0]
+            loss = 0
+            logits_data = [tmp.to(self.device) for tmp in logits_data]
+            if self.buffer is not None:
+                try:
+                    buffer_data = next(buffer_loader)
+                except StopIteration:
+                    buffer_data = iter(self.buffer)
+                    buffer_data = next(buffer_loader)
+
+                buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+
+                inputs = torch.cat([buffer_data[0], logits_data[0]])
+                inputs = self.dataset.train_transform(inputs)
+                labels = torch.cat([buffer_data[1], logits_data[1]])
+                outputs = self.net(inputs, self.task, mode='jr')
+                # join rehearsal loss
+                loss = self.loss(outputs, labels)
 
             # distillattion loss
-            outputs = self.net(self.dataset.train_transform(logits_data[0]), self.task, mode='jr')
+            outputs = self.net(self.dataset.test_transform(logits_data[0]), self.task, mode='jr')
             for i in range(self.task):
                 logits = outputs[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
                 loss += self.args.alpha * modified_kl_div(smooth(self.soft(logits), 2, 1),
                                                     smooth(self.soft(logits_data[i+2]), 2, 1))
             loss.backward()
             self.opt.step()
+            _, predicts = outputs.max(1)
+            correct += torch.sum(predicts == logits_data[1]).item()
+            total += labels.shape[0]
             progress_bar.prog(i, len(train_loader), epoch, self.task, loss.item(), correct/total*100)
 
 
@@ -254,6 +263,7 @@ class DAE(ContinualModel):
             data[0].append(inputs)
             data[1].append(labels)
             inputs = inputs.to(self.device)
+            inputs = self.dataset.test_transform(inputs)
             for i in range(self.task):
                 outputs = [self.net(inputs, i, mode='ets'), self.net(inputs, i, mode='kbts')]
                 data[i+2].append(ensemble_outputs(outputs))
