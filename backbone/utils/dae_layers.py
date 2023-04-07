@@ -258,20 +258,22 @@ class _DynamicLayer(nn.Module):
     def get_kbts_params(self, t):
         if self.training:
             mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-            weight = self.masked_kb_weight * mask
+            weight = self.masked_kb_weight * mask * mask.numel() / mask.sum()
             self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
         else:
-            weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}')
+            mask = getattr(self, 'kbts_mask'+f'_{t}')
+            weight = self.masked_kb_weight * mask * mask.numel() / mask.sum()
         
         return weight, None, self.norm_layer_kbts[t] if self.norm_type is not None else None
     
     def get_jr_params(self):
         if self.training:
             mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-            weight = self.masked_kb_weight * mask
+            weight = self.masked_kb_weight * mask * mask.numel() / mask.sum()
             self.register_buffer('jr_mask', mask.detach().bool().clone())
         else:
-            weight = self.masked_kb_weight * getattr(self, 'jr_mask')
+            mask = getattr(self, 'jr_mask')
+            weight = self.masked_kb_weight * mask * mask.numel() / mask.sum()
         
         return weight, None, self.norm_layer_jr if self.norm_type is not None else None
 

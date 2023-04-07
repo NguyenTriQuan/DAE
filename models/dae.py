@@ -135,43 +135,12 @@ class DAE(ContinualModel):
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             _, predicts = predicted_outputs.max(1)
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
-
-    def observe(self, inputs, labels, not_aug_inputs, logits, mode):
-
-        self.opt.zero_grad()
-
-        if 'jr' == mode:
-            if not self.buffer.is_empty():
-                buf_inputs, buf_labels = self.buffer.get_data(
-                    self.args.minibatch_size, transform=self.transform)
-                inputs = torch.cat([inputs, buf_inputs], dim=0)
-                labels = torch.cat([labels, buf_labels], dim=0)
-            
-            outputs = self.net(inputs, self.task, mode)
-            loss = self.loss(outputs, labels)
-            # distillation loss
-            for i in range(self.task):
-                out_task = self.net(inputs, i, mode='ets')
-                logits = outputs[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
-
-                loss += self.args.alpha * modified_kl_div(smooth(self.soft(logits), 2, 1),
-                                                    smooth(self.soft(out_task), 2, 1))
-        else:
-            outputs = self.net(inputs, self.task, mode)
-            loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
-
-        loss.backward()
-        self.opt.step()
-
-        return loss.item()
     
     def train(self, train_loader, progress_bar, mode, squeeze, epoch):
         self.net.train()
         total = 0
         correct = 0
         for i, data in enumerate(train_loader):
-            # if self.args.debug and i > 3:
-            #     break
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             inputs = self.dataset.train_transform(inputs)
@@ -180,7 +149,6 @@ class DAE(ContinualModel):
             loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
             loss.backward()
             self.opt.step()
-            # print(outputs.shape, labels.shape)
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
             total += labels.shape[0]
@@ -201,8 +169,6 @@ class DAE(ContinualModel):
         if self.buffer is not None:
             buffer_loader = iter(self.buffer)
         for i, logits_data in enumerate(self.logits_loader):
-            # if self.args.debug and i > 3:
-            #     break
             self.opt.zero_grad()
             loss = 0
             logits_data = [tmp.to(self.device) for tmp in logits_data]
@@ -245,7 +211,7 @@ class DAE(ContinualModel):
         self.net.set_jr_params()
         self.task += 1
         self.net.freeze()
-        self.net.update_scale()
+        # self.net.update_scale()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
 
     def get_rehearsal_logits(self, train_loader):

@@ -179,7 +179,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # ets training
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
         num_params, num_neurons = model.net.count_params()
-        print(f'Num params :{num_params}, num neurons: {num_neurons}')
+        print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
