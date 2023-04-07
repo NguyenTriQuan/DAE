@@ -164,6 +164,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         train_loader, test_loader = dataset.get_data_loaders()
         if hasattr(model, 'begin_task'):
             model.begin_task(dataset)
+            num_params, num_neurons = model.net.count_params()
+            print(f'Num params :{num_params}, num neurons: {num_neurons}')
     
         if t and not args.ignore_other_metrics:
             accs = evaluate(model, dataset, last=True, ets=True, kbts=False, jr=False)

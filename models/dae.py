@@ -191,8 +191,8 @@ class DAE(ContinualModel):
             else:
                 progress_bar.prog(i, len(train_loader), epoch, self.task, loss.item(), correct/total*100)
         if squeeze:
-            self.net.update_strength()
             self.net.squeeze(self.opt.state)
+            # self.net.update_strength()
 
     def train_rehearsal(self, progress_bar, epoch):
         self.net.train()

@@ -224,7 +224,7 @@ class _DynamicModel(nn.Module):
 
         total_nonzero = 0.0
         # With the valid epsilon, we can set sparsities of the remaning layers.
-        min_sparsity = 0.0
+        min_sparsity = 0.5
         for i, m in enumerate(self.DM[:-1]):
             n_param = np.prod(m.score.shape)
             if m in dense_layers:
