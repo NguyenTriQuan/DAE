@@ -179,6 +179,11 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
 
+        accs = evaluate(model, dataset, task=None, mode='ets_kbts')
+        mean_acc = np.mean(accs, axis=1)
+        print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
+        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+
         with torch.no_grad():
             model.get_rehearsal_logits(train_loader)
         # jr training
@@ -203,11 +208,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         results_mask_classes.append(accs[1])
         mean_acc = np.mean(accs, axis=1)
         print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
-        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
-
-        accs = evaluate(model, dataset, task=None, mode='ets_kbts')
-        mean_acc = np.mean(accs, axis=1)
-        print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         # save model and buffer
