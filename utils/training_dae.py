@@ -97,11 +97,6 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         n_epochs = 50
         scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
 
-    if not args.debug:
-        accs = evaluate(model, dataset, task=t, mode=mode)
-    else:
-        accs = [[0]]
-
     for epoch in range(n_epochs):
         if mode == 'jr':
             model.train_rehearsal(progress_bar, epoch)
@@ -165,7 +160,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'begin_task'):
             model.begin_task(dataset)
             num_params, num_neurons = model.net.count_params()
-            print(f'Num params :{num_params}, num neurons: {num_neurons}')
+            print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
     
         if t and not args.ignore_other_metrics:
             accs = evaluate(model, dataset, last=True, ets=True, kbts=False, jr=False)

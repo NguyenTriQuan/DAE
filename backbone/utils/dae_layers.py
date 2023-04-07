@@ -568,7 +568,6 @@ class DynamicNorm(nn.Module):
         self.momentum = momentum
         self.affine = affine
         self.track_running_stats = track_running_stats
-
         self.num_features = num_features
         
         if self.affine:

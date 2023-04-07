@@ -224,7 +224,7 @@ class DAE(ContinualModel):
             inputs = self.dataset.test_transform(inputs)
             for i in range(self.task):
                 outputs = [self.net(inputs, i, mode='ets'), self.net(inputs, i, mode='kbts')]
-                data[i+2].append(ensemble_outputs(outputs))
+                data[i+2].append(ensemble_outputs(outputs).detach().clone().cpu())
 
         data = [torch.cat(temp) for temp in data]
         self.logits_loader = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
@@ -266,7 +266,7 @@ class DAE(ContinualModel):
             outs_kbts = self.net(x, self.task-1, mode='kbts')
             logits = ensemble_outputs([outs_ets, outs_kbts])
             a_l.append(logits.cpu())
-            a_e.append(entropy(logits.exp()).cpu())
+            a_e.append(entropy(logits.exp()).detach().clone().cpu())
         a_x, a_y, a_l, a_e = torch.cat(a_x), torch.cat(a_y), torch.cat(a_l), torch.cat(a_e)
         print(samples_per_class, classes_start, classes_end, a_x.shape, a_y.shape, a_l.shape)
 
