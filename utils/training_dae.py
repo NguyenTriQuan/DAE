@@ -183,14 +183,14 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         mean_acc = np.mean(accs, axis=1)
         print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+        
+        # with torch.no_grad():
+        #     model.get_rehearsal_logits(train_loader)
+        # # jr training
+        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
 
-        with torch.no_grad():
-            model.get_rehearsal_logits(train_loader)
-        # jr training
-        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
-
-        with torch.no_grad():
-            model.fill_buffer(train_loader)
+        # with torch.no_grad():
+        #     model.fill_buffer(train_loader)
 
         print('checking forgetting')
         accs = evaluate(model, dataset, task=None, mode='kbts')
@@ -199,16 +199,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         accs = evaluate(model, dataset, task=None, mode='ets')
         print(f'ets accs: cil {accs[0]}, til {accs[1]}')
 
-        accs = evaluate(model, dataset, task=None, mode='jr')
-        print(f'jr accs: cil {accs[0]}, til {accs[1]}')
+        # accs = evaluate(model, dataset, task=None, mode='jr')
+        # print(f'jr accs: cil {accs[0]}, til {accs[1]}')
 
-        # final evaluation
-        accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
-        results.append(accs[0])
-        results_mask_classes.append(accs[1])
-        mean_acc = np.mean(accs, axis=1)
-        print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
-        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+        # # final evaluation
+        # accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
+        # results.append(accs[0])
+        # results_mask_classes.append(accs[1])
+        # mean_acc = np.mean(accs, axis=1)
+        # print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
+        # print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         # save model and buffer
         model.net.clear_memory()
