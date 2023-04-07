@@ -194,20 +194,12 @@ class DAE(ContinualModel):
             self.net.update_strength()
             self.net.squeeze(self.opt.state)
 
-    def train_rehearsal(self, train_loader, progress_bar, epoch):
-        with torch.no_grad():
-            self.get_rehearsal_logits(train_loader)
+    def train_rehearsal(self, progress_bar, epoch):
         self.net.train()
         total = 0
         correct = 0
         if self.buffer is not None:
             buffer_loader = iter(self.buffer)
-        # if len(self.logits_loader) > len(self.buffer):
-        #     logits_loader = self.logits_loader
-        #     buffer_loader = cycle(self.buffer)
-        # else:
-        #     logits_loader = cycle(self.logits_loader)
-        #     buffer_loader = self.buffer
         for i, logits_data in enumerate(self.logits_loader):
             # if self.args.debug and i > 3:
             #     break
