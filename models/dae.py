@@ -193,7 +193,7 @@ class DAE(ContinualModel):
             for t in range(self.task):
                 logits = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
                 loss += self.args.alpha * modified_kl_div(smooth(self.soft(logits), 2, 1),
-                                                    smooth(logits_data[t+2], 2, 1))
+                                                    smooth(self.soft(logits_data[t+2]), 2, 1))
             loss.backward()
             self.opt.step()
             _, predicts = outputs.max(1)
@@ -224,7 +224,8 @@ class DAE(ContinualModel):
             inputs = self.dataset.test_transform(inputs)
             for i in range(self.task):
                 outputs = [self.net(inputs, i, mode='ets'), self.net(inputs, i, mode='kbts')]
-                data[i+2].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
+                # data[i+2].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
+                data[i+2].append(outputs[0].detach().clone().cpu())
 
         data = [torch.cat(temp) for temp in data]
         self.logits_loader = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
