@@ -19,6 +19,7 @@ from datasets.utils.validation import get_train_val
 from utils.conf import base_path_dataset as base_path
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 import kornia as K
+import torch
 
 
 class SequentialCIFAR100(ContinualDataset):
