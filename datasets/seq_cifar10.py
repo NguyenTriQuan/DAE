@@ -59,9 +59,7 @@ class SequentialCIFAR10(ContinualDataset):
 
     @staticmethod
     def get_transform():
-        transform = transforms.Compose(
-            [transforms.ToPILImage(), SequentialCIFAR10.TRANSFORM])
-        return transform
+        return SequentialCIFAR10.train_transform
 
     @staticmethod
     def get_backbone():
@@ -74,9 +72,7 @@ class SequentialCIFAR10(ContinualDataset):
 
     @staticmethod
     def get_normalization_transform():
-        transform = transforms.Normalize((0.4914, 0.4822, 0.4465),
-                                         (0.2470, 0.2435, 0.2615))
-        return transform
+        return SequentialCIFAR10.test_transform 
 
     @staticmethod
     def get_denormalization_transform():

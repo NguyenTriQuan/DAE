@@ -76,8 +76,7 @@ class SequentialCIFAR100(ContinualDataset):
 
     @staticmethod
     def get_normalization_transform():
-        transform = SequentialCIFAR100.test_trasnform
-        return transform
+        return SequentialCIFAR100.test_transform 
 
     @staticmethod
     def get_denormalization_transform():
