@@ -205,8 +205,8 @@ class DAE(ContinualModel):
 
     def begin_task(self, dataset):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
-        if self.task == 0:
-            get_related_layers(self.net, self.dataset.INPUT_SHAPE)
+        # if self.task == 0:
+        #     get_related_layers(self.net, self.dataset.INPUT_SHAPE)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:
             m.kbts_sparsities.append(m.sparsity)
@@ -259,7 +259,7 @@ class DAE(ContinualModel):
                 data[-1].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
 
         classes_start, classes_end = (self.task-1) * self.dataset.N_CLASSES_PER_TASK, self.task * self.dataset.N_CLASSES_PER_TASK
-        print('Filling Buffer:', samples_per_class, classes_start, classes_end)
+        print(f'Filling Buffer: samples per class {samples_per_class}, classes start {classes_start}, classes end {classes_end}')
 
         for _y in self.logits_loader.dataset.tensors[1].unique():
             idx = (self.logits_loader.dataset.tensors[1] == _y)
@@ -268,7 +268,8 @@ class DAE(ContinualModel):
             values, indices = ents[idx].sort(dim=0, descending=True)
             for i in range(len(self.logits_loader.dataset.tensors)):
                 data[i] += [self.logits_loader.dataset.tensors[i][idx][indices[:samples_per_class]]]
-            
+        
+        data = [torch.cat(temp) for temp in data]
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         self.net.train(mode)
 
