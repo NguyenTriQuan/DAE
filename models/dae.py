@@ -16,6 +16,7 @@ from utils.buffer import Buffer, icarl_replay
 from backbone.ResNet18_DAE import resnet18
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from itertools import cycle
+from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Continual Learning with Dynamic Architecture and Ensemble of Knowledge Base.')
@@ -83,8 +84,6 @@ class DAE(ContinualModel):
         super(DAE, self).__init__(backbone, loss, args, transform)
         self.dataset = get_dataset(args)
         self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_affine_track', args=args)
-        # Instantiate buffers
-        # self.buffer = Buffer(self.args.buffer_size, self.device)
         self.buffer = None
         self.task = 0
         self.lamb = [float(i) for i in args.lamb.split('_')]
@@ -204,6 +203,8 @@ class DAE(ContinualModel):
 
     def begin_task(self, dataset):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
+        if self.task == 0:
+            get_related_layers(self.net, self.dataset.INPUT_SHAPE)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         self.opt = torch.optim.SGD(self.net.parameters(), lr=self.args.lr, weight_decay=0, momentum=self.args.optim_mom)
 
@@ -285,3 +286,74 @@ class DAE(ContinualModel):
         self.buffer = DataLoader(TensorDataset(torch.cat(buf_x), torch.cat(buf_y), torch.cat(buf_l)), batch_size=self.args.batch_size, shuffle=True)
 
         self.net.train(mode)
+
+
+def get_related_layers(net, input_shape):
+    def forward_hook(m, i, o):
+        m.output_idx = torch.rand(1).cuda() * m.input_idx
+        o[0] += m.output_idx
+        return
+    
+    def forward_pre_hook(m, i):
+        m.input_idx = i[0].mean().detach()
+        return (torch.zeros_like(i[0]), i[1], i[2])
+
+    handes = []
+    for m in net.DM:
+        h1 = m.register_forward_pre_hook(forward_pre_hook)
+        h2 = m.register_forward_hook(forward_hook)
+        handes += [h1, h2]
+    c, h, w = input_shape
+    data = torch.ones((1, c, h, w), dtype=torch.float, device='cuda')
+    net.eval()
+    out = net(data, 0, mode='ets')  
+    for h in handes:
+        h.remove()
+    
+    for n, m in net.named_modules():
+        if isinstance(m, _DynamicLayer):
+            # print(n, m.base_in_features, m.base_out_features, m.input_idx, m.output_idx)
+            m.name = n
+            m.prev_layers = []
+            m.next_layers = []
+    eps = 1e-6
+    for i in range(len(net.DM)):
+        for j in range(i):
+            if (net.DM[i].input_idx - net.DM[j].output_idx).abs() < eps:
+                net.DM[i].prev_layers.append(net.DM[j])
+                net.DM[j].next_layers.append(net.DM[i])
+            else:
+                for k in range(j):
+                    if (net.DM[i].input_idx - net.DM[j].output_idx - net.DM[k].output_idx).abs() < eps:
+                        net.DM[i].prev_layers += [net.DM[j], net.DM[k]]
+                        net.DM[j].next_layers += [net.DM[i]]
+                        net.DM[k].next_layers += [net.DM[i]]
+
+                    if (net.DM[i].input_idx - net.DM[j].output_idx - net.DM[k].input_idx).abs() < eps:
+                        net.DM[i].prev_layers += [net.DM[j]] + net.DM[k].prev_layers
+                        net.DM[j].next_layers += [net.DM[i]]
+                        for g in net.DM[k].prev_layers:
+                            g.next_layers += [net.DM[i]]
+
+                    if (net.DM[i].input_idx - net.DM[k].output_idx - net.DM[j].input_idx).abs() < eps:
+                        net.DM[i].prev_layers += [net.DM[k]] + net.DM[j].prev_layers
+                        net.DM[k].next_layers += [net.DM[i]]
+                        for g in net.DM[j].prev_layers:
+                            g.next_layers += [net.DM[i]]
+
+                    if (net.DM[i].input_idx - net.DM[j].input_idx - net.DM[k].input_idx).abs() < eps:
+                        net.DM[i].prev_layers += net.DM[j].prev_layers + net.DM[k].prev_layers
+                        for g in net.DM[j].prev_layers:
+                            g.next_layers += [net.DM[i]]
+                        for g in net.DM[k].prev_layers:
+                            g.next_layers += [net.DM[i]]
+
+    for m in net.DM:
+        m.prev_layers = set(m.prev_layers)
+        m.next_layers = set(m.next_layers)
+        print(m.name, m.base_in_features, m.base_out_features, m.input_idx, m.output_idx)
+        for j, n in enumerate(m.prev_layers):
+            print('prev', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
+        for j, n in enumerate(m.next_layers):
+            print('next', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
+        print()

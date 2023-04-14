@@ -139,7 +139,7 @@ class ResNet(_DynamicModel):
             add_in_1 = block.conv1.expand(add_in=add_in)
             _, _, _, add_out_2 = block.conv2.get_expand_shape(-1, add_in_1)
             _, _, _, add_out_sc = block.shortcut.get_expand_shape(-1, add_in)
-            add_out = min(add_out_2, add_out_sc)
+            add_out = max(add_out_2, add_out_sc)
             block.conv2.expand(add_in=add_in_1, add_out=add_out)
             block.shortcut.expand(add_in=add_in, add_out=add_out)
             add_in = add_out
@@ -221,7 +221,7 @@ class ResNet(_DynamicModel):
             add_in_1 = block.conv1.get_masked_kb_params(t, add_in=add_in)
             _, _, _, add_out_2 = block.conv2.get_expand_shape(t, add_in_1)
             _, _, _, add_out_sc = block.shortcut.get_expand_shape(t, add_in)
-            add_out = min(add_out_2, add_out_sc)
+            add_out = max(add_out_2, add_out_sc)
             block.conv2.get_masked_kb_params(t, add_in=add_in_1, add_out=add_out)
             block.shortcut.get_masked_kb_params(t, add_in=add_in, add_out=add_out)
             add_in = add_out
@@ -232,7 +232,24 @@ class ResNet(_DynamicModel):
             add_in_1 = block.conv1.set_jr_params(add_in=add_in)
             _, _, _, add_out_2 = block.conv2.get_expand_shape(-1, add_in_1)
             _, _, _, add_out_sc = block.shortcut.get_expand_shape(-1, add_in)
-            add_out = min(add_out_2, add_out_sc)
+            add_out = max(add_out_2, add_out_sc)
+            block.conv2.set_jr_params(add_in=add_in_1, add_out=add_out)
+            block.shortcut.set_jr_params(add_in=add_in, add_out=add_out)
+            add_in = add_out
+
+        self.linear.set_jr_params(add_in=add_in)
+
+    def normalize(self):
+        def normalize_layers(layers):
+            for layer in layers:
+                mean_w = layer.weight[-1].mean(dim=layer.dim_in)
+                var_w = layer.weight[-1].var(dim=layer.dim_in, unbiased=False)
+        add_in = self.conv1.set_jr_params(add_in=0)
+        for block in self.layers:
+            add_in_1 = block.conv1.set_jr_params(add_in=add_in)
+            _, _, _, add_out_2 = block.conv2.get_expand_shape(-1, add_in_1)
+            _, _, _, add_out_sc = block.shortcut.get_expand_shape(-1, add_in)
+            add_out = max(add_out_2, add_out_sc)
             block.conv2.set_jr_params(add_in=add_in_1, add_out=add_out)
             block.shortcut.set_jr_params(add_in=add_in, add_out=add_out)
             add_in = add_out

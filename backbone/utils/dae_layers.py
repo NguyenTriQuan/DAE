@@ -99,7 +99,7 @@ class _DynamicLayer(nn.Module):
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
-        self.over_mul = 2
+        self.over_mul = 2 # prevent errors
         self.dummy_weight = torch.Tensor(self.base_out_features * self.base_in_features * self.ks * self.over_mul).to(device)
         nn.init.normal_(self.dummy_weight, 0, 1)
 
@@ -127,9 +127,9 @@ class _DynamicLayer(nn.Module):
         
         return output
     
-    def get_expand_shape(self, t, add_in, add_out=None):
+    def get_expand_shape(self, t, add_in, add_out=None, fix=False):
         # expand from knowledge base weights of task t
-        if 'fix' in self.args.ablation:
+        if 'fix' in self.args.ablation or fix:
             # fan_in and fan_out can not be excessed the base architecture
             fan_in = self.base_in_features
             fan_out = self.base_out_features
@@ -225,8 +225,8 @@ class _DynamicLayer(nn.Module):
         # kb weight std = bound of the model size
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(t, add_in, add_out)
 
-        if self.masked_kb_weight.shape[0] == fan_out and self.masked_kb_weight.shape[1] == fan_in:
-            return add_out * self.s * self.s
+        # if self.masked_kb_weight.shape[0] == fan_out and self.masked_kb_weight.shape[1] == fan_in:
+        #     return add_out * self.s * self.s
         
         self.get_kb_params(t)
         n_0 = add_out * (fan_in-add_in) * self.ks
@@ -258,22 +258,22 @@ class _DynamicLayer(nn.Module):
     def get_kbts_params(self, t):
         if self.training:
             mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-            weight = self.masked_kb_weight * mask * mask.numel() / mask.sum()
+            weight = self.masked_kb_weight * mask / (1-self.sparsity)
             self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
         else:
             mask = getattr(self, 'kbts_mask'+f'_{t}')
-            weight = self.masked_kb_weight * mask * mask.numel() / mask.sum()
+            weight = self.masked_kb_weight * mask / (1-self.sparsity)
         
         return weight, None, self.norm_layer_kbts[t] if self.norm_type is not None else None
     
     def get_jr_params(self):
         if self.training:
             mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-            weight = self.masked_kb_weight * mask * mask.numel() / mask.sum()
+            weight = self.masked_kb_weight * mask / (1-self.sparsity)
             self.register_buffer('jr_mask', mask.detach().bool().clone())
         else:
             mask = getattr(self, 'jr_mask')
-            weight = self.masked_kb_weight * mask * mask.numel() / mask.sum()
+            weight = self.masked_kb_weight * mask / (1-self.sparsity)
         
         return weight, None, self.norm_layer_jr if self.norm_type is not None else None
 
@@ -426,6 +426,8 @@ class _DynamicLayer(nn.Module):
         std = weight.var(dim=self.dim_in, unbiased=False).sum()
         self.weight[-1].data = self.num_out[-1] * (self.weight[-1].data - mean.view(self.view_in)) / std
         self.fwt_weight[-1].data = self.num_out[-1] * (self.fwt_weight[-1].data - mean.view(self.view_in)) / std
+    def weight_initialize(self):
+        bound = self.gain / math.sqrt(self.ks * self.shape_out[-1])
 
 
 class DynamicLinear(_DynamicLayer):

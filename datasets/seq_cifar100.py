@@ -28,6 +28,7 @@ class SequentialCIFAR100(ContinualDataset):
     SETTING = 'class-il'
     N_CLASSES_PER_TASK = 10
     N_TASKS = 10
+    INPUT_SHAPE = (3, 32, 32)
     
     train_transform = torch.nn.Sequential(
                 K.augmentation.RandomCrop((32, 32), padding=4, same_on_batch=False),
