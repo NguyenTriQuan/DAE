@@ -182,7 +182,7 @@ class DAE(ContinualModel):
 
                 buffer_data = [tmp.to(self.device) for tmp in buffer_data]
                 for j in range(len(logits_data)):
-                    logits_data[i] = torch.cat([buffer_data[i], logits_data[i]])
+                    logits_data[j] = torch.cat([buffer_data[i], logits_data[i]])
 
             outputs = self.net(self.dataset.train_transform(logits_data[0]), self.task, mode='jr')
             loss = self.loss(outputs, logits_data[1])
