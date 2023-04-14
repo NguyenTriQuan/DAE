@@ -177,7 +177,7 @@ class DAE(ContinualModel):
                 try:
                     buffer_data = next(buffer_loader)
                 except StopIteration:
-                    buffer_data = iter(self.buffer)
+                    buffer_loader = iter(self.buffer)
                     buffer_data = next(buffer_loader)
 
                 buffer_data = [tmp.to(self.device) for tmp in buffer_data]
