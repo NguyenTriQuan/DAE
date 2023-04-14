@@ -262,9 +262,9 @@ class DAE(ContinualModel):
                 idx = (self.buffer.dataset.tensors[1] == _y)
                 for i in range(len(self.buffer.dataset.tensors)):
                     data[i] += [self.buffer.dataset.tensors[i][idx][:samples_per_class]]
-                inputs = self.dataset.test_transform(data[0].to(self.device))
-                outputs = [self.net(inputs, self.task-1, mode='ets'), self.net(inputs, self.task-1, mode='kbts')]
-                data[-1].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
+                # inputs = self.dataset.test_transform(data[0].to(self.device))
+                # outputs = [self.net(inputs, self.task-1, mode='ets'), self.net(inputs, self.task-1, mode='kbts')]
+                # data[-1].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
 
         classes_start, classes_end = (self.task-1) * self.dataset.N_CLASSES_PER_TASK, self.task * self.dataset.N_CLASSES_PER_TASK
         print(f'Filling Buffer: samples per class {samples_per_class}, classes start {classes_start}, classes end {classes_end}')
@@ -279,6 +279,7 @@ class DAE(ContinualModel):
         
         data = [torch.cat(temp) for temp in data]
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
+        print('Buffer size:', data[0].shape)
         self.net.train(mode)
 
 
