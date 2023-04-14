@@ -193,9 +193,8 @@ class DAE(ContinualModel):
             # distillattion loss
             outputs = self.net(self.dataset.test_transform(logits_data[0]), self.task, mode='jr')
             for t in range(self.task):
-                logits = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
-                loss += self.args.alpha * modified_kl_div(smooth(self.soft(logits), 2, 1),
-                                                    smooth(logits_data[t+2], 2, 1))
+                outputs_task = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
+                loss += self.args.alpha * modified_kl_div(smooth(logits_data[t+2], 2, 1), smooth(self.soft(outputs_task), 2, 1))
             loss.backward()
             self.opt.step()
             _, predicts = outputs.max(1)
