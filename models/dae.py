@@ -184,7 +184,7 @@ class DAE(ContinualModel):
                 for j in range(len(logits_data)):
                     logits_data[j] = torch.cat([buffer_data[j], logits_data[j]])
 
-            outputs = self.net(self.dataset.test_transform(logits_data[0]), self.task, mode='jr')
+            outputs = self.net(self.dataset.train_transform(logits_data[0]), self.task, mode='jr')
             loss = self.loss(outputs, logits_data[1])
             for t in range(self.task):
                 outputs_task = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
@@ -229,6 +229,19 @@ class DAE(ContinualModel):
 
         data = [torch.cat(temp) for temp in data]
         self.logits_loader = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
+
+        if self.buffer is not None:
+            new_logits = []
+            for buffer_data in self.buffer:
+                inputs = buffer_data[0].to(self.device)
+                inputs = self.dataset.test_transform(inputs)
+                outputs = [self.net(inputs, self.task-1, mode='ets'), self.net(inputs, self.task-1, mode='kbts')]
+                new_logits.append(ensemble_outputs(outputs).exp().detach().clone().cpu())
+
+            new_logits = torch.cat(new_logits)
+            data = self.buffer.dataset.tensors
+            data.append(new_logits)
+            self.logits_loader = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
 
 
     def fill_buffer(self, train_loader) -> None:
