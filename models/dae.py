@@ -181,25 +181,20 @@ class DAE(ContinualModel):
                     buffer_data = next(buffer_loader)
 
                 buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+                for j in range(len(logits_data)):
+                    logits_data[i] = torch.cat([buffer_data[i], logits_data[i]])
 
-                inputs = torch.cat([buffer_data[0], logits_data[0]])
-                labels = torch.cat([buffer_data[1], logits_data[1]])
-            else:
-                inputs = logits_data[0]
-                labels = logits_data[1]
-
-            # distillattion loss
-            outputs = self.net(self.dataset.train_transform(inputs), self.task, mode='jr')
-            loss = self.loss(outputs, labels)
+            outputs = self.net(self.dataset.train_transform(logits_data[0]), self.task, mode='jr')
+            loss = self.loss(outputs, logits_data[1])
             for t in range(self.task):
                 outputs_task = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
                 loss += self.args.alpha * modified_kl_div(smooth(logits_data[t+2], 2, 1), smooth(self.soft(outputs_task), 2, 1))
             loss.backward()
             self.opt.step()
             _, predicts = outputs.max(1)
-            correct += torch.sum(predicts == labels).item()
-            total += labels.shape[0]
-            total_loss += loss.item() * labels.shape[0]
+            correct += torch.sum(predicts == logits_data[1]).item()
+            total += logits_data[1].shape[0]
+            total_loss += loss.item() * logits_data[1].shape[0]
             progress_bar.prog(i, len(self.logits_loader), epoch, self.task, total_loss/total, correct/total*100)
 
 
