@@ -241,7 +241,7 @@ class DAE(ContinualModel):
             new_logits = torch.cat(new_logits)
             data = list(self.buffer.dataset.tensors)
             data.append(new_logits)
-            self.logits_loader = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
+            self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
 
 
     def fill_buffer(self, train_loader) -> None:
