@@ -184,7 +184,7 @@ class DAE(ContinualModel):
                 for j in range(len(logits_data)):
                     logits_data[j] = torch.cat([buffer_data[j], logits_data[j]])
 
-            outputs = self.net(self.dataset.train_transform(logits_data[0]), self.task, mode='jr')
+            outputs = self.net(self.dataset.test_transform(logits_data[0]), self.task, mode='jr')
             loss = self.loss(outputs, logits_data[1])
             for t in range(self.task):
                 outputs_task = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
