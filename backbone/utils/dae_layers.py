@@ -86,6 +86,8 @@ class _DynamicLayer(nn.Module):
         self.register_buffer('shape_in', torch.IntTensor([0]).to(device))
         self.register_buffer('num_out', torch.IntTensor([]).to(device))
         self.register_buffer('num_in', torch.IntTensor([]).to(device))
+        self.kbts_sparsities = []
+        self.jr_sparsity = 0
 
         if isinstance(self, DynamicConv2D):
             self.kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)
@@ -169,9 +171,6 @@ class _DynamicLayer(nn.Module):
             self.score = nn.Parameter(torch.Tensor(fan_out, fan_in).to(device))
 
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
-
-        # mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-        # self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', mask.detach().bool().clone())
         self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', torch.ones_like(self.score).to(device))
 
         if self.norm_type is not None:
@@ -189,8 +188,6 @@ class _DynamicLayer(nn.Module):
         else:
             self.score = nn.Parameter(torch.Tensor(fan_out, fan_in).to(device))
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
-        # mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-        # self.register_buffer('jr_mask', mask.detach().bool().clone())
         self.register_buffer('jr_mask', torch.ones_like(self.score).to(device))
         if self.norm_type is not None:
             self.norm_layer_jr = DynamicNorm(fan_out, affine=True, track_running_stats=True)
@@ -257,23 +254,23 @@ class _DynamicLayer(nn.Module):
     
     def get_kbts_params(self, t):
         if self.training:
-            mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-            weight = self.masked_kb_weight * mask / (1-self.sparsity)
+            mask = GetSubnet.apply(self.score.abs(), 1-self.kbts_sparsities[t])
+            weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
             self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
         else:
             mask = getattr(self, 'kbts_mask'+f'_{t}')
-            weight = self.masked_kb_weight * mask / (1-self.sparsity)
+            weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
         
         return weight, None, self.norm_layer_kbts[t] if self.norm_type is not None else None
     
     def get_jr_params(self):
         if self.training:
-            mask = GetSubnet.apply(self.score.abs(), 1-self.sparsity)
-            weight = self.masked_kb_weight * mask / (1-self.sparsity)
+            mask = GetSubnet.apply(self.score.abs(), 1-self.jr_sparsity)
+            weight = self.masked_kb_weight * mask / (1-self.jr_sparsity)
             self.register_buffer('jr_mask', mask.detach().bool().clone())
         else:
             mask = getattr(self, 'jr_mask')
-            weight = self.masked_kb_weight * mask / (1-self.sparsity)
+            weight = self.masked_kb_weight * mask / (1-self.jr_sparsity)
         
         return weight, None, self.norm_layer_jr if self.norm_type is not None else None
 

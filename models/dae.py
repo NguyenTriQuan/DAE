@@ -139,6 +139,7 @@ class DAE(ContinualModel):
         self.net.train()
         total = 0
         correct = 0
+        total_loss = 0
         for i, data in enumerate(train_loader):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -151,12 +152,13 @@ class DAE(ContinualModel):
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
             total += labels.shape[0]
+            total_loss += loss.item() * labels.shape[0]
             if squeeze:
                 self.net.proximal_gradient_descent(self.args.lr, self.lamb[self.task])
                 num_neurons = [m.mask_out.sum().item() for m in self.net.DM[:-1]]
-                progress_bar.prog(i, len(train_loader), epoch, self.task, loss.item(), correct/total*100, 0, num_neurons)
+                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, 0, num_neurons)
             else:
-                progress_bar.prog(i, len(train_loader), epoch, self.task, loss.item(), correct/total*100)
+                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
         if squeeze:
             self.net.squeeze(self.opt.state)
             # self.net.update_strength()
@@ -165,6 +167,7 @@ class DAE(ContinualModel):
         self.net.train()
         total = 0
         correct = 0
+        total_loss = 0
         if self.buffer is not None:
             buffer_loader = iter(self.buffer)
         for i, logits_data in enumerate(self.logits_loader):
@@ -192,13 +195,14 @@ class DAE(ContinualModel):
             for t in range(self.task):
                 logits = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
                 loss += self.args.alpha * modified_kl_div(smooth(self.soft(logits), 2, 1),
-                                                    smooth(self.soft(logits_data[t+2]), 2, 1))
+                                                    smooth(logits_data[t+2], 2, 1))
             loss.backward()
             self.opt.step()
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == logits_data[1]).item()
             total += logits_data[1].shape[0]
-            progress_bar.prog(i, len(self.logits_loader), epoch, self.task, loss.item(), correct/total*100)
+            total_loss += loss.item() * logits_data[1].shape[0]
+            progress_bar.prog(i, len(self.logits_loader), epoch, self.task, total_loss/total, correct/total*100)
 
 
     def begin_task(self, dataset):
@@ -206,14 +210,17 @@ class DAE(ContinualModel):
         if self.task == 0:
             get_related_layers(self.net, self.dataset.INPUT_SHAPE)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
+        for m in self.net.DM:
+            m.kbts_sparsities.append(m.sparsity)
         self.opt = torch.optim.SGD(self.net.parameters(), lr=self.args.lr, weight_decay=0, momentum=self.args.optim_mom)
 
     def end_task(self, dataset) -> None:
         self.net.set_jr_params()
         self.task += 1
         self.net.freeze()
-        # self.net.update_scale()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
+        for m in self.net.DM:
+            m.jr_sparsity = m.sparsity
 
     def get_rehearsal_logits(self, train_loader):
         self.net.eval()
@@ -225,8 +232,8 @@ class DAE(ContinualModel):
             inputs = self.dataset.test_transform(inputs)
             for i in range(self.task):
                 outputs = [self.net(inputs, i, mode='ets'), self.net(inputs, i, mode='kbts')]
-                # data[i+2].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
-                data[i+2].append(outputs[0].detach().clone().cpu())
+                data[i+2].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
+                # data[i+2].append(outputs[0].detach().clone().cpu())
 
         data = [torch.cat(temp) for temp in data]
         self.logits_loader = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)

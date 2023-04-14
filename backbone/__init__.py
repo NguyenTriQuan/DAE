@@ -159,8 +159,6 @@ class _DynamicModel(nn.Module):
         for m in self.DM[:-1]:
             m.set_squeeze_state(squeeze)
 
-    
-
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')
         density = 1 - sparsity
@@ -175,7 +173,6 @@ class _DynamicModel(nn.Module):
         while not is_epsilon_valid:
             divisor = 0
             rhs = 0
-            raw_probabilities = {}
             for m in self.DM[:-1]:
                 m.raw_probability = 0
                 n_param = np.prod(m.score.shape)
