@@ -172,7 +172,6 @@ class DAE(ContinualModel):
             buffer_loader = iter(self.buffer)
         for i, logits_data in enumerate(self.logits_loader):
             self.opt.zero_grad()
-            loss = 0
             logits_data = [tmp.to(self.device) for tmp in logits_data]
             if self.buffer is not None:
                 try:
@@ -184,23 +183,23 @@ class DAE(ContinualModel):
                 buffer_data = [tmp.to(self.device) for tmp in buffer_data]
 
                 inputs = torch.cat([buffer_data[0], logits_data[0]])
-                inputs = self.dataset.train_transform(inputs)
                 labels = torch.cat([buffer_data[1], logits_data[1]])
-                outputs = self.net(inputs, self.task, mode='jr')
-                # join rehearsal loss
-                loss = self.loss(outputs, labels)
+            else:
+                inputs = logits_data[0]
+                labels = logits_data[1]
 
             # distillattion loss
-            outputs = self.net(self.dataset.test_transform(logits_data[0]), self.task, mode='jr')
+            outputs = self.net(self.dataset.train_transform(inputs), self.task, mode='jr')
+            loss = self.loss(outputs, labels)
             for t in range(self.task):
                 outputs_task = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
                 loss += self.args.alpha * modified_kl_div(smooth(logits_data[t+2], 2, 1), smooth(self.soft(outputs_task), 2, 1))
             loss.backward()
             self.opt.step()
             _, predicts = outputs.max(1)
-            correct += torch.sum(predicts == logits_data[1]).item()
-            total += logits_data[1].shape[0]
-            total_loss += loss.item() * logits_data[1].shape[0]
+            correct += torch.sum(predicts == labels).item()
+            total += labels.shape[0]
+            total_loss += loss.item() * labels.shape[0]
             progress_bar.prog(i, len(self.logits_loader), epoch, self.task, total_loss/total, correct/total*100)
 
 
@@ -223,7 +222,7 @@ class DAE(ContinualModel):
 
     def get_rehearsal_logits(self, train_loader):
         self.net.eval()
-        data = [[] for i in range(self.task+2)]
+        data = [[] for _ in range(self.task+2)]
         for inputs, labels in train_loader:
             data[0].append(inputs)
             data[1].append(labels)
@@ -232,7 +231,6 @@ class DAE(ContinualModel):
             for i in range(self.task):
                 outputs = [self.net(inputs, i, mode='ets'), self.net(inputs, i, mode='kbts')]
                 data[i+2].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
-                # data[i+2].append(outputs[0].detach().clone().cpu())
 
         data = [torch.cat(temp) for temp in data]
         self.logits_loader = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
@@ -249,48 +247,29 @@ class DAE(ContinualModel):
         mode = self.net.training
         self.net.eval()
         samples_per_class = self.args.buffer_size // (self.dataset.N_CLASSES_PER_TASK * self.task)
-
-        buf_x, buf_y, buf_l = [], [], []
+        
+        data = [[] for _ in range(self.task+2)]
         if self.task > 1:
             for _y in self.buffer.dataset.tensors[1].unique():
                 idx = (self.buffer.dataset.tensors[1] == _y)
-                buf_x += [self.buffer.dataset.tensors[0][idx][:samples_per_class]]
-                buf_y += [self.buffer.dataset.tensors[1][idx][:samples_per_class]]
-                buf_l += [self.buffer.dataset.tensors[2][idx][:samples_per_class]]
+                for i in range(len(self.buffer.dataset.tensors)):
+                    data[i] += [self.buffer.dataset.tensors[i][idx][:samples_per_class]]
+                inputs = self.dataset.test_transform(data[0].to(self.device))
+                outputs = [self.net(inputs, self.task-1, mode='ets'), self.net(inputs, self.task-1, mode='kbts')]
+                data[-1].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
 
         classes_start, classes_end = (self.task-1) * self.dataset.N_CLASSES_PER_TASK, self.task * self.dataset.N_CLASSES_PER_TASK
+        print('Filling Buffer:', samples_per_class, classes_start, classes_end)
 
-        a_x, a_y, a_l, a_e = [], [], [], []
-        for x, y in train_loader:
-            mask = (y >= classes_start) & (y < classes_end)
-            x, y = x[mask], y[mask]
-            if not x.size(0):
-                continue
-            a_x.append(x)
-            a_y.append(y)
-            x = self.dataset.test_transform(x.to(self.device))
-            y = y.to(self.device)
-            outs_ets = self.net(x, self.task-1, mode='ets')
-            outs_kbts = self.net(x, self.task-1, mode='kbts')
-            logits = ensemble_outputs([outs_ets, outs_kbts]).exp()
-            a_l.append(logits.cpu())
-            a_e.append(entropy(logits).detach().clone().cpu())
-        a_x, a_y, a_l, a_e = torch.cat(a_x), torch.cat(a_y), torch.cat(a_l), torch.cat(a_e)
-        print(samples_per_class, classes_start, classes_end, a_x.shape, a_y.shape, a_l.shape)
-
-        for _y in a_y.unique():
-            idx = (a_y == _y)
-            _x, _y, _l, _e = a_x[idx], a_y[idx], a_l[idx], a_e[idx]
-            values, indices = _e.sort(dim=0, descending=True)
-            # print(values.shape, values)
+        for _y in self.logits_loader.dataset.tensors[1].unique():
+            idx = (self.logits_loader.dataset.tensors[1] == _y)
+            ents = entropy(self.logits_loader.dataset.tensors[-1])
             #select samples with highest entropy
-            buf_x += [_x[indices[:samples_per_class]]]
-            buf_y += [_y[indices[:samples_per_class]]]
-            buf_l += [_l[indices[:samples_per_class]]]
-
-        
-        self.buffer = DataLoader(TensorDataset(torch.cat(buf_x), torch.cat(buf_y), torch.cat(buf_l)), batch_size=self.args.batch_size, shuffle=True)
-
+            values, indices = ents[idx].sort(dim=0, descending=True)
+            for i in range(len(self.buffer.dataset.tensors)):
+                data[i] += [self.buffer.dataset.tensors[i][idx][indices[:samples_per_class]]]
+            
+        self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         self.net.train(mode)
 
 
