@@ -266,8 +266,8 @@ class DAE(ContinualModel):
             ents = entropy(self.logits_loader.dataset.tensors[-1])
             #select samples with highest entropy
             values, indices = ents[idx].sort(dim=0, descending=True)
-            for i in range(len(self.buffer.dataset.tensors)):
-                data[i] += [self.buffer.dataset.tensors[i][idx][indices[:samples_per_class]]]
+            for i in range(len(self.logits_loader.dataset.tensors)):
+                data[i] += [self.logits_loader.dataset.tensors[i][idx][indices[:samples_per_class]]]
             
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         self.net.train(mode)
