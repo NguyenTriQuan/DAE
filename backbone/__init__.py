@@ -172,6 +172,8 @@ class _DynamicModel(nn.Module):
                 std = layer.gain / math.sqrt((layer.task+1) * len(layers) * layer.ks * layer.num_out[layer.task])
                 nn.init.normal_(getattr(layer, f'weight_{layer.task}_{layer.task}'), 0, std)
         
+        std = 1 / math.sqrt(self.DM[-1].num_out[-1])
+        nn.init.normal_(self.DM[-1].weight_ets, 0, std)
         self.normalize()
 
     def normalize(self):
@@ -206,6 +208,8 @@ class _DynamicModel(nn.Module):
                     getattr(layer, f'weight_{layer.task}_{i}').data /= std_layers_in
                 getattr(layer, f'weight_{layer.task}_{layer.task}').data /= std_layers_in
 
+        # std = 1 / math.sqrt(self.DM[-1].num_out[-1])
+        # nn.init.normal_(self.DM[-1].weight_ets, 0, std)
         # self.check()
 
     def check(self):

@@ -449,7 +449,7 @@ class DynamicClassifier(DynamicLinear):
         elif 'ets' == mode:
             weight = self.weight_ets[t]
             bias = self.bias_ets[t]
-        x = F.linear(x, weight, bias)
+        x = F.linear(x, weight, None)
         return x
     
     def expand(self, add_in, add_out):
@@ -463,7 +463,7 @@ class DynamicClassifier(DynamicLinear):
         self.shape_out = torch.cat([self.shape_out, torch.IntTensor([self.shape_out[-1] + add_out]).to(device)])
         self.shape_in = torch.cat([self.shape_in, torch.IntTensor([self.shape_in[-1] + add_in]).to(device)])
 
-        bound_std = self.gain / math.sqrt(self.shape_in[-1])
+        bound_std = 1 / math.sqrt(self.shape_in[-1])
         self.weight_ets.append(nn.Parameter(torch.Tensor(self.num_out[-1], self.shape_in[-1]).normal_(0, bound_std).to(device)))
         self.bias_ets.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device))) 
 
@@ -478,7 +478,7 @@ class DynamicClassifier(DynamicLinear):
             add_in = self.base_in_features - self.shape_in[-1]
 
         fan_in = self.shape_in[-1] + add_in
-        bound_std = self.gain / math.sqrt(fan_in)
+        bound_std = 1 / math.sqrt(fan_in)
         self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], fan_in).normal_(0, bound_std).to(device))
         self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1]).to(device))
     
