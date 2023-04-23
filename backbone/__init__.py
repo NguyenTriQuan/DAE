@@ -173,7 +173,7 @@ class _DynamicModel(nn.Module):
                 nn.init.normal_(getattr(layer, f'weight_{layer.task}_{layer.task}'), 0, std)
         
         std = 1 / math.sqrt(self.DM[-1].num_out[-1])
-        nn.init.normal_(self.DM[-1].weight_ets, 0, std)
+        nn.init.normal_(self.DM[-1].weight_ets[-1], 0, std)
         self.normalize()
 
     def normalize(self):
