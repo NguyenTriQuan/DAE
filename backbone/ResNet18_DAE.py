@@ -1,8 +1,6 @@
 # Copyright 2022-present, Lorenzo Bonicelli, Pietro Buzzega, Matteo Boschini, Angelo Porrello, Simone Calderara.
 # All rights reserved.
-
 from typing import List
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -39,9 +37,9 @@ class BasicBlock(nn.Module):
         self.conv1 = conv3x3(in_planes, planes, stride,norm_type=norm_type, args=args)
         self.conv2 = conv3x3(planes, planes, norm_type=norm_type, args=args)
 
-        # self.shortcut = None
+        self.shortcut = None
         # if stride != 1 or in_planes != self.expansion * planes:
-        self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args)
+        # self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args)
 
     def forward(self, x: torch.Tensor, t, mode) -> torch.Tensor:
         """
@@ -129,16 +127,19 @@ class ResNet(_DynamicModel):
 
         for block in self.layers:
             add_in_1 = block.conv1.expand(add_in=add_in)
-            _, _, _, add_out_2 = block.conv2.get_expand_shape(-1, add_in_1)
-            _, _, _, add_out_sc = block.shortcut.get_expand_shape(-1, add_in)
-            add_out = min(add_out_2, add_out_sc)
-            block.conv2.expand(add_in=add_in_1, add_out=add_out)
-            block.shortcut.expand(add_in=add_in, add_out=add_out)
-            add_in = add_out
+            if block.shortcut is not None:
+                _, _, _, add_out_2 = block.conv2.get_expand_shape(-1, add_in_1)
+                _, _, _, add_out_sc = block.shortcut.get_expand_shape(-1, add_in)
+                add_out = min(add_out_2, add_out_sc)
+                block.conv2.expand(add_in=add_in_1, add_out=add_out)
+                block.shortcut.expand(add_in=add_in, add_out=add_out)
+                add_in = add_out
 
-            max_strength = max(block.conv2.strength_in, block.shortcut.strength_in)
-            block.conv2.strength_in = max_strength
-            block.shortcut.strength_in = max_strength
+                max_strength = max(block.conv2.strength_in, block.shortcut.strength_in)
+                block.conv2.strength_in = max_strength
+                block.shortcut.strength_in = max_strength
+            else:
+                add_in = block.conv2.expand(add_in=add_in_1)
 
         self.linear.expand(add_in=add_in, add_out=new_classes)
 

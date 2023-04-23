@@ -18,6 +18,8 @@ from torch.utils.data import DataLoader, Dataset, TensorDataset
 from itertools import cycle
 from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer
 import numpy as np
+import random
+import math
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Continual Learning with Dynamic Architecture and Ensemble of Knowledge Base.')
@@ -292,18 +294,20 @@ class DAE(ContinualModel):
 
 def get_related_layers(net, input_shape):
     def forward_hook(m, i, o):
-        m.output_idx = torch.rand(1).cuda() * m.input_idx
+        m.output_idx = random.gauss(0,1) * m.input_idx
         o[0] += m.output_idx
         return
     
     def forward_pre_hook(m, i):
-        m.input_idx = i[0].mean().detach()
+        if len(i[0].shape) == 4:
+            m.input_idx = i[0][0,0,0,0].item()
+        else:
+            m.input_idx = i[0][0,0].item()
+
         return (torch.zeros_like(i[0]), i[1], i[2])
 
     handes = []
     for m in net.DM:
-        m.input_idx = torch.tensor(-9999).cuda()
-        m.output_idx = torch.tensor(-9999).cuda()
         h1 = m.register_forward_pre_hook(forward_pre_hook)
         h2 = m.register_forward_hook(forward_hook)
         handes += [h1, h2]
@@ -320,32 +324,32 @@ def get_related_layers(net, input_shape):
             m.name = n
             m.prev_layers = []
             m.next_layers = []
-    eps = 1e-6
+    eps = 1e-7
     for i in range(len(net.DM)):
         for j in range(i):
-            if (net.DM[i].input_idx - net.DM[j].output_idx).abs() < eps:
+            if abs(net.DM[i].input_idx - net.DM[j].output_idx) < eps:
                 net.DM[i].prev_layers.append(net.DM[j])
                 net.DM[j].next_layers.append(net.DM[i])
             else:
                 for k in range(j):
-                    if (net.DM[i].input_idx - net.DM[j].output_idx - net.DM[k].output_idx).abs() < eps:
+                    if abs(net.DM[i].input_idx - net.DM[j].output_idx - net.DM[k].output_idx) < eps:
                         net.DM[i].prev_layers += [net.DM[j], net.DM[k]]
                         net.DM[j].next_layers += [net.DM[i]]
                         net.DM[k].next_layers += [net.DM[i]]
 
-                    if (net.DM[i].input_idx - net.DM[j].output_idx - net.DM[k].input_idx).abs() < eps:
+                    if abs(net.DM[i].input_idx - net.DM[j].output_idx - net.DM[k].input_idx) < eps:
                         net.DM[i].prev_layers += [net.DM[j]] + net.DM[k].prev_layers
                         net.DM[j].next_layers += [net.DM[i]]
                         for g in net.DM[k].prev_layers:
                             g.next_layers += [net.DM[i]]
 
-                    if (net.DM[i].input_idx - net.DM[k].output_idx - net.DM[j].input_idx).abs() < eps:
+                    if abs(net.DM[i].input_idx - net.DM[k].output_idx - net.DM[j].input_idx) < eps:
                         net.DM[i].prev_layers += [net.DM[k]] + net.DM[j].prev_layers
                         net.DM[k].next_layers += [net.DM[i]]
                         for g in net.DM[j].prev_layers:
                             g.next_layers += [net.DM[i]]
 
-                    if (net.DM[i].input_idx - net.DM[j].input_idx - net.DM[k].input_idx).abs() < eps:
+                    if abs(net.DM[i].input_idx - net.DM[j].input_idx - net.DM[k].input_idx) < eps:
                         net.DM[i].prev_layers += net.DM[j].prev_layers + net.DM[k].prev_layers
                         for g in net.DM[j].prev_layers:
                             g.next_layers += [net.DM[i]]
@@ -364,7 +368,7 @@ def get_related_layers(net, input_shape):
         # for j, n in enumerate(m.next_layers):
         #     print('next', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
         # print()
-    net.prev_layers = tuple(set(net.prev_layers))
+    net.prev_layers = list(set(net.prev_layers))
     for i, layers in enumerate(net.prev_layers):
         if len(layers) == 0:
             print(i, layers)
