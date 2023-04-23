@@ -362,12 +362,12 @@ def get_related_layers(net, input_shape):
         m.next_layers = tuple(set(m.next_layers))
         if len(m.prev_layers) != 0:
             net.prev_layers.append(m.prev_layers)
-        # print(m.name, m.base_in_features, m.base_out_features, m.input_idx, m.output_idx)
-        # for j, n in enumerate(m.prev_layers):
-        #     print('prev', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
-        # for j, n in enumerate(m.next_layers):
-        #     print('next', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
-        # print()
+        print(m.name, m.base_in_features, m.base_out_features, m.input_idx, m.output_idx)
+        for j, n in enumerate(m.prev_layers):
+            print('prev', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
+        for j, n in enumerate(m.next_layers):
+            print('next', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
+        print()
     net.prev_layers = list(set(net.prev_layers))
     for i, layers in enumerate(net.prev_layers):
         if len(layers) == 0:
