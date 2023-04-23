@@ -85,8 +85,8 @@ class DAE(ContinualModel):
     def __init__(self, backbone, loss, args, transform):
         super(DAE, self).__init__(backbone, loss, args, transform)
         self.dataset = get_dataset(args)
-        self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_affine_track', args=args)
-        # self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=None, args=args)
+        # self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_affine_track', args=args)
+        self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=None, args=args)
         self.buffer = None
         self.task = 0
         self.lamb = [float(i) for i in args.lamb.split('_')]
@@ -152,7 +152,7 @@ class DAE(ContinualModel):
             loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
             loss.backward()
             self.opt.step()
-            self.net.normalize()
+            # self.net.normalize()
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
             total += labels.shape[0]
