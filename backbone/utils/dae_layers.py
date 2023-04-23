@@ -180,7 +180,8 @@ class _DynamicLayer(nn.Module):
         self.register_buffer(f'kbts_mask_{self.task}', torch.ones_like(self.score).to(device))
 
         if self.norm_type is not None:
-            self.norm_layer_ets.append(DynamicNorm(fan_out, affine=True, track_running_stats=True)) 
+            # self.norm_layer_ets.append(DynamicNorm(fan_out, affine=True, track_running_stats=True)) 
+            self.norm_layer_ets.append(nn.BatchNorm2d(fan_out, affine=True, track_running_stats=True).to(device))
             self.norm_layer_kbts.append(nn.BatchNorm2d(fan_out, affine=True, track_running_stats=True).to(device))
         
         self.set_reg_strength()
