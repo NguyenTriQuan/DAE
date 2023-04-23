@@ -208,7 +208,7 @@ class _DynamicModel(nn.Module):
             aux = 1 - lamb * lr * strength / std_layers_in
             aux = F.threshold(aux, 0, 0, False)
             
-            sum_std_layers_in = std_layers_in.sum()
+            sum_std_layers_in = (std_layers_in * aux).sum()
             for layer in layers:
                 layer.mask_out = (aux > 0).clone().detach()
                 getattr(layer, f'weight_{layer.task}_{layer.task}').data *= aux.view(layer.view_in)
