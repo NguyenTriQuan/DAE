@@ -582,8 +582,8 @@ class DynamicNorm(nn.Module):
             mean = self.running_mean
             var = self.running_var
 
-        var = var.mean()
-        output = (input - mean.view(shape)) / (torch.sqrt(var.view(shape) + self.eps))
+        var = var.sum() / (2*3)
+        output = (input - mean.view(shape)) / (torch.sqrt(var + self.eps))
     
         if self.affine:
             output = output * self.weight.view(shape) + self.bias.view(shape)
