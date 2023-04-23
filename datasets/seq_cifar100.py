@@ -32,14 +32,13 @@ class SequentialCIFAR100(ContinualDataset):
     
     train_transform = torch.nn.Sequential(
                 K.augmentation.RandomCrop((32, 32), padding=4, same_on_batch=False),
-                K.augmentation.RandomHorizontalFlip(same_on_batch=False),
-                K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
-                                        (0.2675, 0.2565, 0.2761)),
+                K.augmentation.RandomHorizontalFlip(same_on_batch=False)
             )
     test_transform = torch.nn.Sequential(
                 K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
                                         (0.2675, 0.2565, 0.2761)),
             )
+    test_transforms = []
     
     train_set=CIFAR100(base_path() + 'CIFAR100',train=True,download=True)
     test_set=CIFAR100(base_path() + 'CIFAR100',train=False,download=True)
@@ -59,7 +58,13 @@ class SequentialCIFAR100(ContinualDataset):
         test_loader = DataLoader(TensorDataset(self.test_data[test_mask], self.test_targets[test_mask]), batch_size=self.args.val_batch_size, shuffle=False)
         self.test_loaders.append(test_loader)
         self.train_loader = train_loader
+        mean = train_loader.dataset.tensors[0].mean((0, 2, 3))
+        std = train_loader.dataset.tensors[0].std((0, 2, 3), unbiased=False)
+        print(f'Classes: {self.i} - {self.i+self.N_CLASSES_PER_TASK}, mean = {mean}, std = {std}')
         self.i += self.N_CLASSES_PER_TASK
+        self.test_transforms += [torch.nn.Sequential(
+                K.augmentation.Normalize(mean, std)
+            )]
         return train_loader, test_loader
 
 

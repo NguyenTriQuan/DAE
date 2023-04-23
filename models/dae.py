@@ -99,7 +99,9 @@ class DAE(ContinualModel):
         self.soft = torch.nn.Softmax(dim=1)
 
     def forward(self, x, t=None, mode='ets_kbts_jr'):
+        
         if t is not None:
+            x = self.dataset.test_transforms[t](x)
             outputs = []
             if 'jr' in mode:
                 out_jr = self.net(x, self.task, mode='jr')
@@ -120,6 +122,7 @@ class DAE(ContinualModel):
             for i in range(self.task):
                 outputs = []
                 weights = []
+                x = self.dataset.test_transforms[i](x)
                 if 'ets' in mode:
                     out = self.net(x, i, mode='ets')
                     outputs.append(out)
@@ -150,6 +153,7 @@ class DAE(ContinualModel):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             inputs = self.dataset.train_transform(inputs)
+            inputs = self.dataset.test_transforms[-1](inputs)
             self.opt.zero_grad()
             outputs = self.net(inputs, self.task, mode)
             loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
@@ -191,7 +195,9 @@ class DAE(ContinualModel):
                 for j in range(len(logits_data)):
                     logits_data[j] = torch.cat([buffer_data[j], logits_data[j]])
 
-            outputs = self.net(self.dataset.train_transform(logits_data[0]), self.task, mode='jr')
+            inputs = self.dataset.train_transform(logits_data[0])
+            inputs = self.dataset.test_transforms[-1](logits_data[0])
+            outputs = self.net(inputs, self.task, mode='jr')
             loss = self.loss(outputs, logits_data[1])
             for t in range(self.task-1):
                 outputs_task = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
@@ -231,7 +237,7 @@ class DAE(ContinualModel):
             data[0].append(inputs)
             data[1].append(labels)
             inputs = inputs.to(self.device)
-            inputs = self.dataset.test_transform(inputs)
+            inputs = self.dataset.test_transforms[-1](inputs)
             for i in range(self.task):
                 outputs = [self.net(inputs, i, mode='ets'), self.net(inputs, i, mode='kbts')]
                 data[i+2].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
@@ -243,7 +249,7 @@ class DAE(ContinualModel):
             new_logits = []
             for buffer_data in self.buffer:
                 inputs = buffer_data[0].to(self.device)
-                inputs = self.dataset.test_transform(inputs)
+                inputs = self.dataset.test_transforms[self.task-1](inputs)
                 outputs = [self.net(inputs, self.task-1, mode='ets'), self.net(inputs, self.task-1, mode='kbts')]
                 new_logits.append(ensemble_outputs(outputs).exp().detach().clone().cpu())
 
