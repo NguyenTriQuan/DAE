@@ -159,13 +159,14 @@ class DAE(ContinualModel):
             loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
             loss.backward()
             self.opt.step()
-            self.net.normalize()
+            with torch.no_grad():
+                self.net.normalize(self.args.lr, self.lamb[self.task])
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
             total += labels.shape[0]
             total_loss += loss.item() * labels.shape[0]
             if squeeze:
-                self.net.proximal_gradient_descent(self.args.lr, self.lamb[self.task])
+                # self.net.proximal_gradient_descent(self.args.lr, self.lamb[self.task])
                 num_neurons = [m.mask_out.sum().item() for m in self.net.DM[:-1]]
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, 0, num_neurons)
             else:

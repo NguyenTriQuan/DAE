@@ -93,7 +93,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         # squeeze = True
         n_epochs = 50
         scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
-        squeeze = False
+        squeeze = True
     elif 'kbts' in mode:
         n_epochs = 50
         scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)

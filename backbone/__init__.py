@@ -8,6 +8,7 @@ import math
 import torch
 import torch.nn as nn
 import numpy as np
+import torch.nn.functional as F
 from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer
 
 def xavier(m: nn.Module) -> None:
@@ -174,27 +175,27 @@ class _DynamicModel(nn.Module):
         
         std = 1 / math.sqrt(self.DM[-1].num_out[-1])
         nn.init.normal_(self.DM[-1].weight_ets[-1], 0, std)
-        self.normalize()
+        # self.normalize()
 
-    def normalize(self):
+    def normalize(self, lr, lamb):
         num_tasks = self.DM[-1].task + 1
         for layers in self.prev_layers:
             var_layers_in = 0
-            for i in range(num_tasks-1):
-                var_layers_out = 0
-                for layer in layers:
-                    mean = getattr(layer, f'weight_{i}_{layer.task}').mean(layer.dim_in)
-                    getattr(layer, f'weight_{i}_{layer.task}').data -= mean.view(layer.view_in)
-                    var = (getattr(layer, f'weight_{i}_{layer.task}') ** 2).mean(layer.dim_in)
-                    var_layers_out += var * layer.ks / (layer.gain ** 2)
+            # for i in range(num_tasks-1):
+            #     var_layers_out = 0
+            #     for layer in layers:
+            #         mean = getattr(layer, f'weight_{i}_{layer.task}').mean(layer.dim_in)
+            #         getattr(layer, f'weight_{i}_{layer.task}').data -= mean.view(layer.view_in)
+            #         var = (getattr(layer, f'weight_{i}_{layer.task}') ** 2).mean(layer.dim_in)
+            #         var_layers_out += var * layer.ks / (layer.gain ** 2)
 
-                    mean = getattr(layer, f'weight_{layer.task}_{i}').mean(layer.dim_in)
-                    getattr(layer, f'weight_{layer.task}_{i}').data -= mean.view(layer.view_in)
-                    var = (getattr(layer, f'weight_{layer.task}_{i}') ** 2).mean(layer.dim_in)
-                    var_layers_in += var * layer.ks / (layer.gain ** 2)
+            #         mean = getattr(layer, f'weight_{layer.task}_{i}').mean(layer.dim_in)
+            #         getattr(layer, f'weight_{layer.task}_{i}').data -= mean.view(layer.view_in)
+            #         var = (getattr(layer, f'weight_{layer.task}_{i}') ** 2).mean(layer.dim_in)
+            #         var_layers_in += var * layer.ks / (layer.gain ** 2)
 
-                for layer in layers:
-                    getattr(layer, f'weight_{i}_{layer.task}').data /= math.sqrt(num_tasks * var_layers_out.sum())
+            #     for layer in layers:
+            #         getattr(layer, f'weight_{i}_{layer.task}').data /= math.sqrt(num_tasks * var_layers_out.sum())
 
             for layer in layers:
                 mean = getattr(layer, f'weight_{layer.task}_{layer.task}').mean(layer.dim_in)
@@ -202,11 +203,20 @@ class _DynamicModel(nn.Module):
                 var = (getattr(layer, f'weight_{layer.task}_{layer.task}') ** 2).mean(layer.dim_in)
                 var_layers_in += var * layer.ks / (layer.gain ** 2)
 
-            std_layers_in = math.sqrt(var_layers_in.sum())
+            strength = layer.strength_in / self.total_strength
+            std_layers_in = var_layers_in.sqrt()
+            aux = 1 - lamb * lr * strength / std_layers_in
+            aux = F.threshold(aux, 0, 0, False)
+            
+            sum_std_layers_in = std_layers_in.sum()
             for layer in layers:
-                for i in range(layer.task):
-                    getattr(layer, f'weight_{layer.task}_{i}').data /= std_layers_in
-                getattr(layer, f'weight_{layer.task}_{layer.task}').data /= std_layers_in
+                layer.mask_out = (aux > 0).clone().detach()
+                getattr(layer, f'weight_{layer.task}_{layer.task}').data *= aux.view(layer.view_in)
+                # for i in range(self.task):
+                #     f'weight_{i}_{self.task}'.data *= aux.view(self.view_in)
+                # for i in range(layer.task):
+                #     getattr(layer, f'weight_{layer.task}_{i}').data /= sum_std_layers_in
+                getattr(layer, f'weight_{layer.task}_{layer.task}').data /= sum_std_layers_in
 
         mean = self.DM[-1].weight_ets[-1].mean(self.DM[-1].dim_in)
         self.DM[-1].weight_ets[-1].data -= mean.view(self.DM[-1].view_in)
