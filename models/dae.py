@@ -302,8 +302,8 @@ def get_related_layers(net, input_shape):
 
     handes = []
     for m in net.DM:
-        m.input_idx = torch.tensor(-np.inf).cuda()
-        m.output_idx = torch.tensor(-np.inf).cuda()
+        m.input_idx = torch.tensor(-9999).cuda()
+        m.output_idx = torch.tensor(-9999).cuda()
         h1 = m.register_forward_pre_hook(forward_pre_hook)
         h2 = m.register_forward_hook(forward_hook)
         handes += [h1, h2]
