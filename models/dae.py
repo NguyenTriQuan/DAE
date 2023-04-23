@@ -324,7 +324,7 @@ def get_related_layers(net, input_shape):
             m.name = n
             m.prev_layers = []
             m.next_layers = []
-    eps = 1e-7
+    eps = 1e-4
     for i in range(len(net.DM)):
         for j in range(i):
             if abs(net.DM[i].input_idx - net.DM[j].output_idx) < eps:
