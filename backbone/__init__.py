@@ -208,8 +208,10 @@ class _DynamicModel(nn.Module):
                     getattr(layer, f'weight_{layer.task}_{i}').data /= std_layers_in
                 getattr(layer, f'weight_{layer.task}_{layer.task}').data /= std_layers_in
 
-        # std = 1 / math.sqrt(self.DM[-1].num_out[-1])
-        # nn.init.normal_(self.DM[-1].weight_ets, 0, std)
+        mean = self.DM[-1].weight_ets[-1].mean(self.DM[-1].dim_in)
+        self.DM[-1].weight_ets[-1].data -= mean.view(self.DM[-1].view_in)
+        var = (self.DM[-1].weight_ets[-1] ** 2).mean(layer.dim_in)
+        self.DM[-1].weight_ets[-1].data /= math.sqrt(var.sum())
         # self.check()
 
     def check(self):
