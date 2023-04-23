@@ -79,17 +79,21 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
     return accs, accs_mask_classes
 
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
-    model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+    # model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+    model.opt = torch.optim.SGD(model.net.get_optim_params(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
     squeeze = False
     num_squeeze = 100
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     if 'ets' in mode:
         lamb = model.lamb[t]
         print('lamb', lamb)
-        n_epochs = 100
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
-        num_squeeze = 70
-        squeeze = True
+        # n_epochs = 100
+        # scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
+        # num_squeeze = 70
+        # squeeze = True
+        n_epochs = 50
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+        squeeze = False
     elif 'kbts' in mode:
         n_epochs = 50
         scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
@@ -169,7 +173,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
         
         # kbts training
-        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
+        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
 
         # ets training
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
@@ -184,31 +188,31 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
-        with torch.no_grad():
-            model.get_rehearsal_logits(train_loader)
+        # with torch.no_grad():
+        #     model.get_rehearsal_logits(train_loader)
         # jr training
-        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
+        # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='jr')
 
-        with torch.no_grad():
-            model.fill_buffer(train_loader)
+        # with torch.no_grad():
+        #     model.fill_buffer(train_loader)
 
-        print('checking forgetting')
-        accs = evaluate(model, dataset, task=None, mode='kbts')
-        print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
+        # print('checking forgetting')
+        # accs = evaluate(model, dataset, task=None, mode='kbts')
+        # print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
 
-        accs = evaluate(model, dataset, task=None, mode='ets')
-        print(f'ets accs: cil {accs[0]}, til {accs[1]}')
+        # accs = evaluate(model, dataset, task=None, mode='ets')
+        # print(f'ets accs: cil {accs[0]}, til {accs[1]}')
 
-        accs = evaluate(model, dataset, task=None, mode='jr')
-        print(f'jr accs: cil {accs[0]}, til {accs[1]}')
+        # accs = evaluate(model, dataset, task=None, mode='jr')
+        # print(f'jr accs: cil {accs[0]}, til {accs[1]}')
 
         # final evaluation
-        accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
-        results.append(accs[0])
-        results_mask_classes.append(accs[1])
-        mean_acc = np.mean(accs, axis=1)
-        print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
-        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+        # accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
+        # results.append(accs[0])
+        # results_mask_classes.append(accs[1])
+        # mean_acc = np.mean(accs, axis=1)
+        # print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
+        # print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         # save model and buffer
         model.net.clear_memory()

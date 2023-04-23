@@ -32,8 +32,10 @@ def get_parser() -> ArgumentParser:
                         help='Dropout probability.')
     parser.add_argument('--sparsity', type=float, required=True,
                         help='Super mask sparsity.')
-    parser.add_argument('--temperature', type=float, required=True,
+    parser.add_argument('--temperature', default=1, type=float, required=False,
                         help='Weighted ensemble temperature.')
+    parser.add_argument('--negative_slope', default=0, type=float, required=False,
+                        help='leaky relu activation negative slope.')
     parser.add_argument('--ablation', type=str, required=False,
                         help='Ablation study.', default='')
     parser.add_argument('--debug', action='store_true',
@@ -83,7 +85,8 @@ class DAE(ContinualModel):
     def __init__(self, backbone, loss, args, transform):
         super(DAE, self).__init__(backbone, loss, args, transform)
         self.dataset = get_dataset(args)
-        self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_affine_track', args=args)
+        # self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_affine_track', args=args)
+        self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=None, args=args)
         self.buffer = None
         self.task = 0
         self.lamb = [float(i) for i in args.lamb.split('_')]
@@ -149,6 +152,7 @@ class DAE(ContinualModel):
             loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
             loss.backward()
             self.opt.step()
+            self.net.normalize()
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
             total += labels.shape[0]
@@ -186,7 +190,7 @@ class DAE(ContinualModel):
 
             outputs = self.net(self.dataset.train_transform(logits_data[0]), self.task, mode='jr')
             loss = self.loss(outputs, logits_data[1])
-            for t in range(self.task):
+            for t in range(self.task-1):
                 outputs_task = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
                 loss += self.args.alpha * modified_kl_div(smooth(logits_data[t+2], 2, 1), smooth(self.soft(outputs_task), 2, 1))
             loss.backward()
@@ -200,8 +204,10 @@ class DAE(ContinualModel):
 
     def begin_task(self, dataset):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
-        # if self.task == 0:
-        #     get_related_layers(self.net, self.dataset.INPUT_SHAPE)
+        if self.task == 0:
+            get_related_layers(self.net, self.dataset.INPUT_SHAPE)
+        self.net.initialize()
+        self.net.check()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:
             m.kbts_sparsities.append(m.sparsity)
@@ -343,12 +349,22 @@ def get_related_layers(net, input_shape):
                         for g in net.DM[k].prev_layers:
                             g.next_layers += [net.DM[i]]
 
+    net.prev_layers = []
     for m in net.DM:
-        m.prev_layers = set(m.prev_layers)
-        m.next_layers = set(m.next_layers)
-        print(m.name, m.base_in_features, m.base_out_features, m.input_idx, m.output_idx)
-        for j, n in enumerate(m.prev_layers):
-            print('prev', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
-        for j, n in enumerate(m.next_layers):
-            print('next', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
-        print()
+        m.prev_layers = tuple(set(m.prev_layers))
+        m.next_layers = tuple(set(m.next_layers))
+        if len(m.prev_layers) != 0:
+            net.prev_layers.append(m.prev_layers)
+        # print(m.name, m.base_in_features, m.base_out_features, m.input_idx, m.output_idx)
+        # for j, n in enumerate(m.prev_layers):
+        #     print('prev', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
+        # for j, n in enumerate(m.next_layers):
+        #     print('next', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
+        # print()
+    net.prev_layers = tuple(set(net.prev_layers))
+    for i, layers in enumerate(net.prev_layers):
+        if len(layers) == 0:
+            print(i, layers)
+        for m in layers:
+            print(i, m.name, m.base_in_features, m.base_out_features)
+
