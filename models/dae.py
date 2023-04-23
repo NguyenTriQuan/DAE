@@ -152,7 +152,7 @@ class DAE(ContinualModel):
             loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
             loss.backward()
             self.opt.step()
-            # self.net.normalize()
+            self.net.normalize()
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
             total += labels.shape[0]

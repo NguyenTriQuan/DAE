@@ -1,7 +1,5 @@
 # Copyright 2022-present, Lorenzo Bonicelli, Pietro Buzzega, Matteo Boschini, Angelo Porrello, Simone Calderara.
 # All rights reserved.
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
 
 from typing import List
 
@@ -43,7 +41,7 @@ class BasicBlock(nn.Module):
 
         # self.shortcut = None
         # if stride != 1 or in_planes != self.expansion * planes:
-        self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args)
+        # self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args)
 
     def forward(self, x: torch.Tensor, t, mode) -> torch.Tensor:
         """
@@ -53,10 +51,10 @@ class BasicBlock(nn.Module):
         """
         out = self.conv1(x, t, mode)
         out = self.conv2(out, t, mode)
-        if self.shortcut is not None:
-            out += self.shortcut(x, t, mode)
-        else:
-            out += x
+        # if self.shortcut is not None:
+        #     out += self.shortcut(x, t, mode)
+        # else:
+        #     out += x
         return out
 
 
