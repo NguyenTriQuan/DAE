@@ -17,6 +17,7 @@ from backbone.ResNet18_DAE import resnet18
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from itertools import cycle
 from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer
+import numpy as np
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Continual Learning with Dynamic Architecture and Ensemble of Knowledge Base.')
@@ -301,6 +302,7 @@ def get_related_layers(net, input_shape):
 
     handes = []
     for m in net.DM:
+        m.input_idx = -np.inf
         h1 = m.register_forward_pre_hook(forward_pre_hook)
         h2 = m.register_forward_hook(forward_hook)
         handes += [h1, h2]
