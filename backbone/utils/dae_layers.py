@@ -350,7 +350,7 @@ class _DynamicLayer(nn.Module):
             for i in range(self.task):
                 apply_mask_in(getattr(self, f'weight_{self.task}_{i}'), mask_in, optim_state)
 
-            self.num_in[-1] = f'weight_{self.task}_{self.task}'.shape[1]
+            self.num_in[-1] = getattr(self, f'weight_{self.task}_{self.task}').shape[1]
             self.shape_in[-1] = self.num_in.sum()
 
         self.mask_out = None
