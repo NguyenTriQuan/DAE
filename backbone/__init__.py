@@ -210,7 +210,7 @@ class _DynamicModel(nn.Module):
 
         mean = self.DM[-1].weight_ets[-1].mean(self.DM[-1].dim_in)
         self.DM[-1].weight_ets[-1].data -= mean.view(self.DM[-1].view_in)
-        var = (self.DM[-1].weight_ets[-1] ** 2).mean(layer.dim_in)
+        var = (self.DM[-1].weight_ets[-1] ** 2).mean(self.DM[-1].dim_in)
         self.DM[-1].weight_ets[-1].data /= math.sqrt(var.sum())
         # self.check()
 
