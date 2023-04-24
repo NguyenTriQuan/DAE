@@ -177,6 +177,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         # ets training
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
+        model.net.check()
         num_params, num_neurons = model.net.count_params()
         print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
