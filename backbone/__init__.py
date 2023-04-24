@@ -122,10 +122,6 @@ class _DynamicModel(nn.Module):
             num_neurons.append(m.shape_out[t+1].item())
         return num_params, num_neurons
 
-    # def proximal_gradient_descent(self, lr, lamb):
-    #     for m in self.DM[:-1]:
-    #         m.proximal_gradient_descent(lr, lamb, self.total_strength)
-
     def freeze(self):
         for m in self.DM:
             m.freeze()
@@ -175,9 +171,47 @@ class _DynamicModel(nn.Module):
         
         std = 1 / math.sqrt(self.DM[-1].num_out[-1])
         nn.init.normal_(self.DM[-1].weight_ets[-1], 0, std)
-        # self.normalize()
+        self.normalize()
 
-    def normalize(self, lr, lamb):
+    def normalize(self):
+        num_tasks = self.DM[-1].task + 1
+        for layers in self.prev_layers:
+            var_layers_in = 0
+            # for i in range(num_tasks-1):
+            #     var_layers_out = 0
+            #     for layer in layers:
+            #         mean = getattr(layer, f'weight_{i}_{layer.task}').mean(layer.dim_in)
+            #         getattr(layer, f'weight_{i}_{layer.task}').data -= mean.view(layer.view_in)
+            #         var = (getattr(layer, f'weight_{i}_{layer.task}') ** 2).mean(layer.dim_in)
+            #         var_layers_out += var * layer.ks / (layer.gain ** 2)
+
+            #         mean = getattr(layer, f'weight_{layer.task}_{i}').mean(layer.dim_in)
+            #         getattr(layer, f'weight_{layer.task}_{i}').data -= mean.view(layer.view_in)
+            #         var = (getattr(layer, f'weight_{layer.task}_{i}') ** 2).mean(layer.dim_in)
+            #         var_layers_in += var * layer.ks / (layer.gain ** 2)
+
+            #     for layer in layers:
+            #         getattr(layer, f'weight_{i}_{layer.task}').data /= math.sqrt(num_tasks * var_layers_out.sum())
+
+            for layer in layers:
+                mean = getattr(layer, f'weight_{layer.task}_{layer.task}').mean(layer.dim_in)
+                getattr(layer, f'weight_{layer.task}_{layer.task}').data -= mean.view(layer.view_in)
+                var = (getattr(layer, f'weight_{layer.task}_{layer.task}') ** 2).mean(layer.dim_in)
+                var_layers_in += var * layer.ks / (layer.gain ** 2)
+            
+            sum_std_layers_in = var_layers_in.sqrt().sum()
+            for layer in layers:
+                # for i in range(layer.task):
+                #     getattr(layer, f'weight_{layer.task}_{i}').data /= sum_std_layers_in
+                getattr(layer, f'weight_{layer.task}_{layer.task}').data /= sum_std_layers_in
+
+        mean = self.DM[-1].weight_ets[-1].mean(self.DM[-1].dim_in)
+        self.DM[-1].weight_ets[-1].data -= mean.view(self.DM[-1].view_in)
+        var = (self.DM[-1].weight_ets[-1] ** 2).mean(self.DM[-1].dim_in)
+        self.DM[-1].weight_ets[-1].data /= math.sqrt(var.sum())
+        # self.check()
+
+    def proximal_gradient_descent(self, lr, lamb):
         num_tasks = self.DM[-1].task + 1
         for layers in self.prev_layers:
             var_layers_in = 0
@@ -208,7 +242,7 @@ class _DynamicModel(nn.Module):
             aux = 1 - lamb * lr * strength / std_layers_in
             aux = F.threshold(aux, 0, 0, False)
             
-            sum_std_layers_in = (var_layers_in * aux**2).sum()
+            sum_std_layers_in = (var_layers_in * aux**2).sqrt().sum()
             for layer in layers:
                 layer.mask_out = (aux > 0).clone().detach()
                 getattr(layer, f'weight_{layer.task}_{layer.task}').data *= aux.view(layer.view_in)
@@ -225,21 +259,22 @@ class _DynamicModel(nn.Module):
         # self.check()
 
     def check(self):
-        for layers in self.prev_layers:
-            var_layers_in = 0
-            for layer in layers:
-                print(layer.name, layer.ks, end=' ')
-                for i in range(layer.task):
-                    mean = getattr(layer, f'weight_{layer.task}_{i}').mean(layer.dim_in)
-                    var = (getattr(layer, f'weight_{layer.task}_{i}') ** 2).mean(layer.dim_in)
-                    var_layers_in += var * layer.ks / (layer.gain ** 2)
+        with torch.no_grad():
+            for layers in self.prev_layers:
+                var_layers_in = 0
+                for layer in layers:
+                    print(layer.name, layer.ks, end=' ')
+                    for i in range(layer.task):
+                        mean = getattr(layer, f'weight_{layer.task}_{i}').mean(layer.dim_in)
+                        var = (getattr(layer, f'weight_{layer.task}_{i}') ** 2).mean(layer.dim_in)
+                        var_layers_in += var * layer.ks / (layer.gain ** 2)
 
-                mean = getattr(layer, f'weight_{layer.task}_{layer.task}').mean(layer.dim_in)
-                var = (getattr(layer, f'weight_{layer.task}_{layer.task}') ** 2).mean(layer.dim_in)
-                var_layers_in += var * layer.ks / (layer.gain ** 2)
-                # print(mean.sum().item(), end=' ')
-            
-            print('|Var|', var_layers_in.sum().item())
+                    mean = getattr(layer, f'weight_{layer.task}_{layer.task}').mean(layer.dim_in)
+                    var = (getattr(layer, f'weight_{layer.task}_{layer.task}') ** 2).mean(layer.dim_in)
+                    var_layers_in += var * layer.ks / (layer.gain ** 2)
+                    # print(mean.sum().item(), end=' ')
+                
+                print('|Var|', var_layers_in.sum().item())
 
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')

@@ -160,7 +160,7 @@ class DAE(ContinualModel):
             loss.backward()
             self.opt.step()
             with torch.no_grad():
-                self.net.normalize(self.args.lr, self.lamb[self.task])
+                self.net.proximal_gradient_descent(self.args.lr, self.lamb[self.task])
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
             total += labels.shape[0]

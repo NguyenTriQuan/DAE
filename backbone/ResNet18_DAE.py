@@ -170,9 +170,9 @@ class ResNet(_DynamicModel):
         for m in self.DM[:-1]:
             self.total_strength += m.strength_in
 
-    def proximal_gradient_descent(self, lr, lamb):
-        for m in self.DM[:-1]:
-            m.proximal_gradient_descent(lr, lamb, self.total_strength)
+    # def proximal_gradient_descent(self, lr, lamb):
+    #     for m in self.DM[:-1]:
+    #         m.proximal_gradient_descent(lr, lamb, self.total_strength)
                 
     def update_strength(self):
         self.conv1.mask_in = None
