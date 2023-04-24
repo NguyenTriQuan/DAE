@@ -92,14 +92,14 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         # num_squeeze = 70
         # squeeze = True
         n_epochs = 50
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
         squeeze = True
     elif 'kbts' in mode:
         n_epochs = 50
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
     elif 'jr' in mode:
         n_epochs = 50
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
 
     for epoch in range(n_epochs):
         if mode == 'jr':
@@ -109,8 +109,6 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
 
         if epoch >= num_squeeze:
             squeeze = False
-        if scheduler is not None:
-            scheduler.step()
     
     accs = evaluate(model, dataset, task=t, mode=mode)
     print('\n{} Accuracy for {} task(s): {} %'.format(mode, t+1, round(accs[0][0], 2)), file=sys.stderr)
