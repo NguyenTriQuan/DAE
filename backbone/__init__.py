@@ -209,10 +209,10 @@ class _DynamicModel(nn.Module):
                 #     getattr(layer, f'weight_{layer.task}_{i}').data /= sum_std_layers_in
                 getattr(layer, f'weight_{layer.task}_{layer.task}').data /= sum_std_layers_in
 
-        # mean = self.DM[-1].weight_ets[-1].mean(self.DM[-1].dim_in)
-        # self.DM[-1].weight_ets[-1].data -= mean.view(self.DM[-1].view_in)
-        # var = (self.DM[-1].weight_ets[-1] ** 2).mean(self.DM[-1].dim_in)
-        # self.DM[-1].weight_ets[-1].data /= math.sqrt(var.sum())
+        mean = self.DM[-1].weight_ets[-1].mean(self.DM[-1].dim_in)
+        self.DM[-1].weight_ets[-1].data -= mean.view(self.DM[-1].view_in)
+        var = (self.DM[-1].weight_ets[-1] ** 2).mean(self.DM[-1].dim_in)
+        self.DM[-1].weight_ets[-1].data /= math.sqrt(var.sum())
         # self.check()
 
     def proximal_gradient_descent(self, lr, lamb):
@@ -256,10 +256,10 @@ class _DynamicModel(nn.Module):
                 #     getattr(layer, f'weight_{layer.task}_{i}').data /= sum_std_layers_in
                 getattr(layer, f'weight_{layer.task}_{layer.task}').data /= sum_std_layers_in
 
-        # mean = self.DM[-1].weight_ets[-1].mean(self.DM[-1].dim_in)
-        # self.DM[-1].weight_ets[-1].data -= mean.view(self.DM[-1].view_in)
-        # var = (self.DM[-1].weight_ets[-1] ** 2).mean(self.DM[-1].dim_in)
-        # self.DM[-1].weight_ets[-1].data /= math.sqrt(var.sum())
+        mean = self.DM[-1].weight_ets[-1].mean(self.DM[-1].dim_in)
+        self.DM[-1].weight_ets[-1].data -= mean.view(self.DM[-1].view_in)
+        var = (self.DM[-1].weight_ets[-1] ** 2).mean(self.DM[-1].dim_in)
+        self.DM[-1].weight_ets[-1].data /= math.sqrt(var.sum())
         # self.check()
 
     def check(self):
