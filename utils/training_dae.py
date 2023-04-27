@@ -82,13 +82,13 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     # model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
     model.opt = torch.optim.SGD(model.net.get_optim_params(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
     squeeze = False
-    num_squeeze = 70
+    num_squeeze = 100
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     if 'ets' in mode:
         lamb = model.lamb[t]
         print('lamb', lamb)
         n_epochs = 130
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [100, 115], gamma=0.1, verbose=False)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [115, 125], gamma=0.1, verbose=False)
         squeeze = True
         # n_epochs = 50
         # model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
