@@ -303,12 +303,15 @@ class DAE(ContinualModel):
 
 
 def get_related_layers(net, input_shape):
+    idx = []
     def forward_hook(m, i, o):
         m.output_idx = random.gauss(0,1) * m.input_idx
         o[0] += m.output_idx
         return
     
     def forward_pre_hook(m, i):
+        m.idx = len(idx)
+        idx.append(m.idx)
         if len(i[0].shape) == 4:
             m.input_idx = i[0][0,0,0,0].item()
         else:
@@ -379,6 +382,7 @@ def get_related_layers(net, input_shape):
             print('next', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
         print()
     net.prev_layers = list(set(net.prev_layers))
+    net.prev_layers = sorted(net.prev_layers, key=lambda layers: tuple([layer.idx for layer in layers]))
     for i, layers in enumerate(net.prev_layers):
         if len(layers) == 0:
             print(i, layers)
