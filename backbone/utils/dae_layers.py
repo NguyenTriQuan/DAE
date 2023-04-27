@@ -354,7 +354,7 @@ class _DynamicLayer(nn.Module):
             self.shape_in[-1] = self.num_in.sum()
 
         self.mask_out = None
-        self.set_reg_strength()
+        # self.set_reg_strength()
 
 
     def proximal_gradient_descent(self, lr, lamb, total_strength):
