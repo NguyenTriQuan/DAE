@@ -391,3 +391,5 @@ def get_related_layers(net, input_shape):
     for m in net.DM[:-1]:
         assert m in all_layers
 
+    net.prev_layers = [[m] for m in net.DM[:-1]]
+

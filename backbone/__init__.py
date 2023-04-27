@@ -158,15 +158,19 @@ class _DynamicModel(nn.Module):
 
     def initialize(self):
         for layers in self.prev_layers:
+            sum_var = 0
             for layer in layers:
-                for i in range(layer.task):
-                    std = layer.gain / math.sqrt((layer.task+1) * len(layers) * layer.ks * layer.num_out[layer.task])
-                    nn.init.normal_(getattr(layer, f'weight_{i}_{layer.task}'), 0, std)
+                # for i in range(layer.task):
+                #     std = layer.gain / math.sqrt((layer.task+1) * len(layers) * layer.ks * layer.num_out[layer.task])
+                #     nn.init.normal_(getattr(layer, f'weight_{i}_{layer.task}'), 0, std)
 
-                    std = layer.gain / math.sqrt((layer.task+1) * len(layers) * layer.ks * layer.num_out[i])
-                    nn.init.normal_(getattr(layer, f'weight_{layer.task}_{i}'), 0, std)
+                #     std = layer.gain / math.sqrt((layer.task+1) * len(layers) * layer.ks * layer.num_out[i])
+                #     nn.init.normal_(getattr(layer, f'weight_{layer.task}_{i}'), 0, std)
 
-                std = layer.gain / math.sqrt((layer.task+1) * len(layers) * layer.ks * layer.num_out[layer.task])
+                sum_var += (layer.ks * layer.num_out[layer.task]) / (layer.gain ** 2)
+            
+            std = 1 / math.sqrt(sum_var)
+            for layer in layers:
                 nn.init.normal_(getattr(layer, f'weight_{layer.task}_{layer.task}'), 0, std)
         
         std = 1 / math.sqrt(self.DM[-1].num_out[-1])
@@ -266,11 +270,11 @@ class _DynamicModel(nn.Module):
                     print(layer.name, layer.ks, end=' ')
                     for i in range(layer.task):
                         mean = getattr(layer, f'weight_{layer.task}_{i}').mean(layer.dim_in)
-                        var = (getattr(layer, f'weight_{layer.task}_{i}') ** 2).mean(layer.dim_in)
+                        var = ((getattr(layer, f'weight_{layer.task}_{i}')-mean.view(layer.view_in)) ** 2).mean(layer.dim_in)
                         var_layers_in += var * layer.ks / (layer.gain ** 2)
 
                     mean = getattr(layer, f'weight_{layer.task}_{layer.task}').mean(layer.dim_in)
-                    var = (getattr(layer, f'weight_{layer.task}_{layer.task}') ** 2).mean(layer.dim_in)
+                    var = ((getattr(layer, f'weight_{layer.task}_{layer.task}')-mean.view(layer.view_in)) ** 2).mean(layer.dim_in)
                     var_layers_in += var * layer.ks / (layer.gain ** 2)
                     # print(mean.sum().item(), end=' ')
                 
