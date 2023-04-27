@@ -166,9 +166,9 @@ class ResNet(_DynamicModel):
             block.shortcut.strength_in = max_strength
         
         self.linear.squeeze(optim_state, mask_in, None)
-        self.total_strength = 1
-        for m in self.DM[:-1]:
-            self.total_strength += m.strength_in
+        # self.total_strength = 1
+        # for m in self.DM[:-1]:
+        #     self.total_strength += m.strength_in
 
     # def proximal_gradient_descent(self, lr, lamb):
     #     for m in self.DM[:-1]:

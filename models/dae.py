@@ -169,13 +169,12 @@ class DAE(ContinualModel):
                 num_neurons = [m.mask_out.sum().item() for m in self.net.DM[:-1]]
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, 0, num_neurons)
             else:
-                # with torch.no_grad():
-                #     self.net.normalize()
+                with torch.no_grad():
+                    self.net.normalize()
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
         if squeeze:
             self.net.squeeze(self.opt.state)
             # self.net.check()
-            # self.net.update_strength()
         self.scheduler.step()
 
     def train_rehearsal(self, progress_bar, epoch):
