@@ -87,8 +87,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     if 'ets' in mode:
         lamb = model.lamb[t]
         print('lamb', lamb)
-        n_epochs = 130
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [115, 125], gamma=0.1, verbose=False)
+        n_epochs = 150
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [135, 145], gamma=0.1, verbose=False)
         squeeze = True
         # n_epochs = 50
         # model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
