@@ -329,7 +329,9 @@ def get_related_layers(net, input_shape):
     c, h, w = input_shape
     data = torch.ones((1, c, h, w), dtype=torch.float, device='cuda')
     net.eval()
+    net.divisor_override = None
     out = net(data, 0, mode='ets')  
+    net.divisor_override = 1
     for h in handes:
         h.remove()
     
