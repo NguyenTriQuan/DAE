@@ -69,7 +69,7 @@ class SequentialCIFAR100(ContinualDataset):
     
     def get_full_data_loader(self):
         self.N_CLASSES_PER_TASK = self.N_CLASSES_PER_TASK * self.N_TASKS
-        train_loader = DataLoader(TensorDataset(self.train_data, self.train_targets), batch_size=self.args.batch_size, shuffle=True)
+        train_loader = DataLoader(TensorDataset(self.train_data, self.train_targets), batch_size=256, shuffle=True)
         test_loader = DataLoader(TensorDataset(self.test_data, self.test_targets), batch_size=self.args.val_batch_size, shuffle=False)
         self.test_loaders.append(test_loader)
         self.train_loader = train_loader
