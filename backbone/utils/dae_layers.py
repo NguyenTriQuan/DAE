@@ -115,10 +115,10 @@ class _DynamicLayer(nn.Module):
         else:
             output = F.linear(x, weight, bias)
 
-        if self.norm_type is not None:
-            output = norm_layer(output)
+        # if self.norm_type is not None:
+        #     output = norm_layer(output)
         
-        output = self.activation(output)
+        # output = self.activation(output)
         return output
     
     def get_expand_shape(self, t, add_in, add_out=None, fix=False):

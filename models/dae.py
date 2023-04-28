@@ -16,7 +16,7 @@ from utils.buffer import Buffer, icarl_replay
 from backbone.ResNet18_DAE import resnet18
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from itertools import cycle
-from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer
+from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm
 import numpy as np
 import random
 import math
@@ -306,8 +306,13 @@ class DAE(ContinualModel):
 
 def get_related_layers(net, input_shape):
     idx = []
+
+    def forward_identical_hook(m, i, o):
+        o[0] = i[0]
+        return
+    
     def forward_hook(m, i, o):
-        m.output_idx = random.gauss(0,1) * m.input_idx
+        m.output_idx = random.random() * m.input_idx
         o[0] += m.output_idx
         return
     
@@ -322,10 +327,18 @@ def get_related_layers(net, input_shape):
         return (torch.zeros_like(i[0]), i[1], i[2])
 
     handes = []
-    for m in net.DM:
-        h1 = m.register_forward_pre_hook(forward_pre_hook)
-        h2 = m.register_forward_hook(forward_hook)
-        handes += [h1, h2]
+    for m in net.modules():
+        if isinstance(m, _DynamicLayer):
+            h1 = m.register_forward_pre_hook(forward_pre_hook)
+            h2 = m.register_forward_hook(forward_hook)
+            handes += [h1, h2]
+        elif isinstance(m, DynamicNorm):
+            h3 = m.register_forward_hook(forward_identical_hook)
+            handes += [h3]
+    # for m in net.DM:
+    #     h1 = m.register_forward_pre_hook(forward_pre_hook)
+    #     h2 = m.register_forward_hook(forward_hook)
+    #     handes += [h1, h2]
     c, h, w = input_shape
     data = torch.ones((1, c, h, w), dtype=torch.float, device='cuda')
     net.eval()
@@ -339,7 +352,7 @@ def get_related_layers(net, input_shape):
             m.name = n
             m.prev_layers = []
             m.next_layers = []
-    eps = 1e-4
+    eps = 1e-6
     for i in range(len(net.DM)):
         for j in range(i):
             if abs(net.DM[i].input_idx - net.DM[j].output_idx) < eps:

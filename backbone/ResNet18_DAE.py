@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.nn.functional import avg_pool2d, relu
 
 from backbone import MammothBackbone, _DynamicModel
-from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer
+from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm
 
 def conv3x3(in_planes: int, out_planes: int, stride: int=1, norm_type=None, args=None) -> F.conv2d:
     """
@@ -35,8 +35,10 @@ class BasicBlock(nn.Module):
         """
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(in_planes, planes, stride,norm_type=norm_type, args=args)
+        self.bn1 = DynamicNorm(planes, affine=False)
         self.conv2 = conv3x3(planes, planes, norm_type=norm_type, args=args)
-
+        self.bn2 = DynamicNorm(planes, affine=False)
+        self.activation = nn.LeakyReLU(args.negative_slope)
         # self.shortcut = None
         # if stride != 1 or in_planes != self.expansion * planes:
         self.shortcut = DynamicConv2D(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False, norm_type=norm_type, args=args)
@@ -48,11 +50,13 @@ class BasicBlock(nn.Module):
         :return: output tensor (10)
         """
         out = self.conv1(x, t, mode)
+        out = self.activation(self.bn1(out))
         out = self.conv2(out, t, mode)
         if self.shortcut is not None:
             out += self.shortcut(x, t, mode)
         else:
             out += x
+        out = self.activation(self.bn2(out))
         return out
 
 
@@ -76,6 +80,8 @@ class ResNet(_DynamicModel):
         self.num_classes = num_classes
         self.nf = nf
         self.conv1 = conv3x3(3, nf * 1, norm_type=norm_type, args=args)
+        self.bn1 = DynamicNorm(nf * 1, affine=False)
+        self.activation = nn.LeakyReLU(args.negative_slope)
         self.layers = self._make_layer(block, nf * 1, num_blocks[0], stride=1, norm_type=norm_type, args=args)
         self.layers += self._make_layer(block, nf * 2, num_blocks[1], stride=2, norm_type=norm_type, args=args)
         self.layers += self._make_layer(block, nf * 4, num_blocks[2], stride=2, norm_type=norm_type, args=args)
@@ -107,6 +113,7 @@ class ResNet(_DynamicModel):
             self.get_masked_kb_params(t)
 
         out = self.conv1(x, t, mode)
+        out = self.activation(self.bn1(out))
         if hasattr(self, 'maxpool'):
             out = self.maxpool(out)
         

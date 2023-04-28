@@ -106,9 +106,6 @@ class _DynamicModel(nn.Module):
         super(_DynamicModel, self).__init__()
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
 
-    # def forward(self):
-    #     for layers in self.prev_layers:
-
     def get_optim_params(self):
         params = []
         for m in self.DM:
