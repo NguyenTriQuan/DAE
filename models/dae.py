@@ -217,10 +217,9 @@ class DAE(ContinualModel):
     def begin_task(self, dataset):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
         if self.task == 0:
+            get_related_layers(self.net, self.dataset.INPUT_SHAPE)
             if 'res' in self.args.ablation:
                 self.net.prev_layers = [[m] for m in self.net.DM[:-1]]
-            else:
-                get_related_layers(self.net, self.dataset.INPUT_SHAPE)
         if 'init' not in self.args.ablation:
             self.net.initialize()
         self.net.check()
