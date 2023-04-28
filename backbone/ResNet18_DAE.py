@@ -110,8 +110,6 @@ class ResNet(_DynamicModel):
 
         out = self.conv1(x, t, mode)
         out = self.activation(self.bn1(out))
-        if hasattr(self, 'maxpool'):
-            out = self.maxpool(out)
         
         for layer in self.layers:
             out = layer(out, t, mode)  
