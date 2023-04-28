@@ -178,7 +178,7 @@ class _DynamicModel(nn.Module):
         
         std = 1 / math.sqrt(self.DM[-1].num_out[-1])
         nn.init.normal_(self.DM[-1].weight_ets[-1], 0, std)
-        self.check()
+        # self.check()
         self.normalize()
 
     def normalize(self):
