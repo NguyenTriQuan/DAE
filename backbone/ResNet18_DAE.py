@@ -82,7 +82,6 @@ class ResNet(_DynamicModel):
         self.layers += self._make_layer(block, nf * 8, num_blocks[3], stride=2, norm_type=norm_type, args=args)
         self.linear = DynamicClassifier(nf * 8 * block.expansion, num_classes, norm_type=norm_type, args=args, s=1)
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
-        self.divisor_override = 1
         
     def _make_layer(self, block: BasicBlock, planes: int,
                     num_blocks: int, stride: int, norm_type, args) -> nn.Module:
@@ -114,7 +113,7 @@ class ResNet(_DynamicModel):
         for layer in self.layers:
             out = layer(out, t, mode)  
 
-        out = F.avg_pool2d(out, out.shape[2], divisor_override=self.divisor_override)
+        out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
 
         out = self.linear(feature, t, mode)
