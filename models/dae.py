@@ -170,7 +170,8 @@ class DAE(ContinualModel):
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, 0, num_neurons)
             else:
                 with torch.no_grad():
-                    self.net.normalize()
+                    if 'wn' not in self.args.ablation:
+                        self.net.normalize()
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
         if squeeze:
             self.net.squeeze(self.opt.state)
@@ -216,8 +217,12 @@ class DAE(ContinualModel):
     def begin_task(self, dataset):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
         if self.task == 0:
-            get_related_layers(self.net, self.dataset.INPUT_SHAPE)
-        self.net.initialize()
+            if 'res' in self.args.ablation:
+                self.net.prev_layers = [[m] for m in self.net.DM[:-1]]
+            else:
+                get_related_layers(self.net, self.dataset.INPUT_SHAPE)
+        if 'init' not in self.args.ablation:
+            self.net.initialize()
         self.net.check()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:
@@ -392,6 +397,4 @@ def get_related_layers(net, input_shape):
         all_layers += list(layers)
     for m in net.DM[:-1]:
         assert m in all_layers
-
-    # net.prev_layers = [[m] for m in net.DM[:-1]]
 

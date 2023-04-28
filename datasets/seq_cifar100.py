@@ -66,6 +66,21 @@ class SequentialCIFAR100(ContinualDataset):
                 K.augmentation.Normalize(mean, std)
             )]
         return train_loader, test_loader
+    
+    def get_full_data_loader(self):
+
+        train_loader = DataLoader(TensorDataset(self.train_data, self.train_targets), batch_size=self.args.batch_size, shuffle=True)
+        test_loader = DataLoader(TensorDataset(self.test_data, self.test_targets), batch_size=self.args.val_batch_size, shuffle=False)
+        self.test_loaders.append(test_loader)
+        self.train_loader = train_loader
+        mean = train_loader.dataset.tensors[0].mean((0, 2, 3))
+        std = train_loader.dataset.tensors[0].std((0, 2, 3), unbiased=False)
+        print(f'Classes: {self.i} - {self.i+self.N_CLASSES_PER_TASK*self.N_TASKS}, mean = {mean}, std = {std}')
+        self.i += self.N_CLASSES_PER_TASK
+        self.test_transforms += [torch.nn.Sequential(
+                K.augmentation.Normalize(mean, std)
+            )]
+        return train_loader, test_loader
 
 
     @staticmethod

@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer
+from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm
 
 def xavier(m: nn.Module) -> None:
     """
@@ -106,6 +106,9 @@ class _DynamicModel(nn.Module):
         super(_DynamicModel, self).__init__()
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
 
+    # def forward(self):
+    #     for layers in self.prev_layers:
+
     def get_optim_params(self):
         params = []
         for m in self.DM:
@@ -175,6 +178,7 @@ class _DynamicModel(nn.Module):
         
         std = 1 / math.sqrt(self.DM[-1].num_out[-1])
         nn.init.normal_(self.DM[-1].weight_ets[-1], 0, std)
+        self.check()
         self.normalize()
 
     def normalize(self):
