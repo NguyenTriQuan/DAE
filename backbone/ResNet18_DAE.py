@@ -113,7 +113,7 @@ class ResNet(_DynamicModel):
         for layer in self.layers:
             out = layer(out, t, mode)  
 
-        out = avg_pool2d(out, out.shape[2])
+        out = F.avg_pool2d(out, out.shape[2], divisor_override=1)
         feature = out.view(out.size(0), -1)
 
         out = self.linear(feature, t, mode)
