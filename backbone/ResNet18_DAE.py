@@ -51,11 +51,7 @@ class BasicBlock(nn.Module):
         """
         out = self.conv1(x, t, mode)
         out = self.activation(self.bn1(out))
-        out = self.conv2(out, t, mode)
-        if self.shortcut is not None:
-            out += self.shortcut(x, t, mode)
-        else:
-            out += x
+        out = self.conv2(out, t, mode) + self.shortcut(x, t, mode)
         out = self.activation(self.bn2(out))
         return out
 
