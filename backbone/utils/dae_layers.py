@@ -403,7 +403,7 @@ class DynamicBlock(nn.Module):
                 track_running_stats = True
             else:
                 track_running_stats = False
-            self.norm_layers.append(DynamicNorm(add_out, affine=affine, track_running_stats=track_running_stats))
+            self.norm_layers.append(DynamicNorm(layer.shape_out[-1], affine=affine, track_running_stats=track_running_stats))
 
         return add_out
 
