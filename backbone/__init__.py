@@ -157,6 +157,10 @@ class _DynamicModel(nn.Module):
         for block in self.DB:
             block.proximal_gradient_descent(lr, lamb, self.total_strength)
 
+    def check_var(self):
+        for block in self.DB:
+            block.check_var() 
+
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')
         density = 1 - sparsity
