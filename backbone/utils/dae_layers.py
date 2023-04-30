@@ -416,7 +416,7 @@ class DynamicBlock(nn.Module):
         std = math.sqrt(self.gain / sum_var)
         if self.task > 0:
             # initial equal var for old neurons
-            self.register_buffer(f'old_var_{self.task}', (std ** 2) * torch.ones(self.task-1).to(device))
+            self.register_buffer(f'old_var_{self.task}', (std ** 2) * torch.ones(self.task).to(device))
 
         for layer in self.layers:
             # rescale old weights
@@ -480,7 +480,6 @@ class DynamicBlock(nn.Module):
         var_layers = new_neurons_var * (aux**2).view(1, -1)
         var_layers = var_layers.sum(1)
         if self.task > 0:
-            print(var_layers.shape, getattr(self, f'old_var_{self.task}').shape)
             var_layers[:self.task] += const * getattr(self, f'old_var_{self.task}')
             getattr(self, f'old_var_{self.task}').data /= var_layers[:self.task]
         var_layers[self.task] += (var_layers_in / self.gain)
