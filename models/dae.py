@@ -13,7 +13,7 @@ from models.utils.continual_model import ContinualModel
 from utils.args import add_management_args, add_experiment_args, add_rehearsal_args, ArgumentParser
 from utils.batch_norm import bn_track_stats
 from utils.buffer import Buffer, icarl_replay
-from backbone.ResNet18_DAE import resnet18
+from backbone.ResNet18_DAE import resnet18, resnet10
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from itertools import cycle
 from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm
@@ -89,7 +89,10 @@ class DAE(ContinualModel):
         super(DAE, self).__init__(backbone, loss, args, transform)
         self.dataset = get_dataset(args)
         # self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_affine_track', args=args)
-        self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=None, args=args)
+        if args.debug:
+            self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track', args=args)
+        else:
+            self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track', args=args)
         self.buffer = None
         self.task = 0
         self.lamb = [float(i) for i in args.lamb.split('_')]
@@ -171,7 +174,7 @@ class DAE(ContinualModel):
             else:
                 with torch.no_grad():
                     if 'wn' not in self.args.ablation:
-                        self.net.normalize()
+                        self.net.proximal_gradient_descent()
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
         if squeeze:
             self.net.squeeze(self.opt.state)
@@ -216,13 +219,12 @@ class DAE(ContinualModel):
 
     def begin_task(self, dataset):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
-        if self.task == 0:
-            get_related_layers(self.net, self.dataset.INPUT_SHAPE)
-            if 'res' in self.args.ablation:
-                self.net.prev_layers = [[m] for m in self.net.DM[:-1]]
+        # if self.task == 0:
+        #     get_related_layers(self.net, self.dataset.INPUT_SHAPE)
+        #     if 'res' in self.args.ablation:
+        #         self.net.prev_layers = [[m] for m in self.net.DM[:-1]]
         if 'init' not in self.args.ablation:
             self.net.initialize()
-        self.net.check()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:
             m.kbts_sparsities.append(m.sparsity)

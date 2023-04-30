@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm
+from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
 
 def xavier(m: nn.Module) -> None:
     """
@@ -104,6 +104,7 @@ class MammothBackbone(nn.Module):
 class _DynamicModel(nn.Module):
     def __init__(self):
         super(_DynamicModel, self).__init__()
+        self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
 
     def get_optim_params(self):
@@ -130,10 +131,6 @@ class _DynamicModel(nn.Module):
         for m in self.DM[:-1]:
             m.clear_memory()
     
-    def update_scale(self):
-        for m in self.DM[:-1]:
-            m.update_scale()
-    
     def get_kb_params(self, t):
         for m in self.DM[:-1]:
             m.get_kb_params(t)
@@ -151,135 +148,14 @@ class _DynamicModel(nn.Module):
         add_in = 0
         for m in self.DM:
             add_in = m.set_jr_params(add_in)
-    
-    def set_squeeze_state(self, squeeze):
-        for m in self.DM[:-1]:
-            m.set_squeeze_state(squeeze)
 
     def initialize(self):
-        for layers in self.prev_layers:
-            sum_var = 0
-            for layer in layers:
-                # for i in range(layer.task):
-                #     std = layer.gain / math.sqrt((layer.task+1) * len(layers) * layer.ks * layer.num_out[layer.task])
-                #     nn.init.normal_(getattr(layer, f'weight_{i}_{layer.task}'), 0, std)
+        for block in self.DB:
+            block.initialize()
 
-                #     std = layer.gain / math.sqrt((layer.task+1) * len(layers) * layer.ks * layer.num_out[i])
-                #     nn.init.normal_(getattr(layer, f'weight_{layer.task}_{i}'), 0, std)
-
-                sum_var += (layer.ks * layer.num_out[layer.task]) / (layer.gain ** 2)
-            
-            std = 1 / math.sqrt(sum_var)
-            for layer in layers:
-                nn.init.normal_(getattr(layer, f'weight_{layer.task}_{layer.task}'), 0, std)
-        
-        std = 1 / math.sqrt(self.DM[-1].num_out[-1])
-        nn.init.normal_(self.DM[-1].weight_ets[-1], 0, std)
-        # self.check()
-        self.normalize()
-
-    def normalize(self):
-        num_tasks = self.DM[-1].task + 1
-        for layers in self.prev_layers:
-            var_layers_in = 0
-            # for i in range(num_tasks-1):
-            #     var_layers_out = 0
-            #     for layer in layers:
-            #         mean = getattr(layer, f'weight_{i}_{layer.task}').mean(layer.dim_in)
-            #         getattr(layer, f'weight_{i}_{layer.task}').data -= mean.view(layer.view_in)
-            #         var = (getattr(layer, f'weight_{i}_{layer.task}') ** 2).mean(layer.dim_in)
-            #         var_layers_out += var * layer.ks / (layer.gain ** 2)
-
-            #         mean = getattr(layer, f'weight_{layer.task}_{i}').mean(layer.dim_in)
-            #         getattr(layer, f'weight_{layer.task}_{i}').data -= mean.view(layer.view_in)
-            #         var = (getattr(layer, f'weight_{layer.task}_{i}') ** 2).mean(layer.dim_in)
-            #         var_layers_in += var * layer.ks / (layer.gain ** 2)
-
-            #     for layer in layers:
-            #         getattr(layer, f'weight_{i}_{layer.task}').data /= math.sqrt(num_tasks * var_layers_out.sum())
-
-            for layer in layers:
-                mean = getattr(layer, f'weight_{layer.task}_{layer.task}').mean(layer.dim_in)
-                getattr(layer, f'weight_{layer.task}_{layer.task}').data -= mean.view(layer.view_in)
-                var = (getattr(layer, f'weight_{layer.task}_{layer.task}') ** 2).mean(layer.dim_in)
-                var_layers_in += var * layer.ks / (layer.gain ** 2)
-            
-            sum_std_layers_in = var_layers_in.sum().sqrt()
-            for layer in layers:
-                # for i in range(layer.task):
-                #     getattr(layer, f'weight_{layer.task}_{i}').data /= sum_std_layers_in
-                getattr(layer, f'weight_{layer.task}_{layer.task}').data /= sum_std_layers_in
-
-        mean = self.DM[-1].weight_ets[-1].mean(self.DM[-1].dim_in)
-        self.DM[-1].weight_ets[-1].data -= mean.view(self.DM[-1].view_in)
-        var = (self.DM[-1].weight_ets[-1] ** 2).mean(self.DM[-1].dim_in)
-        self.DM[-1].weight_ets[-1].data /= math.sqrt(var.sum())
-        # self.check()
-
-    def proximal_gradient_descent(self, lr, lamb):
-        num_tasks = self.DM[-1].task + 1
-        for layers in self.prev_layers:
-            var_layers_in = 0
-            # for i in range(num_tasks-1):
-            #     var_layers_out = 0
-            #     for layer in layers:
-            #         mean = getattr(layer, f'weight_{i}_{layer.task}').mean(layer.dim_in)
-            #         getattr(layer, f'weight_{i}_{layer.task}').data -= mean.view(layer.view_in)
-            #         var = (getattr(layer, f'weight_{i}_{layer.task}') ** 2).mean(layer.dim_in)
-            #         var_layers_out += var * layer.ks / (layer.gain ** 2)
-
-            #         mean = getattr(layer, f'weight_{layer.task}_{i}').mean(layer.dim_in)
-            #         getattr(layer, f'weight_{layer.task}_{i}').data -= mean.view(layer.view_in)
-            #         var = (getattr(layer, f'weight_{layer.task}_{i}') ** 2).mean(layer.dim_in)
-            #         var_layers_in += var * layer.ks / (layer.gain ** 2)
-
-            #     for layer in layers:
-            #         getattr(layer, f'weight_{i}_{layer.task}').data /= math.sqrt(num_tasks * var_layers_out.sum())
-
-            for layer in layers:
-                mean = getattr(layer, f'weight_{layer.task}_{layer.task}').mean(layer.dim_in)
-                getattr(layer, f'weight_{layer.task}_{layer.task}').data -= mean.view(layer.view_in)
-                var = (getattr(layer, f'weight_{layer.task}_{layer.task}') ** 2).mean(layer.dim_in)
-                var_layers_in += var * layer.ks / (layer.gain ** 2)
-
-            strength = layer.strength_in / self.total_strength
-            std_layers_in = var_layers_in.sqrt()
-            aux = 1 - lamb * lr * strength / std_layers_in
-            aux = F.threshold(aux, 0, 0, False)
-            
-            sum_std_layers_in = (var_layers_in * aux**2).sum().sqrt()
-            for layer in layers:
-                layer.mask_out = (aux > 0).clone().detach()
-                getattr(layer, f'weight_{layer.task}_{layer.task}').data *= aux.view(layer.view_in)
-                # for i in range(self.task):
-                #     f'weight_{i}_{self.task}'.data *= aux.view(self.view_in)
-                # for i in range(layer.task):
-                #     getattr(layer, f'weight_{layer.task}_{i}').data /= sum_std_layers_in
-                getattr(layer, f'weight_{layer.task}_{layer.task}').data /= sum_std_layers_in
-
-        mean = self.DM[-1].weight_ets[-1].mean(self.DM[-1].dim_in)
-        self.DM[-1].weight_ets[-1].data -= mean.view(self.DM[-1].view_in)
-        var = (self.DM[-1].weight_ets[-1] ** 2).mean(self.DM[-1].dim_in)
-        self.DM[-1].weight_ets[-1].data /= math.sqrt(var.sum())
-        # self.check()
-
-    def check(self):
-        with torch.no_grad():
-            for layers in self.prev_layers:
-                var_layers_in = 0
-                for layer in layers:
-                    print(layer.name, layer.ks, end=' ')
-                    for i in range(layer.task):
-                        mean = getattr(layer, f'weight_{layer.task}_{i}').mean(layer.dim_in)
-                        var = ((getattr(layer, f'weight_{layer.task}_{i}')-mean.view(layer.view_in)) ** 2).mean(layer.dim_in)
-                        var_layers_in += var * layer.ks / (layer.gain ** 2)
-
-                    mean = getattr(layer, f'weight_{layer.task}_{layer.task}').mean(layer.dim_in)
-                    var = ((getattr(layer, f'weight_{layer.task}_{layer.task}')-mean.view(layer.view_in)) ** 2).mean(layer.dim_in)
-                    var_layers_in += var * layer.ks / (layer.gain ** 2)
-                    # print(mean.sum().item(), end=' ')
-                
-                print('|Var|', var_layers_in.sum().item())
+    def proximal_gradient_descent(self, lr=0, lamb=0):
+        for block in self.DB:
+            block.proximal_gradient_descent(lr, lamb, self.total_strength)
 
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')

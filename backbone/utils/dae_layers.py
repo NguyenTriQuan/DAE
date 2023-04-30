@@ -69,14 +69,8 @@ class _DynamicLayer(nn.Module):
         self.base_in_features = in_features
         self.base_out_features = out_features
 
-        self.norm_type = norm_type
-        if norm_type is not None:
-            self.norm_layer_ets = nn.ModuleList([])
-            self.norm_layer_kbts = nn.ModuleList([])
-
         self.activation = nn.LeakyReLU(args.negative_slope)
         self.gain = torch.nn.init.calculate_gain('leaky_relu', args.negative_slope)
-        # self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
 
         self.mask_in = None
         self.mask_out = None
@@ -100,28 +94,22 @@ class _DynamicLayer(nn.Module):
         self.dummy_weight = torch.Tensor(self.base_out_features * self.base_in_features * self.ks * self.over_mul).to(device)
         nn.init.normal_(self.dummy_weight, 0, 1)
 
-        self.norm_layer_jr = nn.BatchNorm2d(out_features, affine=True, track_running_stats=True).to(device)
-
     def forward(self, x, t, mode):    
         if 'ets' == mode:
-            weight, bias, norm_layer = self.get_ets_params(t)
+            weight, bias = self.get_ets_params(t)
         elif 'kbts' == mode:
-            weight, bias, norm_layer = self.get_kbts_params(t)
+            weight, bias = self.get_kbts_params(t)
         elif 'jr' == mode:
-            weight, bias, norm_layer = self.get_jr_params()
+            weight, bias = self.get_jr_params()
     
         if isinstance(self, DynamicConv2D):
             output = F.conv2d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
         else:
             output = F.linear(x, weight, bias)
 
-        # if self.norm_type is not None:
-        #     output = norm_layer(output)
-        
-        # output = self.activation(output)
         return output
     
-    def get_expand_shape(self, t, add_in, add_out=None, fix=False):
+    def get_expand_shape(self, t, add_in=None, add_out=None, fix=False):
         # expand from knowledge base weights of task t
         if 'fix' in self.args.ablation or fix:
             # fan_in and fan_out can not be excessed the base architecture
@@ -131,6 +119,8 @@ class _DynamicLayer(nn.Module):
             add_out = self.base_out_features - self.shape_out[t]
         else:
             # expand with the number of base parameters
+            if add_in is None:
+                add_in = self.base_in_features
             fan_in = self.shape_in[t] + add_in
             if add_out is None:
                 # compute add_out
@@ -141,7 +131,7 @@ class _DynamicLayer(nn.Module):
                 fan_out = self.shape_out[t] + add_out
         return int(fan_in), int(fan_out), int(add_in), int(add_out)
 
-    def expand(self, add_in, add_out=None):
+    def expand(self, add_in=None, add_out=None):
         self.task += 1
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(-1, add_in, add_out)
 
@@ -177,13 +167,8 @@ class _DynamicLayer(nn.Module):
             self.score = nn.Parameter(torch.Tensor(fan_out, fan_in).to(device))
 
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
-        self.register_buffer(f'kbts_mask_{self.task}', torch.ones_like(self.score).to(device))
+        # self.register_buffer(f'kbts_mask_{self.task}', torch.ones_like(self.score).to(device))
 
-        if self.norm_type is not None:
-            self.norm_layer_ets.append(DynamicNorm(fan_out, affine=False, track_running_stats=True)) 
-            # self.norm_layer_ets.append(nn.BatchNorm2d(fan_out, affine=True, track_running_stats=True).to(device))
-            self.norm_layer_kbts.append(nn.BatchNorm2d(fan_out, affine=True, track_running_stats=True).to(device))
-        
         self.set_reg_strength()
         return add_out * self.s * self.s
 
@@ -195,9 +180,7 @@ class _DynamicLayer(nn.Module):
         else:
             self.score = nn.Parameter(torch.Tensor(fan_out, fan_in).to(device))
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
-        self.register_buffer('jr_mask', torch.ones_like(self.score).to(device))
-        if self.norm_type is not None:
-            self.norm_layer_jr = nn.BatchNorm2d(fan_out, affine=True, track_running_stats=True).to(device)
+        # self.register_buffer('jr_mask', torch.ones_like(self.score).to(device))
         
         return add_out * self.s * self.s
 
@@ -212,7 +195,7 @@ class _DynamicLayer(nn.Module):
         for i in range(t):
             row = torch.empty(0).to(device)
             for j in range(t):
-                row = torch.cat([row, getattr(self, f'weight_{i}_{j}')], dim=0)
+                row = torch.cat([row, getattr(self, f'weight_{i}_{j}') / getattr(self, f'scale_{i}_{j}')], dim=0)
             self.kb_weight = torch.cat([self.kb_weight, row], dim=1)
 
     
@@ -251,7 +234,7 @@ class _DynamicLayer(nn.Module):
         weight = torch.cat([torch.cat([weight, bwt_weight], dim=1), 
                             torch.cat([fwt_weight, getattr(self, f'weight_{t}_{t}')], dim=1)], dim=0)
         
-        return weight, None, self.norm_layer_ets[t] if self.norm_type is not None else None
+        return weight, None
     
     def get_kbts_params(self, t):
         if self.training:
@@ -262,7 +245,7 @@ class _DynamicLayer(nn.Module):
             mask = getattr(self, f'kbts_mask_{t}')
             weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
         
-        return weight, None, self.norm_layer_kbts[t] if self.norm_type is not None else None
+        return weight, None
     
     def get_jr_params(self):
         if self.training:
@@ -273,31 +256,17 @@ class _DynamicLayer(nn.Module):
             mask = getattr(self, 'jr_mask')
             weight = self.masked_kb_weight * mask / (1-self.jr_sparsity)
         
-        return weight, None, self.norm_layer_jr if self.norm_type is not None else None
+        return weight, None
 
     def freeze(self):
         for i in range(self.task):
             for j in range(self.task):
                 getattr(self, f'weight_{i}_{j}').requires_grad = False
-        if self.norm_type is not None:
-            if self.norm_layer_ets[-1].affine:
-                self.norm_layer_ets[-1].weight.requires_grad = False
-                self.norm_layer_kbts[-1].weight.requires_grad = False
-                self.norm_layer_ets[-1].bias.requires_grad = False
-                self.norm_layer_kbts[-1].bias.requires_grad = False
-            self.norm_layer_ets[-1].track_running_stats = False
-            self.norm_layer_kbts[-1].track_running_stats = False
 
     def get_optim_params(self):
         params = [self.score, getattr(self, f'weight_{self.task}_{self.task}')]
         for i in range(self.task):
             params += [getattr(self, f'weight_{i}_{self.task}'), getattr(self, f'weight_{self.task}_{i}')]
-        if self.norm_type is not None:
-            if self.norm_layer_ets[-1].affine:
-                params += [self.norm_layer_ets[-1].weight, self.norm_layer_ets[-1].bias]
-                params += [self.norm_layer_kbts[-1].weight, self.norm_layer_kbts[-1].bias]
-                params += [self.norm_layer_jr.weight, self.norm_layer_jr.bias]
-
         return params
 
     def clear_memory(self):
@@ -311,12 +280,8 @@ class _DynamicLayer(nn.Module):
         return count
     
     def set_reg_strength(self):
-        self.strength_in = 1 - ((self.shape_in[-1] + self.shape_out[-1] + self.kernel_size[0] + self.kernel_size[1]) / 
+        self.strength = 1 - ((self.shape_in[-1] + self.shape_out[-1] + self.kernel_size[0] + self.kernel_size[1]) / 
                                 (self.shape_in[-1] * self.shape_out[-1] * self.kernel_size[0] * self.kernel_size[1])) 
-    
-    def set_squeeze_state(self, squeeze):
-        # not using batch norm affine when squeezing the network
-        self.norm_layer_ets[-1].affine = not squeeze
 
     def squeeze(self, optim_state, mask_in=None, mask_out=None):
         prune_out = mask_out is not None and mask_out.sum() != self.num_out[-1]
@@ -328,20 +293,6 @@ class _DynamicLayer(nn.Module):
 
             self.num_out[-1] = getattr(self, f'weight_{self.task}_{self.task}').shape[0]
             self.shape_out[-1] = self.num_out.sum()
-
-            mask = torch.ones(self.shape_out[-2], dtype=bool, device=device)
-            mask = torch.cat([mask, mask_out])
-
-            if self.norm_type:
-                norm_layer = self.norm_layer_ets[-1]
-                norm_layer.num_features = self.shape_out[-1]
-                if hasattr(norm_layer, 'weight'):
-                    apply_mask_out(norm_layer.weight, mask, optim_state)
-                    apply_mask_out(norm_layer.bias, mask, optim_state)
-                
-                if norm_layer.track_running_stats:
-                    norm_layer.running_mean = norm_layer.running_mean[mask]
-                    norm_layer.running_var = norm_layer.running_var[mask]
         
         if prune_in:
             if self.s != 1:
@@ -355,30 +306,6 @@ class _DynamicLayer(nn.Module):
 
         self.mask_out = None
         self.set_reg_strength()
-
-
-    def proximal_gradient_descent(self, lr, lamb, total_strength):
-        eps = 0
-        with torch.no_grad():
-            strength = self.strength_in / total_strength
-            # regularize std
-            norm = self.norm_in()
-            aux = 1 - lamb * lr * strength / norm
-            aux = F.threshold(aux, 0, eps, False)
-            self.mask_out = (aux > eps).clone().detach()
-            f'weight_{self.task}_{self.task}'.data *= aux.view(self.view_in)
-            for i in range(self.task):
-                f'weight_{i}_{self.task}'.data *= aux.view(self.view_in)
-            
-            if self.norm_type is not None:
-                norm_layer = self.norm_layer_ets[-1]
-                if norm_layer.track_running_stats:
-                    norm_layer.running_mean[self.shape_out[-2]:] *= aux
-                    norm_layer.running_var[self.shape_out[-2]:] *= (aux ** 2)
-
-                if norm_layer.affine:
-                    norm_layer.weight.data[self.shape_out[-2]:] *= aux
-                    norm_layer.bias.data[self.shape_out[-2]:] *= aux
 
 
 class DynamicLinear(_DynamicLayer):
@@ -429,6 +356,158 @@ class DynamicConv2D(_DynamicConvNd):
 
         super(DynamicConv2D, self).__init__(in_features, out_features, kernel_size, 
                                             stride, padding, dilation, False, _pair(0), groups, bias, norm_type, args, s)
+
+
+class DynamicBlock(nn.Module):
+    # A block of dynamic layers, normalization, and activation. All layers are share the number of out features.
+    def __init__(self, layers, norm_type=None, args=None):
+        super(DynamicBlock, self).__init__()
+        self.layers = nn.ModuleList(layers)
+        self.args = args
+        self.norm_type = norm_type
+        self.norm_layers = nn.ModuleList([])
+        self.activation = nn.LeakyReLU(args.negative_slope)
+        self.gain = torch.nn.init.calculate_gain('leaky_relu', args.negative_slope) ** 2
+        self.register_buffer('task', torch.tensor(-1, dtype=torch.int).to(device))
+        self.mask_out = None
+
+    def forward(self, inputs, t, mode):
+        out = 0
+        for x, layer in zip(inputs, self.layers):
+            out += layer(x, t, mode)
+
+        out = self.activation(self.norm_layers[t](out))
+        return out
+    
+    def expand(self, add_ins):
+        self.task += 1
+        add_outs = []
+        for add_in, layer in zip(add_ins, self.layers):
+            _, _, _, add_out = layer.get_expand_shape(-1, add_in)
+            add_outs.append(add_out)
+
+        add_out = max(add_outs)
+        for add_in, layer in zip(add_ins, self.layers):
+            layer.expand(add_in, add_out)
+
+        self.strength = max([layer.strength for layer in self.layers])
+
+        if self.norm_type is None:
+            self.norm_layers.append(nn.Identity())
+        else:
+            if 'affine' in self.norm_type:
+                affine = True
+            else:
+                affine = False
+            if 'track' in self.norm_type:
+                track_running_stats = True
+            else:
+                track_running_stats = False
+            self.norm_layers.append(DynamicNorm(add_out, affine=affine, track_running_stats=track_running_stats))
+
+        return add_out
+
+    def initialize(self):
+        # Initialize new weights and rescale old weights to have the same variance:
+        sum_var = 0
+        for layer in self.layers:
+            sum_var += layer.ks * layer.shape_out[-1]
+        
+        std = math.sqrt(self.gain / sum_var)
+        if self.task > 0:
+            # initial equal var for old neurons
+            self.register_buffer(f'old_var_{self.task}', (std ** 2) * torch.ones(self.task-1))
+
+        for layer in self.layers:
+            # rescale old weights
+            if self.task > 0:
+                for i in range(self.task-1):
+                    var = (getattr(layer, f'weight_{i}_{self.task-1}') ** 2).mean(layer.dim_in)
+                    layer.register_buffer(f'scale_{i}_{self.task-1}', var.sqrt().view(layer.view_in))
+                    var = (getattr(layer, f'weight_{self.task-1}_{i}') ** 2).mean(layer.dim_in)
+                    layer.register_buffer(f'scale_{self.task-1}_{i}', var.sqrt().view(layer.view_in))
+                var = (getattr(layer, f'weight_{self.task-1}_{self.task-1}') ** 2).mean(layer.dim_in)
+                layer.register_buffer(f'scale_{self.task-1}_{self.task-1}', var.sqrt().view(layer.view_in))
+
+            # initialize new weights
+            for i in range(self.task):
+                nn.init.normal_(getattr(layer, f'weight_{i}_{self.task}'), 0, std)
+                nn.init.normal_(getattr(layer, f'weight_{self.task}_{i}'), 0, std)
+            nn.init.normal_(getattr(layer, f'weight_{self.task}_{self.task}'), 0, std)
+
+        self.proximal_gradient_descent()
+        self.check_var()
+
+    def squeeze(self, optim_state, mask_ins):
+        for mask_in, layer in zip(mask_ins, self.layers):
+            layer.squeeze(optim_state, mask_in, self.mask_out)
+        self.strength = max([layer.strength for layer in self.layers])
+        if self.norm_type is not None:
+            mask = torch.ones(self.layers[0].shape_out[-2], dtype=bool, device=device)
+            mask = torch.cat([mask, self.mask_out])
+            self.norm_layers[-1].squeeze(mask, optim_state)
+
+    def proximal_gradient_descent(self, lr=0, lamb=0, total_strength=1):
+        def layer_wise(layer, i, j):
+            mean = getattr(layer, f'weight_{i}_{j}').mean(layer.dim_in)
+            getattr(layer, f'weight_{i}_{j}').data -= mean.view(layer.view_in)
+            var = (getattr(layer, f'weight_{i}_{j}') ** 2).mean(layer.dim_in)
+            return var
+        
+        new_neurons_var = []
+        var_layers_in = 0
+        for i in range(self.task):
+            var_layers_out = 0
+            for layer in self.layers:
+                var_layers_out += layer.ks * layer_wise(layer, i, self.task)
+                var_layers_in += layer.ks * layer_wise(layer, self.task, i).sum()
+            new_neurons_var.append(var_layers_out)
+
+        var_layers_out = 0
+        for layer in self.layers:
+            var = layer.ks * layer_wise(layer, self.task, self.task)
+            var_layers_out += var
+
+        new_neurons_var.append(var_layers_out)
+        new_neurons_var = torch.stack(new_neurons_var, dim=0)
+        new_neurons_var /= self.gain
+        strength = self.strength / total_strength
+        aux = 1 - lamb * lr * strength / new_neurons_var.sum(0).sqrt()
+        aux = F.threshold(aux, 0, 0, False)
+        self.mask_out = (aux > 0).clone().detach()
+        
+        const = sum([layer.ks * layer.shape_out[-2] for layer in self.layers]) / self.gain
+        var_layers = new_neurons_var * (aux**2).view(1, -1)
+        var_layers = var_layers.sum(1)
+        if self.task > 0:
+            var_layers[:self.task] += const * getattr(self, f'old_var_{self.task}')
+            getattr(self, f'old_var_{self.task}').data /= var_layers[:self.task]
+        var_layers[self.task] += (var_layers_in / self.gain)
+
+        for layer in self.layers:
+            for i in range(self.task):
+                getattr(layer, f'weight_{i}_{self.task}').data *= aux.view(layer.view_in)
+                getattr(layer, f'weight_{i}_{self.task}').data /= var_layers[i]
+                getattr(layer, f'weight_{self.task}_{i}').data /= var_layers[self.task]
+            getattr(layer, f'weight_{self.task}_{self.task}').data *= aux.view(layer.view_in)
+            getattr(layer, f'weight_{self.task}_{self.task}').data /= var_layers[self.task]
+
+    def check_var(self):
+        for layer in self.layers:
+            print(layer.name, end=' ')
+        print()
+        var_layers_in = 0
+        for i in range(self.task):
+            var_layers_out = 0
+            for layer in self.layers:
+                var = (getattr(layer, f'weight_{i}_{self.task}') ** 2).mean(layer.dim_in).sum()
+                var_layers_out += layer.ks * (var + getattr(self, f'old_var_{self.task}') * layer.shape_out[-2])
+                var_layers_in += layer.ks * (getattr(layer, f'weight_{self.task}_{i}') ** 2).mean(layer.dim_in).sum()
+            print(i, var_layers_out.item()/self.gain)
+
+        for layer in self.layers:
+            var_layers_in += layer.ks * (getattr(layer, f'weight_{self.task}_{self.task}') ** 2).mean(layer.dim_in).sum()
+        print(self.task.item(), var_layers_in.item()/self.gain)
 
 
 class DynamicClassifier(DynamicLinear):
@@ -590,6 +669,17 @@ class DynamicNorm(nn.Module):
             output = output * self.weight.view(shape) + self.bias.view(shape)
 
         return output
+    
+    def squeeze(self, mask, optim_state):
+        if self.affine:
+            apply_mask_out(self.weight, mask, optim_state)
+            apply_mask_out(self.bias, mask, optim_state)
+            self.num_features = self.weight.shape[0]
+        
+        if self.track_running_stats:
+            self.running_mean = self.running_mean[mask]
+            self.running_var = self.running_var[mask]
+            self.num_features = self.running_mean.shape[0]
 
 # class DynamicNorm(nn.Module):
 #     def __init__(self, num_features, eps=1e-5, momentum=0.1,
