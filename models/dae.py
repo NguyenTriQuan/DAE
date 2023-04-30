@@ -231,7 +231,7 @@ class DAE(ContinualModel):
         self.opt = torch.optim.SGD(self.net.parameters(), lr=self.args.lr, weight_decay=0, momentum=self.args.optim_mom)
 
     def end_task(self, dataset) -> None:
-        self.net.set_jr_params()
+        # self.net.set_jr_params()
         self.task += 1
         self.net.freeze()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)

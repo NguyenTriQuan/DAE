@@ -126,7 +126,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
     if args.debug:
-        num = 1000
+        num = 2000
         dataset.train_data = dataset.train_data[:num]
         dataset.train_targets = dataset.train_targets[:num]
         dataset.test_data = dataset.test_data[:num]
@@ -184,10 +184,15 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
 
-        accs = evaluate(model, dataset, task=None, mode='ets_kbts')
+        accs = evaluate(model, dataset, task=None, mode='ets')
         mean_acc = np.mean(accs, axis=1)
-        print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
+        print(f'ets accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+
+        # accs = evaluate(model, dataset, task=None, mode='ets_kbts')
+        # mean_acc = np.mean(accs, axis=1)
+        # print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
+        # print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         # with torch.no_grad():
         #     model.get_rehearsal_logits(train_loader)
