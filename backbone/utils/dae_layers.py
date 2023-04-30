@@ -480,7 +480,7 @@ class DynamicBlock(nn.Module):
         var_layers = new_neurons_var * (aux**2).view(1, -1)
         var_layers = var_layers.sum(1)
         if self.task > 0:
-            var_layers[:self.task] += const * getattr(self, f'old_var_{self.task}')
+            var_layers[:self.task] += const.item() * getattr(self, f'old_var_{self.task}')
             getattr(self, f'old_var_{self.task}').data /= var_layers[:self.task]
         var_layers[self.task] += (var_layers_in / self.gain)
 
