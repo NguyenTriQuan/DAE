@@ -153,11 +153,14 @@ class _DynamicModel(nn.Module):
         with torch.no_grad():
             for block in self.DB:
                 block.initialize()
+            self.DM[-1].initialize()
+
 
     def proximal_gradient_descent(self, lr=0, lamb=0):
         with torch.no_grad():
             for block in self.DB:
                 block.proximal_gradient_descent(lr, lamb, self.total_strength)
+            self.DM[-1].normalize()
 
     def check_var(self):
         with torch.no_grad():

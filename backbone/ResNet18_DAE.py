@@ -70,6 +70,7 @@ class ResNet(_DynamicModel):
         self.block = block
         self.num_classes = num_classes
         self.nf = nf
+        self.args = args
         conv1 = conv3x3(3, nf * 1, args=args)
         self.conv1 = DynamicBlock([conv1], norm_type, args)
         self.layers = self._make_layer(block, nf * 1, num_blocks[0], stride=1, norm_type=norm_type, args=args)
@@ -120,6 +121,8 @@ class ResNet(_DynamicModel):
     def expand(self, new_classes, t):
         if t == 0:
             add_in = self.conv1.expand([None])
+            if 'op' in self.args.ablation:
+                self.conv1.layers[0].base_in_features = 0
         else:
             add_in = self.conv1.expand([0])
 
