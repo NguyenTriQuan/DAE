@@ -150,16 +150,19 @@ class _DynamicModel(nn.Module):
             add_in = m.set_jr_params(add_in)
 
     def initialize(self):
-        for block in self.DB:
-            block.initialize()
+        with torch.no_grad():
+            for block in self.DB:
+                block.initialize()
 
     def proximal_gradient_descent(self, lr=0, lamb=0):
-        for block in self.DB:
-            block.proximal_gradient_descent(lr, lamb, self.total_strength)
+        with torch.no_grad():
+            for block in self.DB:
+                block.proximal_gradient_descent(lr, lamb, self.total_strength)
 
     def check_var(self):
-        for block in self.DB:
-            block.check_var() 
+        with torch.no_grad():
+            for block in self.DB:
+                block.check_var() 
 
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')
