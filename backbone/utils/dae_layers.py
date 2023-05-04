@@ -397,8 +397,8 @@ class DynamicBlock(nn.Module):
         for x, layer in zip(inputs, self.layers):
             out += layer(x, t, mode)
 
-        # out = self.activation(self.norm_layers[t](out))
-        out = self.activation(out)
+        out = self.activation(self.norm_layers[t](out))
+        # out = self.activation(out)
         return out
     
     def expand(self, add_ins):
@@ -523,9 +523,9 @@ class DynamicBlock(nn.Module):
                 self.norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
                 self.norm_layers[-1].running_var[layer.shape_out[-2]:] /= (out_scale ** 2)
 
-            # if self.norm_layers[-1].affine:
-            #     self.norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
-            #     self.norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
+            if self.norm_layers[-1].affine:
+                self.norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
+                self.norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
             
 
     def proximal_gradient_descent(self, lr=0, lamb=0, total_strength=1):
@@ -581,9 +581,9 @@ class DynamicBlock(nn.Module):
                 self.norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
                 self.norm_layers[-1].running_var[layer.shape_out[-2]:] /= (out_scale ** 2)
 
-            # if self.norm_layers[-1].affine:
-            #     self.norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
-            #     self.norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
+            if self.norm_layers[-1].affine:
+                self.norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
+                self.norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
         
         # if self.task > 0:
         #     self.check_var()

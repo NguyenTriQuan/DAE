@@ -177,9 +177,9 @@ class DAE(ContinualModel):
             total_loss += loss.item() * labels.shape[0]
             if squeeze:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
-                # num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
-                # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, 0, num_neurons)
-                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
+                num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
+                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, 0, num_neurons)
+                # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
             else:
                 if 'wn' not in self.args.ablation:
                     self.net.normalize()

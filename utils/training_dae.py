@@ -82,7 +82,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     # model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
     model.opt = torch.optim.SGD(model.net.get_optim_params(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
     squeeze = False
-    num_squeeze = 1000
+    num_squeeze = 70
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     if 'ets' in mode:
         lamb = model.lamb[t]
