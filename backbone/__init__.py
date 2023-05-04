@@ -161,11 +161,18 @@ class _DynamicModel(nn.Module):
             for block in self.DB:
                 block.proximal_gradient_descent(lr, lamb, self.total_strength)
             self.DM[-1].normalize()
+    
+    def normalize(self):
+        with torch.no_grad():
+            for block in self.DB:
+                block.normalize()
+            self.DM[-1].normalize()
 
     def check_var(self):
         with torch.no_grad():
             for block in self.DB:
                 block.check_var() 
+            self.DM[-1].check_var()
 
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')

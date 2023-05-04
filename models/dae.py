@@ -90,11 +90,11 @@ class DAE(ContinualModel):
         self.dataset = get_dataset(args)
         # self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_affine_track', args=args)
         if args.debug:
-            self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track', args=args)
+            self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track_affine', args=args)
         else:
-            self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track', args=args)
+            self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track_affine', args=args)
         self.buffer = None
-        self.task = 0
+        self.task = -1
         self.lamb = [float(i) for i in args.lamb.split('_')]
         if len(self.lamb) < self.dataset.N_TASKS:
             self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.dataset.N_TASKS)]
@@ -114,7 +114,9 @@ class DAE(ContinualModel):
                 outputs.append(self.net(x, t, mode='ets'))
             if 'kbts' in mode:
                 outputs.append(self.net(x, t, mode='kbts'))
-            outputs = ensemble_outputs(outputs)
+
+            outputs = outputs[0]
+            # outputs = ensemble_outputs(outputs)
             _, predicts = outputs.max(1)
             return predicts + t * self.dataset.N_CLASSES_PER_TASK
         else:
@@ -122,7 +124,7 @@ class DAE(ContinualModel):
             outputs_tasks = []
             if 'jr' in mode:
                 out_jr = self.net(x, self.task, mode='jr')
-            for i in range(self.task):
+            for i in range(self.task+1):
                 outputs = []
                 weights = []
                 x = self.dataset.test_transforms[i](x)
@@ -135,7 +137,8 @@ class DAE(ContinualModel):
                 if 'jr' in mode:
                     out = out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
                     outputs.append(out)
-                outputs = ensemble_outputs(outputs)
+                # outputs = ensemble_outputs(outputs)
+                outputs = outputs[0]
                 outputs_tasks.append(outputs)
                 joint_entropy = entropy(outputs.exp())
                 joint_entropy_tasks.append(joint_entropy)
@@ -145,6 +148,12 @@ class DAE(ContinualModel):
             predicted_task = torch.argmin(joint_entropy_tasks, dim=1)
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             _, predicts = predicted_outputs.max(1)
+            # print(outputs_tasks.shape, outputs_tasks.abs().sum((0,2)))
+            print('entropy', joint_entropy_tasks.sum((0)))
+            print('mean', outputs_tasks.mean((0)).sum(-1))
+            print('var', outputs_tasks.var((0)).sum(-1))
+            # outputs_tasks = outputs_tasks.permute((1, 0, 2)).reshape((self.task+1, -1))
+            # print('min - max', outputs_tasks.min(1)[0], outputs_tasks.max(1)[0])
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
     
     def train(self, train_loader, progress_bar, mode, squeeze, epoch):
@@ -168,11 +177,12 @@ class DAE(ContinualModel):
             total_loss += loss.item() * labels.shape[0]
             if squeeze:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
-                num_neurons = [m.mask_out.sum().item() for m in self.net.DM[:-1]]
-                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, 0, num_neurons)
+                # num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
+                # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, 0, num_neurons)
+                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
             else:
                 if 'wn' not in self.args.ablation:
-                    self.net.proximal_gradient_descent()
+                    self.net.normalize()
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
         if squeeze:
             self.net.squeeze(self.opt.state)
@@ -216,6 +226,7 @@ class DAE(ContinualModel):
 
 
     def begin_task(self, dataset):
+        self.task += 1
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
         # if self.task == 0:
         #     get_related_layers(self.net, self.dataset.INPUT_SHAPE)
@@ -230,7 +241,6 @@ class DAE(ContinualModel):
 
     def end_task(self, dataset) -> None:
         # self.net.set_jr_params()
-        self.task += 1
         self.net.freeze()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:

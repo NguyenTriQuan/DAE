@@ -62,9 +62,10 @@ class SequentialCIFAR100(ContinualDataset):
         std = train_loader.dataset.tensors[0].std((0, 2, 3), unbiased=False)
         print(f'Classes: {self.i} - {self.i+self.N_CLASSES_PER_TASK}, mean = {mean}, std = {std}')
         self.i += self.N_CLASSES_PER_TASK
-        self.test_transforms += [torch.nn.Sequential(
-                K.augmentation.Normalize(mean, std)
-            )]
+        # self.test_transforms += [torch.nn.Sequential(
+        #         K.augmentation.Normalize(mean, std)
+        #     )]
+        self.test_transforms += [self.test_transform]
         return train_loader, test_loader
     
     def get_full_data_loader(self):

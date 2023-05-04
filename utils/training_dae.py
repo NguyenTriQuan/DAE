@@ -82,17 +82,18 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     # model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
     model.opt = torch.optim.SGD(model.net.get_optim_params(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
     squeeze = False
-    num_squeeze = 100
+    num_squeeze = 1000
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     if 'ets' in mode:
         lamb = model.lamb[t]
         print('lamb', lamb)
-        # n_epochs = 150
-        # model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [135, 145], gamma=0.1, verbose=False)
-        # squeeze = True
-        n_epochs = 50
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
-        squeeze = False
+        n_epochs = 100
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
+        squeeze = True
+        if 'join' in args.ablation:
+            n_epochs = 50
+            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+            squeeze = False
     elif 'kbts' in mode:
         n_epochs = 50
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
@@ -126,7 +127,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
     if args.debug:
-        num = 2000
+        num = 1000
         dataset.train_data = dataset.train_data[:num]
         dataset.train_targets = dataset.train_targets[:num]
         dataset.test_data = dataset.test_data[:num]
@@ -165,13 +166,18 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             model.begin_task(dataset)
             num_params, num_neurons = model.net.count_params()
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
-    
+
         if t and not args.ignore_other_metrics:
             accs = evaluate(model, dataset, last=True, ets=True, kbts=False, jr=False)
             results[t-1] = results[t-1] + accs[0]
             if dataset.SETTING == 'class-il':
                 results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
         
+        accs = evaluate(model, dataset, task=None, mode='ets')
+        mean_acc = np.mean(accs, axis=1)
+        print(f'init ets accs: cil {accs[0]}, til {accs[1]}')
+        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+
         # kbts training
         # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
 

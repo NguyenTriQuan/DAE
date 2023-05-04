@@ -191,16 +191,17 @@ class _DynamicLayer(nn.Module):
 
     def get_kb_params(self, t):
         # get knowledge base parameters for task t
-        if len(self.kb_weight.shape) > 1 and self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
-            return
+        # if len(self.kb_weight.shape) > 1 and self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
+        #     return
         
         self.kb_weight = torch.empty(0).to(device)
         self.masked_kb_weight = torch.empty(0).to(device)
 
         for i in range(t):
             row = torch.empty(0).to(device)
+            old_std = getattr(self, f'old_var_{t}')[i].sqrt()
             for j in range(t):
-                row = torch.cat([row, getattr(self, f'old_var_{self.task}')[i].sqrt() * getattr(self, f'weight_{i}_{j}').data / getattr(self, f'scale_{i}_{j}')], dim=0)
+                row = torch.cat([row, old_std * getattr(self, f'weight_{i}_{j}').data / getattr(self, f'scale_{i}_{j}')], dim=0)
                 # row = torch.cat([row, getattr(self, f'weight_{i}_{j}')], dim=0)
             self.kb_weight = torch.cat([self.kb_weight, row], dim=1)
 
@@ -442,12 +443,12 @@ class DynamicBlock(nn.Module):
             sum_var += layer.ks * layer.shape_out[-1]
         
         std = math.sqrt(self.gain / sum_var)
-        if self.task > 0:
-            # initial equal var for old neurons
-            self.register_buffer(f'old_var_{self.task}', (std ** 2) * torch.ones(self.task).to(device))
+        # initial equal var for old neurons
+        self.register_buffer(f'old_var_{self.task}', (std ** 2) * torch.ones(self.task).to(device))
 
         for layer in self.layers:
             # rescale old weights
+            layer.register_buffer(f'old_var_{self.task}', getattr(self, f'old_var_{self.task}').data)
             if self.task > 0:
                 for i in range(self.task-1):
                     layer.register_buffer(f'scale_{i}_{self.task-1}', compute_scale(layer, i, self.task-1))
@@ -461,17 +462,71 @@ class DynamicBlock(nn.Module):
             nn.init.normal_(getattr(layer, f'weight_{self.task}_{self.task}'), 0, std)
 
         # self.check_var()
-        self.proximal_gradient_descent()
+        self.normalize()
         self.check_var()
 
     def squeeze(self, optim_state, mask_ins):
         for mask_in, layer in zip(mask_ins, self.layers):
             layer.squeeze(optim_state, mask_in, self.mask_out)
         self.strength = max([layer.strength for layer in self.layers])
-        if self.norm_type is not None:
+        if self.norm_type is not None and self.mask_out is not None:
             mask = torch.ones(self.layers[0].shape_out[-2], dtype=bool, device=device)
             mask = torch.cat([mask, self.mask_out])
             self.norm_layers[-1].squeeze(mask, optim_state)
+
+    def normalize(self):
+        def layer_wise(layer, i, j):
+            if getattr(layer, f'weight_{i}_{j}').numel() == 0:
+                return torch.zeros(getattr(layer, f'weight_{i}_{j}').shape[0]).to(device)
+            mean = getattr(layer, f'weight_{i}_{j}').data.mean(layer.dim_in)
+            getattr(layer, f'weight_{i}_{j}').data -= mean.view(layer.view_in)
+            var = (getattr(layer, f'weight_{i}_{j}').data ** 2).mean(layer.dim_in)
+            return var
+        
+        var_new_neurons = []
+        var_layers_in = 0
+        for i in range(self.task):
+            var_layers_out = 0
+            for layer in self.layers:
+                var_layers_out += layer.ks * layer_wise(layer, i, self.task)
+                var_layers_in += layer.ks * layer_wise(layer, self.task, i).sum()
+            var_new_neurons.append(var_layers_out)
+
+        var_layers_out = 0
+        for layer in self.layers:
+            var = layer.ks * layer_wise(layer, self.task, self.task)
+            var_layers_out += var
+
+        var_new_neurons.append(var_layers_out)
+        var_new_neurons = torch.stack(var_new_neurons, dim=0)
+        var_new_neurons /= self.gain # shape (num task, num new neurons)
+        
+        const = sum([layer.ks * layer.shape_out[-2] for layer in self.layers]) / self.gain
+        var_tasks = var_new_neurons.sum(1) # shape (num task)
+        var_tasks[self.task] += (var_layers_in / self.gain)
+        if self.task > 0:
+            var_tasks[:self.task] += const * getattr(self, f'old_var_{self.task}')
+            getattr(self, f'old_var_{self.task}').data /= var_tasks[:self.task]
+
+        std_new_neurons = var_tasks.sqrt()
+        std_old_neurons = var_tasks[self.task].sqrt()
+        for layer in self.layers:
+            layer.register_buffer(f'old_var_{self.task}', getattr(self, f'old_var_{self.task}').data)
+            for i in range(self.task):
+                getattr(layer, f'weight_{i}_{self.task}').data /= std_new_neurons[i].view(layer.view_in)
+                getattr(layer, f'weight_{self.task}_{i}').data /= std_old_neurons
+            getattr(layer, f'weight_{self.task}_{self.task}').data /= std_new_neurons[self.task].view(layer.view_in)
+
+        if self.norm_type is not None:
+            out_scale = (std_new_neurons**2).sum(0).sqrt() # shape (num new neurons)
+            if self.norm_layers[-1].track_running_stats:
+                self.norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
+                self.norm_layers[-1].running_var[layer.shape_out[-2]:] /= (out_scale ** 2)
+
+            # if self.norm_layers[-1].affine:
+            #     self.norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
+            #     self.norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
+            
 
     def proximal_gradient_descent(self, lr=0, lamb=0, total_strength=1):
         def layer_wise(layer, i, j):
@@ -482,75 +537,57 @@ class DynamicBlock(nn.Module):
             var = (getattr(layer, f'weight_{i}_{j}').data ** 2).mean(layer.dim_in)
             return var
         
-        new_neurons_var = []
+        var_new_neurons = []
         var_layers_in = 0
         for i in range(self.task):
             var_layers_out = 0
             for layer in self.layers:
                 var_layers_out += layer.ks * layer_wise(layer, i, self.task)
                 var_layers_in += layer.ks * layer_wise(layer, self.task, i).sum()
-            new_neurons_var.append(var_layers_out)
+            var_new_neurons.append(var_layers_out)
 
         var_layers_out = 0
         for layer in self.layers:
             var = layer.ks * layer_wise(layer, self.task, self.task)
             var_layers_out += var
 
-        new_neurons_var.append(var_layers_out)
-        new_neurons_var = torch.stack(new_neurons_var, dim=0)
-        new_neurons_var /= self.gain
+        var_new_neurons.append(var_layers_out)
+        var_new_neurons = torch.stack(var_new_neurons, dim=0)
+        var_new_neurons /= self.gain # shape (num task, num new neurons)
         strength = self.strength / total_strength
-        aux = 1 - lamb * lr * strength / new_neurons_var.sum(0).sqrt()
-        aux = F.threshold(aux, 0, 0, False)
-        self.mask_out = (aux > 0).clone().detach()
+        aux = 1 - lamb * lr * strength / var_new_neurons.sum(0).sqrt()
+        aux = F.threshold(aux, 0, 0, False) # shape (num new neurons)
+        self.mask_out = (aux > 0).clone().detach() # shape (num new neurons)
         
         const = sum([layer.ks * layer.shape_out[-2] for layer in self.layers]) / self.gain
-        var_layers = new_neurons_var * (aux**2).view(1, -1)
-        var_layers = var_layers.sum(1)
-        var_layers[self.task] += (var_layers_in / self.gain)
+        var_tasks = (var_new_neurons * (aux**2).view(1, -1)).sum(1) # shape (num task)
+        var_tasks[self.task] += (var_layers_in / self.gain)
         if self.task > 0:
-            var_layers[:self.task] += const * getattr(self, f'old_var_{self.task}')
-            getattr(self, f'old_var_{self.task}').data /= var_layers[:self.task]
-            # print('layer in', var_layers_in)
-            # print('all', var_layers)
+            var_tasks[:self.task] += const * getattr(self, f'old_var_{self.task}')
+            getattr(self, f'old_var_{self.task}').data /= var_tasks[:self.task]
 
+        std_new_neurons = var_tasks.sqrt().view(-1, 1) / aux.view(1, -1) # shape (num task, num new neurons)
+        std_old_neurons = var_tasks[self.task].sqrt() # shape (0)
         for layer in self.layers:
+            layer.register_buffer(f'old_var_{self.task}', getattr(self, f'old_var_{self.task}').data)
             for i in range(self.task):
-                getattr(layer, f'weight_{i}_{self.task}').data *= aux.view(layer.view_in)
-                getattr(layer, f'weight_{i}_{self.task}').data /= var_layers[i]
-                getattr(layer, f'weight_{self.task}_{i}').data /= var_layers[self.task]
-            getattr(layer, f'weight_{self.task}_{self.task}').data *= aux.view(layer.view_in)
-            getattr(layer, f'weight_{self.task}_{self.task}').data /= var_layers[self.task]
+                getattr(layer, f'weight_{i}_{self.task}').data /= std_new_neurons[i].view(layer.view_in)
+                getattr(layer, f'weight_{self.task}_{i}').data /= std_old_neurons
+            getattr(layer, f'weight_{self.task}_{self.task}').data /= std_new_neurons[self.task].view(layer.view_in)
 
+        if self.norm_type is not None:
+            out_scale = (std_new_neurons**2).sum(0).sqrt() # shape (num new neurons)
+            if self.norm_layers[-1].track_running_stats:
+                self.norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
+                self.norm_layers[-1].running_var[layer.shape_out[-2]:] /= (out_scale ** 2)
+
+            # if self.norm_layers[-1].affine:
+            #     self.norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
+            #     self.norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
+        
         # if self.task > 0:
         #     self.check_var()
-
-    # def check_var(self):
-    #     def layer_wise(layer, i, j):
-    #         if getattr(layer, f'weight_{i}_{j}').numel() == 0:
-    #             # print(getattr(layer, f'weight_{i}_{j}').shape)
-    #             return torch.zeros(getattr(layer, f'weight_{i}_{j}').shape[0]).to(device)
-    #         var = (getattr(layer, f'weight_{i}_{j}').data ** 2).mean(layer.dim_in)
-    #         return var
         
-    #     for layer in self.layers:
-    #         print(layer.name, end=' ')
-    #     print()
-    #     var_layers_in = 0
-    #     for i in range(self.task):
-    #         var_layers_out = 0
-    #         for layer in self.layers:
-    #             # print(getattr(layer, f'weight_{i}_{self.task}').shape, getattr(layer, f'weight_{self.task}_{i}').shape)
-    #             var = layer_wise(layer, i, self.task).sum()
-    #             var_layers_out += layer.ks * (var + getattr(self, f'old_var_{self.task}').sum() * layer.shape_out[-2])
-    #             var_layers_in += layer.ks * layer_wise(layer, self.task, i).sum()
-    #         print(i, var_layers_out.item()/self.gain)
-
-    #     for layer in self.layers:
-    #         # print(getattr(layer, f'weight_{self.task}_{self.task}').shape)
-    #         var_layers_in += layer.ks * layer_wise(layer, self.task, self.task).sum()
-    #     print(self.task.item(), var_layers_in.item()/self.gain)
-
     def check_var(self):
         def layer_wise(layer, i, j):
             w = getattr(layer, f'weight_{i}_{j}')
@@ -558,11 +595,8 @@ class DynamicBlock(nn.Module):
                 return torch.zeros(w.shape[0]).to(device)
             
             if hasattr(layer, f'scale_{i}_{j}'):
-                w = w / getattr(layer, f'scale_{i}_{j}')
+                w = w * getattr(self, f'old_var_{self.task}')[i].sqrt() / getattr(layer, f'scale_{i}_{j}')
             var = (w.data ** 2).mean(layer.dim_in)
-
-            if hasattr(self, f'old_var_{self.task}') and hasattr(layer, f'scale_{i}_{j}'):
-                var *= getattr(self, f'old_var_{self.task}')[i]
 
             return var
         
@@ -665,12 +699,19 @@ class DynamicClassifier(DynamicLinear):
     def initialize(self):
         std = 1 / math.sqrt(self.num_out[-1])
         nn.init.normal_(self.weight_ets[-1], 0, std)
+        self.normalize()
+        self.check_var()
 
     def normalize(self):
         mean = self.weight_ets[-1].data.mean(self.dim_in)
         self.weight_ets[-1].data -= mean.view(self.view_in)
         var = (self.weight_ets[-1].data ** 2).mean(self.dim_in)
         self.weight_ets[-1].data /= var.sum().sqrt()
+
+    def check_var(self):
+        mean = self.weight_ets[-1].data.mean(self.dim_in)
+        var = (self.weight_ets[-1].data ** 2).mean(self.dim_in)
+        print(f'Last, mean: {mean.mean().item()}, var {var.sum().item()}')
 
 
 class DynamicNorm(nn.Module):
