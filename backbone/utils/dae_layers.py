@@ -473,6 +473,7 @@ class DynamicBlock(nn.Module):
             mask = torch.ones(self.layers[0].shape_out[-2], dtype=bool, device=device)
             mask = torch.cat([mask, self.mask_out])
             self.norm_layers[-1].squeeze(mask, optim_state)
+        self.normalize()
 
     def normalize(self):
         def layer_wise(layer, i, j):
