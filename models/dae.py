@@ -197,6 +197,7 @@ class DAE(ContinualModel):
         total_loss = 0
         accs = self.eval(self.task, mode=mode)
         num_params, num_neurons = self.net.count_params()
+        num_params = sum(num_params)
         for i, data in enumerate(train_loader):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
