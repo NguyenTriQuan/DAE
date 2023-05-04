@@ -90,7 +90,8 @@ class DAE(ContinualModel):
         self.dataset = get_dataset(args)
         # self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_affine_track', args=args)
         if args.debug:
-            self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track_affine', args=args)
+            # self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track_affine', args=args)
+            self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type=None, args=args)
         else:
             self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track_affine', args=args)
         self.buffer = None
@@ -155,12 +156,47 @@ class DAE(ContinualModel):
             # outputs_tasks = outputs_tasks.permute((1, 0, 2)).reshape((self.task+1, -1))
             # print('min - max', outputs_tasks.min(1)[0], outputs_tasks.max(1)[0])
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
+        
+    def eval(self, task=None, mode='ets_kbts_jr'):
+        self.net.eval()
+        accs, accs_mask_classes = [], []
+        for k, test_loader in enumerate(self.dataset.test_loaders):
+            if task is not None:
+                if k != task:
+                    continue
+            correct, correct_mask_classes, total = 0.0, 0.0, 0.0
+            for data in test_loader:
+                with torch.no_grad():
+                    inputs, labels = data
+                    inputs, labels = inputs.to(self.device), labels.to(self.device)
+                    # inputs = dataset.test_transform(inputs)
+                    if task is not None:
+                        pred = self.forward(inputs, k, mode)
+                    else:
+                        pred = self.forward(inputs, None, mode)
+
+                    correct += torch.sum(pred == labels).item()
+                    total += labels.shape[0]
+
+                    if self.dataset.SETTING == 'class-il' and task is None:
+                        pred = self.forward(inputs, k, mode)
+                        correct_mask_classes += torch.sum(pred == labels).item()
+
+            acc = correct / total * 100 if 'class-il' in self.COMPATIBILITY else 0
+            accs.append(round(acc, 2))
+            acc = correct_mask_classes / total * 100
+            accs_mask_classes.append(round(acc, 2))
+
+        # model.net.train(status)
+        return accs, accs_mask_classes
     
     def train(self, train_loader, progress_bar, mode, squeeze, epoch):
         self.net.train()
         total = 0
         correct = 0
         total_loss = 0
+        accs = self.eval(self.task, mode=mode)
+        num_params, num_neurons = self.net.count_params()
         for i, data in enumerate(train_loader):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -178,12 +214,12 @@ class DAE(ContinualModel):
             if squeeze:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
                 num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
-                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, 0, num_neurons)
+                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params, num_neurons)
                 # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
             else:
                 if 'wn' not in self.args.ablation:
                     self.net.normalize()
-                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
+                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params)
         if squeeze:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()

@@ -132,7 +132,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     #     dataset.train_targets = dataset.train_targets[:num]
     #     dataset.test_data = dataset.test_data[:num]
     #     dataset.test_targets = dataset.test_targets[:num]
-        
+    model.dataset = dataset
     if not args.nowand:
         assert wandb is not None, "Wandb not installed, please install it or run without wandb"
         wandb.init(project=args.wandb_project, entity=args.wandb_entity, config=vars(args))
@@ -173,10 +173,10 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             if dataset.SETTING == 'class-il':
                 results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
         
-        accs = evaluate(model, dataset, task=None, mode='ets')
-        mean_acc = np.mean(accs, axis=1)
-        print(f'init ets accs: cil {accs[0]}, til {accs[1]}')
-        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+        # accs = evaluate(model, dataset, task=None, mode='ets')
+        # mean_acc = np.mean(accs, axis=1)
+        # print(f'init ets accs: cil {accs[0]}, til {accs[1]}')
+        # print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         # kbts training
         # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
