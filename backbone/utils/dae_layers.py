@@ -518,7 +518,7 @@ class DynamicBlock(nn.Module):
                 getattr(layer, f'weight_{self.task}_{i}').data /= std_old_neurons
             getattr(layer, f'weight_{self.task}_{self.task}').data /= std_new_neurons[self.task].view(layer.view_in)
 
-        if self.norm_type is not None:
+        if self.norm_type is not None and 'scale' not in self.args.ablation:
             out_scale = (std_new_neurons**2).sum(0).sqrt() # shape (num new neurons)
             if self.norm_layers[-1].track_running_stats:
                 self.norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
