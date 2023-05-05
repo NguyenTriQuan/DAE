@@ -77,7 +77,8 @@ class ResNet(_DynamicModel):
         self.layers += self._make_layer(block, nf * 2, num_blocks[1], stride=2, norm_type=norm_type, args=args)
         self.layers += self._make_layer(block, nf * 4, num_blocks[2], stride=2, norm_type=norm_type, args=args)
         self.layers += self._make_layer(block, nf * 8, num_blocks[3], stride=2, norm_type=norm_type, args=args)
-        self.linear = DynamicClassifier(nf * 8 * block.expansion, num_classes, norm_type=norm_type, args=args, s=1)
+        # self.linear = DynamicClassifier(nf * 8 * block.expansion, num_classes, norm_type=norm_type, args=args, s=1)
+        self.linear = DynamicBlock([DynamicLinear(nf * 8 * block.expansion, num_classes, args=self.args, s=1)], args=self.args, act=None, norm_type=None)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
         for n, m in self.named_modules():
@@ -115,23 +116,23 @@ class ResNet(_DynamicModel):
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
 
-        out = self.linear(feature, t, mode)
+        out = self.linear([feature], t, mode)
         return out
     
     def expand(self, new_classes, t):
         if t == 0:
-            add_in = self.conv1.expand([None])
+            add_in = self.conv1.expand([None], [None])
             if 'op' in self.args.ablation:
                 self.conv1.layers[0].base_in_features = 0
         else:
-            add_in = self.conv1.expand([0])
+            add_in = self.conv1.expand([0], [None])
 
         for block in self.layers:
-            add_in_1 = block.conv1.expand([add_in])
-            add_in = block.conv2.expand([add_in, add_in_1])
+            add_in_1 = block.conv1.expand([add_in], [None])
+            add_in = block.conv2.expand([add_in, add_in_1], [None, None])
 
-        self.linear.expand(add_in, new_classes)
-
+        # self.linear.expand(add_in, new_classes)
+        self.linear.expand([add_in], [new_classes])
         self.total_strength = 1
         for m in self.DB:
             self.total_strength += m.strength
@@ -146,11 +147,33 @@ class ResNet(_DynamicModel):
             block.conv2.squeeze(optim_state, [mask_in, block.conv1.mask_out])
             mask_in = block.conv2.mask_out
         
-        self.linear.squeeze(optim_state, mask_in, None)
+        # self.linear.squeeze(optim_state, mask_in, None)
+        self.linear.squeeze(optim_state, [mask_in])
 
         self.total_strength = 1
         for m in self.DB:
             self.total_strength += m.strength
+
+    def initialize(self):
+        with torch.no_grad():
+            for block in self.DB:
+                block.initialize()
+
+    def proximal_gradient_descent(self, lr=0, lamb=0):
+        with torch.no_grad():
+            for block in self.DB[:-1]:
+                block.proximal_gradient_descent(lr, lamb, self.total_strength)
+            self.DB[-1].normalize()
+    
+    def normalize(self):
+        with torch.no_grad():
+            for block in self.DB:
+                block.normalize()
+
+    def check_var(self):
+        with torch.no_grad():
+            for block in self.DB:
+                block.check_var() 
                 
     def update_strength(self):
         self.conv1.mask_in = None

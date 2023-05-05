@@ -90,7 +90,7 @@ class _DynamicLayer(nn.Module):
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
-        self.over_mul = 2 # prevent errors
+        self.over_mul = 1 # prevent errors
         self.dummy_weight = torch.Tensor(self.base_out_features * self.base_in_features * self.ks * self.over_mul).to(device)
         nn.init.normal_(self.dummy_weight, 0, 1)
 
@@ -106,40 +106,33 @@ class _DynamicLayer(nn.Module):
             output = F.conv2d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
         else:
             output = F.linear(x, weight, bias)
-
         return output
     
     def get_expand_shape(self, t, add_in=None, add_out=None, fix=False):
         # expand from knowledge base weights of task t
-        if 'fix' in self.args.ablation or fix:
-            # fan_in and fan_out can not be excessed the base architecture
-            fan_in = self.base_in_features
-            fan_out = self.base_out_features
-            add_in = self.base_in_features - self.shape_in[t]
-            add_out = self.base_out_features - self.shape_out[t]
-        elif 'op' in self.args.ablation:
-            fan_in = self.base_in_features + self.shape_in[t]
-            fan_out = self.base_out_features + self.shape_out[t]
-            add_in = self.base_in_features
-            add_out = self.base_out_features
-        else:
-            # expand with the number of base parameters
-            if add_in is None:
+        if add_in is None:
+            if 'fix' in self.args.ablation:
+                add_in = self.base_in_features - self.shape_in[t]
+            else:
                 add_in = self.base_in_features
-            fan_in = self.shape_in[t] + add_in
-            if add_out is None:
-                # compute add_out
+        fan_in = self.shape_in[t] + add_in
+        if add_out is None:
+            # compute add_out
+            if 'fix' in self.args.ablation:
+                add_out = self.base_out_features - self.shape_out[t]
+            elif 'op' in self.args.ablation:
+                add_out = self.base_out_features
+            else:
                 total_params = self.shape_out[t] * self.shape_in[t] * self.ks + (self.dummy_weight.numel() / self.over_mul)
                 fan_out = total_params // (fan_in * self.ks)
                 add_out = max(fan_out - self.shape_out[t], 0)
-            else:
-                fan_out = self.shape_out[t] + add_out
+
+        fan_out = self.shape_out[t] + add_out
         return int(fan_in), int(fan_out), int(add_in), int(add_out)
 
     def expand(self, add_in=None, add_out=None):
         self.task += 1
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(-1, add_in, add_out)
-
         self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(device)])
         self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(device)])
 
@@ -166,9 +159,6 @@ class _DynamicLayer(nn.Module):
             self.register_buffer(f'weight_{self.task}_{self.task}', 
                 nn.Parameter(torch.Tensor(self.num_out[self.task], self.num_in[self.task]).normal_(0, bound_std).to(device)))
 
-            self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in).normal_(0, bound_std).to(device)))
-            self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2]).normal_(0, bound_std).to(device)))
-            self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in).normal_(0, bound_std).to(device)))
             self.score = nn.Parameter(torch.Tensor(fan_out, fan_in).to(device))
 
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
@@ -238,9 +228,10 @@ class _DynamicLayer(nn.Module):
         for i in range(t):
             fwt_weight = torch.cat([fwt_weight, getattr(self, f'weight_{i}_{t}')], dim=1)
             bwt_weight = torch.cat([bwt_weight, getattr(self, f'weight_{t}_{i}')], dim=0)
+        # print(fwt_weight.shape, bwt_weight.shape, weight.shape)
         weight = torch.cat([torch.cat([weight, bwt_weight], dim=1), 
                             torch.cat([fwt_weight, getattr(self, f'weight_{t}_{t}')], dim=1)], dim=0)
-        
+        # self.sh = weight.norm(2).item()
         return weight, None
     
     def get_kbts_params(self, t):
@@ -341,6 +332,7 @@ class DynamicLinear(_DynamicLayer):
             self.dim_out = [0, 2, 3]
         self.kernel_size = _pair(1)
         self.ks = 1
+        self.name = 'linear'
         super(DynamicLinear, self).__init__(in_features, out_features, bias, norm_type, args, s)
             
         
@@ -355,6 +347,7 @@ class _DynamicConvNd(_DynamicLayer):
         self.transposed = transposed
         self.output_padding = output_padding
         self.groups = groups
+        self.name = 'conv'
         super(_DynamicConvNd, self).__init__(in_features, out_features, bias, norm_type, args, s)
         if in_features % groups != 0:
             raise ValueError('in_channels must be divisible by groups')
@@ -374,6 +367,7 @@ class DynamicConv2D(_DynamicConvNd):
         self.dim_in = [1, 2, 3]
         self.dim_out = [0, 2, 3]
         self.ks = np.prod(kernel_size)
+        self.name = 'conv2d'
 
         super(DynamicConv2D, self).__init__(in_features, out_features, kernel_size, 
                                             stride, padding, dilation, False, _pair(0), groups, bias, norm_type, args, s)
@@ -381,14 +375,18 @@ class DynamicConv2D(_DynamicConvNd):
 
 class DynamicBlock(nn.Module):
     # A block of dynamic layers, normalization, and activation. All layers are share the number of out features.
-    def __init__(self, layers, norm_type=None, args=None):
+    def __init__(self, layers, norm_type=None, args=None, act='relu'):
         super(DynamicBlock, self).__init__()
         self.layers = nn.ModuleList(layers)
         self.args = args
         self.norm_type = norm_type
         self.norm_layers = nn.ModuleList([])
-        self.activation = nn.LeakyReLU(args.negative_slope)
-        self.gain = torch.nn.init.calculate_gain('leaky_relu', args.negative_slope) ** 2
+        if act == 'relu':
+            self.activation = nn.LeakyReLU(args.negative_slope)
+            self.gain = torch.nn.init.calculate_gain('leaky_relu', args.negative_slope) ** 2
+        else:
+            self.activation = nn.Identity()
+            self.gain = 1
         self.register_buffer('task', torch.tensor(-1, dtype=torch.int).to(device))
         self.mask_out = None
 
@@ -401,15 +399,17 @@ class DynamicBlock(nn.Module):
         # out = self.activation(out)
         return out
     
-    def expand(self, add_ins):
+    def expand(self, add_ins, add_outs):
         self.task += 1
-        add_outs = []
-        for add_in, layer in zip(add_ins, self.layers):
-            _, _, _, add_out = layer.get_expand_shape(-1, add_in)
-            add_outs.append(add_out)
+        add_outs_ = []
+        add_ins_ = []
+        for add_in, add_out, layer in zip(add_ins, add_outs, self.layers):
+            _, _, add_in_, add_out_ = layer.get_expand_shape(-1, add_in, add_out)
+            add_outs_.append(add_out_)
+            add_ins_.append(add_in_)
 
-        add_out = max(add_outs)
-        for add_in, layer in zip(add_ins, self.layers):
+        add_out = max(add_outs_)
+        for add_in, layer in zip(add_ins_, self.layers):
             layer.expand(add_in, add_out)
 
         self.strength = max([layer.strength for layer in self.layers])
@@ -576,7 +576,7 @@ class DynamicBlock(nn.Module):
                 getattr(layer, f'weight_{self.task}_{i}').data /= std_old_neurons
             getattr(layer, f'weight_{self.task}_{self.task}').data /= std_new_neurons[self.task].view(layer.view_in)
 
-        if self.norm_type is not None:
+        if self.norm_type is not None and 'scale' not in self.args.ablation:
             out_scale = (std_new_neurons**2).sum(0).sqrt() # shape (num new neurons)
             if self.norm_layers[-1].track_running_stats:
                 self.norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
@@ -634,6 +634,7 @@ class DynamicClassifier(DynamicLinear):
             weight = self.weight_ets[t]
             bias = self.bias_ets[t]
         x = F.linear(x, weight, None)
+        self.sh = weight.norm(2).item()
         return x
     
     def expand(self, add_in, add_out):

@@ -87,9 +87,17 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     if 'ets' in mode:
         lamb = model.lamb[t]
         print('lamb', lamb)
-        n_epochs = 100
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
-        squeeze = True
+        if 'squeeze' in args.ablation:
+            n_epochs = 50
+            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+            squeeze = False
+        else:
+            n_epochs = 100
+            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
+            squeeze = True
+        # n_epochs = 10
+        # model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
+        # squeeze = False
         if 'join' in args.ablation:
             n_epochs = 50
             model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
@@ -126,12 +134,12 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
-    # if args.debug:
-    #     num = 1000
-    #     dataset.train_data = dataset.train_data[:num]
-    #     dataset.train_targets = dataset.train_targets[:num]
-    #     dataset.test_data = dataset.test_data[:num]
-    #     dataset.test_targets = dataset.test_targets[:num]
+    if args.debug:
+        num = 1000
+        dataset.train_data = dataset.train_data[:num]
+        dataset.train_targets = dataset.train_targets[:num]
+        dataset.test_data = dataset.test_data[:num]
+        dataset.test_targets = dataset.test_targets[:num]
     model.dataset = dataset
     if not args.nowand:
         assert wandb is not None, "Wandb not installed, please install it or run without wandb"

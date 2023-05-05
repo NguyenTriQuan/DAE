@@ -41,6 +41,8 @@ def get_parser() -> ArgumentParser:
                         help='leaky relu activation negative slope.')
     parser.add_argument('--ablation', type=str, required=False,
                         help='Ablation study.', default='')
+    parser.add_argument('--norm_type', type=str, required=False,
+                        help='batch normalization layer', default='none')
     parser.add_argument('--debug', action='store_true',
                         help='Quick test.')
     return parser
@@ -88,12 +90,15 @@ class DAE(ContinualModel):
     def __init__(self, backbone, loss, args, transform):
         super(DAE, self).__init__(backbone, loss, args, transform)
         self.dataset = get_dataset(args)
-        # self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_affine_track', args=args)
-        if args.debug:
-            # self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track_affine', args=args)
-            self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type=None, args=args)
+        if args.norm_type == 'none':
+            norm_type = None
         else:
-            self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type='bn_track_affine', args=args)
+            norm_type = args.norm_type
+
+        if args.debug:
+            self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
+        else:
+            self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
         self.buffer = None
         self.task = -1
         self.lamb = [float(i) for i in args.lamb.split('_')]
@@ -116,8 +121,8 @@ class DAE(ContinualModel):
             if 'kbts' in mode:
                 outputs.append(self.net(x, t, mode='kbts'))
 
-            outputs = outputs[0]
-            # outputs = ensemble_outputs(outputs)
+            # outputs = outputs[0]
+            outputs = ensemble_outputs(outputs)
             _, predicts = outputs.max(1)
             return predicts + t * self.dataset.N_CLASSES_PER_TASK
         else:
@@ -138,8 +143,8 @@ class DAE(ContinualModel):
                 if 'jr' in mode:
                     out = out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
                     outputs.append(out)
-                # outputs = ensemble_outputs(outputs)
-                outputs = outputs[0]
+                outputs = ensemble_outputs(outputs)
+                # outputs = outputs[0]
                 outputs_tasks.append(outputs)
                 joint_entropy = entropy(outputs.exp())
                 joint_entropy_tasks.append(joint_entropy)
@@ -150,11 +155,11 @@ class DAE(ContinualModel):
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             _, predicts = predicted_outputs.max(1)
             # print(outputs_tasks.shape, outputs_tasks.abs().sum((0,2)))
-            print('entropy', joint_entropy_tasks.sum((0)))
-            print('mean', outputs_tasks.mean((0)).sum(-1))
-            print('var', outputs_tasks.var((0)).sum(-1))
-            # outputs_tasks = outputs_tasks.permute((1, 0, 2)).reshape((self.task+1, -1))
-            # print('min - max', outputs_tasks.min(1)[0], outputs_tasks.max(1)[0])
+            print('entropy', joint_entropy_tasks.mean((0)))
+            print('mean', outputs_tasks.mean((0)).mean(-1))
+            print('var', outputs_tasks.var((0)).mean(-1))
+            outputs_tasks = outputs_tasks.permute((1, 0, 2)).reshape((self.task+1, -1))
+            print('min - max', outputs_tasks.min(1)[0], outputs_tasks.max(1)[0])
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
         
     def eval(self, task=None, mode='ets_kbts_jr'):
@@ -191,13 +196,13 @@ class DAE(ContinualModel):
         return accs, accs_mask_classes
     
     def train(self, train_loader, progress_bar, mode, squeeze, epoch):
-        self.net.train()
         total = 0
         correct = 0
         total_loss = 0
         accs = self.eval(self.task, mode=mode)
         num_params, num_neurons = self.net.count_params()
         num_params = sum(num_params)
+        self.net.train()
         for i, data in enumerate(train_loader):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -214,16 +219,21 @@ class DAE(ContinualModel):
             total_loss += loss.item() * labels.shape[0]
             if squeeze:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
-                num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
+                num_neurons = [m.mask_out.sum().item() for m in self.net.DB[:-1]]
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params, num_neurons)
                 # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
             else:
                 if 'wn' not in self.args.ablation:
                     self.net.normalize()
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params)
+                # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
         if squeeze:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
+        # sh = 1
+        # for m in self.net.DM:
+        #     sh *= m.sh
+        # print('%e'%sh)
 
     def train_rehearsal(self, progress_bar, epoch):
         self.net.train()
