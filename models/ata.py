@@ -13,10 +13,10 @@ from models.utils.continual_model import ContinualModel
 from utils.args import add_management_args, add_experiment_args, add_rehearsal_args, ArgumentParser
 from utils.batch_norm import bn_track_stats
 from utils.buffer import Buffer, icarl_replay
-from backbone.ResNet18_DAE import resnet18, resnet10
+from backbone.ResNet18_ATA import resnet18, resnet10
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from itertools import cycle
-from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm
+from backbone.utils.ata_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm
 import numpy as np
 import random
 import math
@@ -83,12 +83,12 @@ def weighted_ensemble(outputs, weights, temperature):
     log_outputs = output_max + torch.log(torch.sum((outputs - output_max).exp() * weights, dim=-1, keepdim=True))
     return log_outputs.squeeze(-1)
 
-class DAE(ContinualModel):
-    NAME = 'DAE'
+class ATA(ContinualModel):
+    NAME = 'ATA'
     COMPATIBILITY = ['class-il', 'task-il']
 
     def __init__(self, backbone, loss, args, transform):
-        super(DAE, self).__init__(backbone, loss, args, transform)
+        super(ATA, self).__init__(backbone, loss, args, transform)
         self.dataset = get_dataset(args)
         if args.norm_type == 'none':
             norm_type = None
@@ -117,9 +117,9 @@ class DAE(ContinualModel):
                 out_jr = out_jr[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
                 outputs.append(out_jr)
             if 'ets' in mode:
-                outputs.append(self.net.ets_forward(x, t))
+                outputs.append(self.net(x, t, mode='ets'))
             if 'kbts' in mode:
-                outputs.append(self.net.kbts_forward(x, t))
+                outputs.append(self.net(x, t, mode='kbts'))
 
             # outputs = outputs[0]
             outputs = ensemble_outputs(outputs)
@@ -135,10 +135,10 @@ class DAE(ContinualModel):
                 weights = []
                 x = self.dataset.test_transforms[i](x)
                 if 'ets' in mode:
-                    out = self.net.ets_forward(x, i)
+                    out = self.net(x, i, mode='ets')
                     outputs.append(out)
                 if 'kbts' in mode:
-                    out = self.net.kbts_forward(x, i)
+                    out = self.net(x, i, mode='kbts')
                     outputs.append(out)
                 if 'jr' in mode:
                     out = out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
@@ -209,10 +209,7 @@ class DAE(ContinualModel):
             inputs = self.dataset.train_transform(inputs)
             inputs = self.dataset.test_transforms[-1](inputs)
             self.opt.zero_grad()
-            if mode == 'ets':
-                outputs = self.net.ets_forward(inputs, self.task)
-            elif mode == 'kbts':
-                outputs = self.net.kbts_forward(inputs, self.task)
+            outputs = self.net(inputs, self.task, mode)
             loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
             loss.backward()
             self.opt.step()
@@ -226,11 +223,17 @@ class DAE(ContinualModel):
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params, num_neurons)
                 # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
             else:
+                if 'wn' not in self.args.ablation:
+                    self.net.normalize()
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params)
                 # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
         if squeeze:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
+        sh = 1
+        for m in self.net.DM:
+            sh *= m.sh
+        print('%e'%sh)
 
     def train_rehearsal(self, progress_bar, epoch):
         self.net.train()
@@ -272,11 +275,12 @@ class DAE(ContinualModel):
     def begin_task(self, dataset):
         self.task += 1
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
-        self.net.get_masked_kb_params(self.task)
         # if self.task == 0:
         #     get_related_layers(self.net, self.dataset.INPUT_SHAPE)
         #     if 'res' in self.args.ablation:
         #         self.net.prev_layers = [[m] for m in self.net.DM[:-1]]
+        if 'init' not in self.args.ablation:
+            self.net.initialize()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:
             m.kbts_sparsities.append(m.sparsity)

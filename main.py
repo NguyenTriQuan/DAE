@@ -130,6 +130,8 @@ def main(args=None):
     setproctitle.setproctitle('{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
     if model.NAME == 'DAE':
         from utils.training_dae import train
+    elif model.NAME == 'ATA':
+        from utils.training_ata import train
     else:
         from utils.training import train
 

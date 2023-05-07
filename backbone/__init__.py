@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
+from backbone.utils.ata_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
 
 def xavier(m: nn.Module) -> None:
     """
