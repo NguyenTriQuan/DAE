@@ -276,7 +276,6 @@ class ResNet(_DynamicModel):
         self.total_strength = 1
         for m in self.DB:
             self.total_strength += m.strength
-            print(m.strength)
 
     def squeeze(self, optim_state):
         mask_in = None
