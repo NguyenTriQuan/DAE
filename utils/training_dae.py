@@ -197,7 +197,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         # kbts training
-        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
+        if 'kbts' not in args.ablation:
+            train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
 
         # ets training
         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
