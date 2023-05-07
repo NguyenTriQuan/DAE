@@ -91,8 +91,8 @@ class _DynamicLayer(nn.Module):
             self.kb_weight = torch.empty(0, 0).to(device)
             self.masked_kb_weight = torch.empty(0, 0).to(device)
 
-        # self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
-        self.gain = torch.nn.init.calculate_gain('leaky_relu', 0)
+        self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
+        # self.gain = torch.nn.init.calculate_gain('leaky_relu', 0)
 
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed(args.seed)
@@ -316,8 +316,9 @@ class _DynamicLayer(nn.Module):
     def set_reg_strength(self):
         fan_in = self.shape_in[-1]
         fan_out = self.num_out[-1]
-        self.strength = 1 - ((fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1]) / 
-                                (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1]))  
+        # self.strength = 1 - ((fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1]) / 
+        #                         (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1]))  
+        self.strength = (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1]) / (fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1])
 
     def squeeze(self, optim_state, mask_in=None, mask_out=None):
         prune_out = mask_out is not None and mask_out.sum() != self.num_out[-1]
@@ -584,6 +585,8 @@ class DynamicClassifier(DynamicLinear):
         bound_std = self.gain / math.sqrt(fan_in_kbts)
         self.weight_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_kbts).normal_(0, bound_std).to(device)))
         self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device)))
+
+        self.ets_cal_weight = nn.Parameter(torch.Tensor(self.shape_out[-1], fan_in_kbts).normal_(0, bound_std).to(device))
 
         # self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], self.base_in_features).normal_(0, bound_std).to(device))
         # self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1]).to(device))
