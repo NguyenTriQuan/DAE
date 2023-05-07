@@ -159,7 +159,7 @@ class DAE(ContinualModel):
             # print(outputs_tasks.shape, outputs_tasks.abs().sum((0,2)))
             # print('entropy', joint_entropy_tasks.mean((0)))
             # print('mean', outputs_tasks.mean((0)).mean(-1))
-            # print('var', outputs_tasks.var((0)).mean(-1))
+            print('var', outputs_tasks.var((0)).mean(-1))
             # outputs_tasks = outputs_tasks.permute((1, 0, 2)).reshape((self.task+1, -1))
             # print('min - max', outputs_tasks.min(1)[0], outputs_tasks.max(1)[0])
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
