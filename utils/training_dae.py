@@ -112,7 +112,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         #     for q in temp:
         #         if id(p) == id(q):
         #             print(n)
-        model.opt = torch.optim.SGD(model.net.get_optim_kbts_params(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+        model.opt = torch.optim.SGD(model.net.get_optim_kbts_params(), lr=args.lr*2, weight_decay=0, momentum=args.optim_mom)
         n_epochs = 50
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
     elif 'jr' in mode:
