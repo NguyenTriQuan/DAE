@@ -315,8 +315,7 @@ class _DynamicLayer(nn.Module):
     
     def set_reg_strength(self):
         fan_in = self.shape_in[-1]
-        fan_out = self.shape_out[-1]
-
+        fan_out = self.num_out[-1]
         self.strength = 1 - ((fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1]) / 
                                 (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1]))  
 
