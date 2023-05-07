@@ -551,17 +551,23 @@ class DynamicClassifier(DynamicLinear):
         self.bias_ets = nn.ParameterList([])
         self.bias_kbts = nn.ParameterList([])
 
-    def ets_forward(self, x, t): 
+    def ets_forward(self, x, t, cal=False): 
         weight = self.weight_ets[t]
         bias = self.bias_ets[t]
-        x = F.linear(x, weight, bias)
-        return x
+        out = F.linear(x, weight, bias)
+        if cal:
+            s = F.linear(x, self.cal_weight_ets, self.cal_bias_ets)
+            out = out * s
+        return out
     
-    def kbts_forward(self, x, t):
+    def kbts_forward(self, x, t, cal=False):
         weight = self.weight_kbts[t]
         bias = self.bias_kbts[t]
-        x = F.linear(x, weight, bias)
-        return x
+        out = F.linear(x, weight, bias)
+        if cal:
+            s = F.linear(x, self.cal_weight_kbts, self.cal_bias_kbts)
+            out = out * s
+        return out
     
     def expand(self, add_in, add_out):
         fan_in = add_in[0] + self.shape_in[-1]
@@ -581,12 +587,14 @@ class DynamicClassifier(DynamicLinear):
         bound_std = self.gain / math.sqrt(self.shape_in[-1])
         self.weight_ets.append(nn.Parameter(torch.Tensor(self.num_out[-1], self.shape_in[-1]).normal_(0, bound_std).to(device)))
         self.bias_ets.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device))) 
+        self.cal_weight_ets = nn.Parameter(torch.Tensor(1, self.shape_in[-1]).normal_(0, bound_std).to(device))
+        self.cal_bias_ets = nn.Parameter(torch.zeros(1).to(device))
 
         bound_std = self.gain / math.sqrt(fan_in_kbts)
         self.weight_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_kbts).normal_(0, bound_std).to(device)))
         self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device)))
-
-        self.ets_cal_weight = nn.Parameter(torch.Tensor(self.shape_out[-1], fan_in_kbts).normal_(0, bound_std).to(device))
+        self.cal_weight_kbts = nn.Parameter(torch.Tensor(1, fan_in_kbts).normal_(0, bound_std).to(device))
+        self.cal_bias_kbts = nn.Parameter(torch.zeros(1).to(device))
 
         # self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], self.base_in_features).normal_(0, bound_std).to(device))
         # self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1]).to(device))
@@ -700,8 +708,8 @@ class DynamicNorm(nn.Module):
             mean = self.running_mean
             var = self.running_var
 
-        var = var.sum() / (2*3)
-        # var = var.mean()
+        # var = var.sum() / (2*3)
+        var = var.mean()
         output = (input - mean.view(shape)) / (torch.sqrt(var + self.eps))
     
         if self.affine:
