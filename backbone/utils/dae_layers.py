@@ -91,7 +91,8 @@ class _DynamicLayer(nn.Module):
             self.kb_weight = torch.empty(0, 0).to(device)
             self.masked_kb_weight = torch.empty(0, 0).to(device)
 
-        self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
+        # self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
+        self.gain = torch.nn.init.calculate_gain('leaky_relu', 0)
 
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed(args.seed)
@@ -515,18 +516,16 @@ class DynamicBlock(nn.Module):
     def get_optim_ets_params(self):
         params = []
         for layer in self.layers:
-            params = [layer.weight[-1], layer.fwt_weight[-1], layer.bwt_weight[-1]]
+            params += [layer.weight[-1], layer.fwt_weight[-1], layer.bwt_weight[-1]]
         if self.norm_type is not None and 'affine' in self.norm_type:
             params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
         return params
     
     def get_optim_kbts_params(self):
         params = []
-        for layer in self.layers:
-            params = [layer.score]
         if self.norm_type is not None and 'affine' in self.norm_type:
             params += [self.kbts_norm_layers[-1].weight, self.kbts_norm_layers[-1].bias]
-        return params
+        return params, [layer.score for layer in self.layers]
     
     def freeze(self):
         for layer in self.layers:

@@ -45,6 +45,8 @@ def get_parser() -> ArgumentParser:
                         help='batch normalization layer', default='none')
     parser.add_argument('--debug', action='store_true',
                         help='Quick test.')
+    parser.add_argument('--lr_score', type=float, required=False,
+                        help='score learning rate.', default=0.1)
     return parser
 
 def smooth(logits, temp, dim):

@@ -25,10 +25,13 @@ class _DynamicModel(nn.Module):
     
     def get_optim_kbts_params(self):
         params = []
+        scores = []
         for m in self.DB:
-            params += m.get_optim_kbts_params()
+            p, s = m.get_optim_kbts_params()
+            params += p
+            scores += s
         params += self.DM[-1].get_optim_kbts_params()
-        return params
+        return params, scores
 
     def count_params(self, t=-1):
         if t == -1:
