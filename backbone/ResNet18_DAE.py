@@ -15,6 +15,7 @@ class _DynamicModel(nn.Module):
         super(_DynamicModel, self).__init__()
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
+        self.total_strength = 1
 
     def get_optim_ets_params(self):
         params = []
@@ -47,6 +48,11 @@ class _DynamicModel(nn.Module):
         for m in self.DB:
             m.freeze()
         self.DM[-1].freeze()
+
+    def proximal_gradient_descent(self, lr=0, lamb=0):
+        with torch.no_grad():
+            for block in self.DB:
+                block.proximal_gradient_descent(lr, lamb, self.total_strength)
     
     def clear_memory(self):
         for m in self.DM[:-1]:
@@ -286,12 +292,6 @@ class ResNet(_DynamicModel):
         self.total_strength = 1
         for m in self.DB:
             self.total_strength += m.strength
-
-    def proximal_gradient_descent(self, lr=0, lamb=0):
-        with torch.no_grad():
-            for block in self.DB[:-1]:
-                block.proximal_gradient_descent(lr, lamb, self.total_strength)
-        
 
     def get_masked_kb_params(self, t):
         if t == 0:
