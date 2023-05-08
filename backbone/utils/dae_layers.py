@@ -567,7 +567,7 @@ class DynamicClassifier(DynamicLinear):
         if cal:
             s = F.linear(x, self.cal_weight_ets, self.cal_bias_ets)
             out = out * s
-        self.sh = weight.norm(2).item()
+        # self.sh = weight.norm(2).item()
         return out
     
     def kbts_forward(self, x, t, cal=False):
@@ -577,7 +577,7 @@ class DynamicClassifier(DynamicLinear):
         if cal:
             s = F.linear(x, self.cal_weight_kbts, self.cal_bias_kbts)
             out = out * s
-        self.sh = weight.norm(2).item()
+        # self.sh = weight.norm(2).item()
         return out
     
     def expand(self, add_in, add_out):
