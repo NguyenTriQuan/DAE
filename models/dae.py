@@ -232,6 +232,10 @@ class DAE(ContinualModel):
         if squeeze:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
+        # sh = 1
+        # for m in self.net.DM[:-1]:
+        #     sh *= m.sh
+        # print('%e'%sh)
 
     def train_rehearsal(self, progress_bar, epoch):
         self.net.train()

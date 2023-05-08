@@ -148,12 +148,12 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
-    # if args.debug:
-    #     num = 1000
-    #     dataset.train_data = dataset.train_data[:num]
-    #     dataset.train_targets = dataset.train_targets[:num]
-    #     dataset.test_data = dataset.test_data[:num]
-    #     dataset.test_targets = dataset.test_targets[:num]
+    if args.debug:
+        num = 1000
+        dataset.train_data = dataset.train_data[:num]
+        dataset.train_targets = dataset.train_targets[:num]
+        dataset.test_data = dataset.test_data[:num]
+        dataset.test_targets = dataset.test_targets[:num]
     model.dataset = dataset
     if not args.nowand:
         assert wandb is not None, "Wandb not installed, please install it or run without wandb"
