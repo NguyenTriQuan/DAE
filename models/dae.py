@@ -216,13 +216,12 @@ class DAE(ContinualModel):
             elif mode == 'kbts':
                 outputs = self.net.kbts_forward(inputs, self.task)
 
-            # loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
-            loss = self.loss(outputs, labels)
+            loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
+            print(outputs.shape)
             loss.backward()
             self.opt.step()
             _, predicts = outputs.max(1)
-            # correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
-            correct += torch.sum(predicts == (labels)).item()
+            correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
             total += labels.shape[0]
             total_loss += loss.item() * labels.shape[0]
             if squeeze:
