@@ -108,6 +108,7 @@ class DAE(ContinualModel):
             self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.dataset.N_TASKS)]
         print('lambda tasks', self.lamb)
         self.soft = torch.nn.Softmax(dim=1)
+        self.device = 'cpu'
 
     def forward(self, x, t=None, mode='ets_kbts_jr'):
         
