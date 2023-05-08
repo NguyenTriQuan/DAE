@@ -235,7 +235,6 @@ class _DynamicLayer(nn.Module):
         else:
             output = F.linear(x, weight, None)
 
-        # self.sh = weight.norm(2).item()
         return output
     
     def kbts_forward(self, x, t):
@@ -252,7 +251,6 @@ class _DynamicLayer(nn.Module):
         else:
             output = F.linear(x, weight, None)
         
-        # self.sh = self.masked_kb_weight.norm(2).item()
         return output
     
     def get_jr_params(self):
@@ -567,7 +565,6 @@ class DynamicClassifier(DynamicLinear):
         if cal:
             s = F.linear(x, self.cal_weight_ets, self.cal_bias_ets)
             out = out * s
-        # self.sh = weight.norm(2).item()
         return out
     
     def kbts_forward(self, x, t, cal=False):
@@ -577,7 +574,6 @@ class DynamicClassifier(DynamicLinear):
         if cal:
             s = F.linear(x, self.cal_weight_kbts, self.cal_bias_kbts)
             out = out * s
-        # self.sh = weight.norm(2).item()
         return out
     
     def expand(self, add_in, add_out):

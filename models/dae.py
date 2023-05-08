@@ -218,7 +218,7 @@ class DAE(ContinualModel):
             loss.backward()
             self.opt.step()
             _, predicts = outputs.max(1)
-            # correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
+            correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
             total += labels.shape[0]
             total_loss += loss.item() * labels.shape[0]
             if squeeze:
@@ -232,10 +232,6 @@ class DAE(ContinualModel):
         if squeeze:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
-        # sh = 1
-        # for m in self.net.DM[:-1]:
-        #     sh *= m.sh
-        # print('%e'%sh)
 
     def train_rehearsal(self, progress_bar, epoch):
         self.net.train()
