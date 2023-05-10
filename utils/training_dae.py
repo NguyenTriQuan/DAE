@@ -85,11 +85,11 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     if 'ets' in mode:
         lamb = model.lamb[t]
         print('lamb', lamb)
-        # temp = model.net.get_optim_ets_params()
-        # for n, p in model.net.named_parameters():
-        #     for q in temp:
-        #         if id(p) == id(q):
-        #             print(n)
+        temp = model.net.get_optim_ets_params()
+        for n, p in model.net.named_parameters():
+            for q in temp:
+                if id(p) == id(q):
+                    print(n)
         params = model.net.get_optim_ets_params()
         print(len(params))
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
