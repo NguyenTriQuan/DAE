@@ -514,6 +514,7 @@ class DynamicBlock(nn.Module):
         
         if self.norm_type is not None:
             norm_layer = self.ets_norm_layers[-1]
+            print(layer.shape_out, aux.shape)
             if norm_layer.track_running_stats:
                 norm_layer.running_mean[layer.shape_out[-2]:] *= aux
                 norm_layer.running_var[layer.shape_out[-2]:] *= (aux ** 2)
