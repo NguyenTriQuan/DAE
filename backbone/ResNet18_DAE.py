@@ -323,4 +323,4 @@ def resnet10(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) 
     :param nf: number of filters
     :return: ResNet network
     """
-    return ResNet(BasicBlock, [2, 2, 1, 1], nclasses, 32, norm_type, args)
+    return ResNet(BasicBlock, [1, 2, 1, 1], nclasses, 32, norm_type, args)
