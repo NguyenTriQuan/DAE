@@ -237,14 +237,14 @@ class DAE(ContinualModel):
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
 
-    def train_rehearsal(self, progress_bar, epoch):
+    def train_rehearsal(self, train_loader, progress_bar, epoch):
         self.net.train()
         total = 0
         correct = 0
         total_loss = 0
         if self.buffer is not None:
             buffer_loader = iter(self.buffer)
-        for i, logits_data in enumerate(self.logits_loader):
+        for i, data in enumerate(train_loader):
             self.opt.zero_grad()
             logits_data = [tmp.to(self.device) for tmp in logits_data]
             if self.buffer is not None:
@@ -273,26 +273,53 @@ class DAE(ContinualModel):
             total_loss += loss.item() * logits_data[1].shape[0]
             progress_bar.prog(i, len(self.logits_loader), epoch, self.task, total_loss/total, correct/total*100)
 
+    # def train_rehearsal(self, progress_bar, epoch):
+    #     self.net.train()
+    #     total = 0
+    #     correct = 0
+    #     total_loss = 0
+    #     if self.buffer is not None:
+    #         buffer_loader = iter(self.buffer)
+    #     for i, logits_data in enumerate(self.logits_loader):
+    #         self.opt.zero_grad()
+    #         logits_data = [tmp.to(self.device) for tmp in logits_data]
+    #         if self.buffer is not None:
+    #             try:
+    #                 buffer_data = next(buffer_loader)
+    #             except StopIteration:
+    #                 buffer_loader = iter(self.buffer)
+    #                 buffer_data = next(buffer_loader)
+
+    #             buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+    #             for j in range(len(logits_data)):
+    #                 logits_data[j] = torch.cat([buffer_data[j], logits_data[j]])
+
+    #         inputs = self.dataset.train_transform(logits_data[0])
+    #         inputs = self.dataset.test_transforms[-1](logits_data[0])
+    #         outputs = self.net(inputs, self.task, mode='jr')
+    #         loss = self.loss(outputs, logits_data[1])
+    #         for t in range(self.task-1):
+    #             outputs_task = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
+    #             loss += self.args.alpha * modified_kl_div(smooth(logits_data[t+2], 2, 1), smooth(self.soft(outputs_task), 2, 1))
+    #         loss.backward()
+    #         self.opt.step()
+    #         _, predicts = outputs.max(1)
+    #         correct += torch.sum(predicts == logits_data[1]).item()
+    #         total += logits_data[1].shape[0]
+    #         total_loss += loss.item() * logits_data[1].shape[0]
+    #         progress_bar.prog(i, len(self.logits_loader), epoch, self.task, total_loss/total, correct/total*100)
+
 
     def begin_task(self, dataset):
         self.task += 1
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
-        self.net.get_masked_kb_params(self.task)
-        # if self.task == 0:
-        #     get_related_layers(self.net, self.dataset.INPUT_SHAPE)
-        #     if 'res' in self.args.ablation:
-        #         self.net.prev_layers = [[m] for m in self.net.DM[:-1]]
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:
             m.kbts_sparsities.append(m.sparsity)
         self.opt = torch.optim.SGD(self.net.parameters(), lr=self.args.lr, weight_decay=0, momentum=self.args.optim_mom)
 
     def end_task(self, dataset) -> None:
-        # self.net.set_jr_params()
         self.net.freeze()
-        self.net.ERK_sparsify(sparsity=self.args.sparsity)
-        for m in self.net.DM:
-            m.jr_sparsity = m.sparsity
 
     def get_rehearsal_logits(self, train_loader):
         self.net.eval()
