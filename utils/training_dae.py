@@ -46,37 +46,38 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='
              and task-il accuracy for each task
     """
     # status = model.net.training
-    model.net.eval()
-    accs, accs_mask_classes = [], []
-    for k, test_loader in enumerate(dataset.test_loaders):
-        if task is not None:
-            if k != task:
-                continue
-        correct, correct_mask_classes, total = 0.0, 0.0, 0.0
-        for data in test_loader:
-            with torch.no_grad():
-                inputs, labels = data
-                inputs, labels = inputs.to(model.device), labels.to(model.device)
-                # inputs = dataset.test_transform(inputs)
-                if task is not None:
-                    pred = model(inputs, k, mode)
-                else:
-                    pred = model(inputs, None, mode)
+    with torch.no_grad():
+        model.net.eval()
+        accs, accs_mask_classes = [], []
+        for k, test_loader in enumerate(dataset.test_loaders):
+            if task is not None:
+                if k != task:
+                    continue
+            correct, correct_mask_classes, total = 0.0, 0.0, 0.0
+            for data in test_loader:
+                with torch.no_grad():
+                    inputs, labels = data
+                    inputs, labels = inputs.to(model.device), labels.to(model.device)
+                    # inputs = dataset.test_transform(inputs)
+                    if task is not None:
+                        pred = model(inputs, k, mode)
+                    else:
+                        pred = model(inputs, None, mode)
 
-                correct += torch.sum(pred == labels).item()
-                total += labels.shape[0]
+                    correct += torch.sum(pred == labels).item()
+                    total += labels.shape[0]
 
-                if dataset.SETTING == 'class-il' and task is None:
-                    pred = model(inputs, k, mode)
-                    correct_mask_classes += torch.sum(pred == labels).item()
+                    if dataset.SETTING == 'class-il' and task is None:
+                        pred = model(inputs, k, mode)
+                        correct_mask_classes += torch.sum(pred == labels).item()
 
-        acc = correct / total * 100 if 'class-il' in model.COMPATIBILITY else 0
-        accs.append(round(acc, 2))
-        acc = correct_mask_classes / total * 100
-        accs_mask_classes.append(round(acc, 2))
+            acc = correct / total * 100 if 'class-il' in model.COMPATIBILITY else 0
+            accs.append(round(acc, 2))
+            acc = correct_mask_classes / total * 100
+            accs_mask_classes.append(round(acc, 2))
 
-    # model.net.train(status)
-    return accs, accs_mask_classes
+        # model.net.train(status)
+        return accs, accs_mask_classes
 
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     squeeze = False

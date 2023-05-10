@@ -166,37 +166,38 @@ class DAE(ContinualModel):
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
         
     def eval(self, task=None, mode='ets_kbts_jr'):
-        self.net.eval()
-        accs, accs_mask_classes = [], []
-        for k, test_loader in enumerate(self.dataset.test_loaders):
-            if task is not None:
-                if k != task:
-                    continue
-            correct, correct_mask_classes, total = 0.0, 0.0, 0.0
-            for data in test_loader:
-                with torch.no_grad():
-                    inputs, labels = data
-                    inputs, labels = inputs.to(self.device), labels.to(self.device)
-                    # inputs = dataset.test_transform(inputs)
-                    if task is not None:
-                        pred = self.forward(inputs, k, mode)
-                    else:
-                        pred = self.forward(inputs, None, mode)
+        with torch.no_grad():
+            self.net.eval()
+            accs, accs_mask_classes = [], []
+            for k, test_loader in enumerate(self.dataset.test_loaders):
+                if task is not None:
+                    if k != task:
+                        continue
+                correct, correct_mask_classes, total = 0.0, 0.0, 0.0
+                for data in test_loader:
+                    with torch.no_grad():
+                        inputs, labels = data
+                        inputs, labels = inputs.to(self.device), labels.to(self.device)
+                        # inputs = dataset.test_transform(inputs)
+                        if task is not None:
+                            pred = self.forward(inputs, k, mode)
+                        else:
+                            pred = self.forward(inputs, None, mode)
 
-                    correct += torch.sum(pred == labels).item()
-                    total += labels.shape[0]
+                        correct += torch.sum(pred == labels).item()
+                        total += labels.shape[0]
 
-                    if self.dataset.SETTING == 'class-il' and task is None:
-                        pred = self.forward(inputs, k, mode)
-                        correct_mask_classes += torch.sum(pred == labels).item()
+                        if self.dataset.SETTING == 'class-il' and task is None:
+                            pred = self.forward(inputs, k, mode)
+                            correct_mask_classes += torch.sum(pred == labels).item()
 
-            acc = correct / total * 100 if 'class-il' in self.COMPATIBILITY else 0
-            accs.append(round(acc, 2))
-            acc = correct_mask_classes / total * 100
-            accs_mask_classes.append(round(acc, 2))
+                acc = correct / total * 100 if 'class-il' in self.COMPATIBILITY else 0
+                accs.append(round(acc, 2))
+                acc = correct_mask_classes / total * 100
+                accs_mask_classes.append(round(acc, 2))
 
-        # model.net.train(status)
-        return accs, accs_mask_classes
+            # model.net.train(status)
+            return accs, accs_mask_classes
     
     def train(self, train_loader, progress_bar, mode, squeeze, epoch):
         total = 0

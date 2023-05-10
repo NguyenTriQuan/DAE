@@ -436,10 +436,8 @@ class DynamicBlock(nn.Module):
         out = 0
         for x, layer in zip(inputs, self.layers):
             out = out + layer.ets_forward(x, t)
-            # out += self.ets_norm_layers[t](layer.ets_forward(x, t))
             
         out = self.activation(self.ets_norm_layers[t](out))
-        # out = self.activation(out)
         return out
     
     def kbts_forward(self, inputs, t):
@@ -477,10 +475,10 @@ class DynamicBlock(nn.Module):
                 track_running_stats = True
             else:
                 track_running_stats = False
-            # self.ets_norm_layers.append(DynamicNorm(layer.shape_out[-1] + add_out, affine=affine, track_running_stats=track_running_stats))
-            # self.kbts_norm_layers.append(DynamicNorm(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats))
-            self.kbts_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats).to(device))
-            self.ets_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out, affine=affine, track_running_stats=track_running_stats).to(device))
+            self.ets_norm_layers.append(DynamicNorm(layer.shape_out[-1] + add_out, affine=affine, track_running_stats=track_running_stats))
+            self.kbts_norm_layers.append(DynamicNorm(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats))
+            # self.kbts_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats).to(device))
+            # self.ets_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out, affine=affine, track_running_stats=track_running_stats).to(device))
 
         for add_in, layer in zip(add_ins_, self.layers):
             layer.expand(add_in, (add_out, add_out_kbts))
@@ -523,15 +521,15 @@ class DynamicBlock(nn.Module):
             layer.weight[-1].data *= aux.view(layer.view_in)
             layer.fwt_weight[-1].data *= aux.view(layer.view_in)
         
-        if self.norm_type is not None:
-            norm_layer = self.ets_norm_layers[-1]
-            if norm_layer.track_running_stats:
-                norm_layer.running_mean[layer.shape_out[-2]:] *= aux
-                norm_layer.running_var[layer.shape_out[-2]:] *= (aux ** 2)
+        # if self.norm_type is not None:
+        #     norm_layer = self.ets_norm_layers[-1]
+        #     if norm_layer.track_running_stats:
+        #         norm_layer.running_mean[layer.shape_out[-2]:] *= aux
+        #         norm_layer.running_var[layer.shape_out[-2]:] *= (aux ** 2)
 
-            if norm_layer.affine:
-                norm_layer.weight.data[layer.shape_out[-2]:] *= aux
-                norm_layer.bias.data[layer.shape_out[-2]:] *= aux
+        #     if norm_layer.affine:
+        #         norm_layer.weight.data[layer.shape_out[-2]:] *= aux
+        #         norm_layer.bias.data[layer.shape_out[-2]:] *= aux
 
     def get_optim_ets_params(self):
         params = []
@@ -734,8 +732,8 @@ class DynamicNorm(nn.Module):
             mean = self.running_mean
             var = self.running_var
 
-        # var = var.sum() / (2*3)
-        var = var.mean()
+        var = var.sum() / (2*3)
+        # var = var.mean()
         output = (input - mean.view(shape)) / (torch.sqrt(var + self.eps))
     
         if self.affine:
