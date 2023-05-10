@@ -244,9 +244,9 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
 
         out = self.linear.ets_forward(feature, t)
-        print('forward')
-        for m in self.DM:
-            print(m.shape_out)
+        # print('forward')
+        # for m in self.DM:
+        #     print(m.shape_out)
         return out
     
     def kbts_forward(self, x: torch.Tensor, t) -> torch.Tensor:
