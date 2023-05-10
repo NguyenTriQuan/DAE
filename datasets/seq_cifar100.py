@@ -26,8 +26,8 @@ class SequentialCIFAR100(ContinualDataset):
 
     NAME = 'seq-cifar100'
     SETTING = 'class-il'
-    N_CLASSES_PER_TASK = 10
-    N_TASKS = 10
+    N_CLASSES_PER_TASK = 5
+    N_TASKS = 20
     INPUT_SHAPE = (3, 32, 32)
     
     train_transform = torch.nn.Sequential(

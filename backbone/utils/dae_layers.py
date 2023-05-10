@@ -271,21 +271,21 @@ class _DynamicLayer(nn.Module):
     def update_scale(self):
         with torch.no_grad():
             i = len(self.weight)-1
-            if self.weight[i].numel() > 1:
+            if self.weight[i].numel() > 0:
                 w_std = self.weight[i].std(dim=self.dim_in, unbiased=False)
                 # w_std = self.weight[i].std(unbiased=False)
                 self.register_buffer(f'weight_scale_{i}', w_std.view(self.view_in))
             else:
                 self.register_buffer(f'weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
-            if self.fwt_weight[i].numel() > 1:
+            if self.fwt_weight[i].numel() > 0:
                 # w_std = self.fwt_weight[i].std(unbiased=False)
                 w_std = self.fwt_weight[i].std(dim=self.dim_in, unbiased=False)
                 self.register_buffer(f'fwt_weight_scale_{i}', w_std.view(self.view_in))
             else:
                 self.register_buffer(f'fwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
-            if self.bwt_weight[i].numel() > 1:
+            if self.bwt_weight[i].numel() > 0:
                 # w_std = self.bwt_weight[i].std(unbiased=False)
                 w_std = self.bwt_weight[i].std(dim=self.dim_in, unbiased=False)
                 self.register_buffer(f'bwt_weight_scale_{i}', w_std.view(self.view_in))

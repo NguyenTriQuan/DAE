@@ -98,7 +98,8 @@ class DAE(ContinualModel):
             norm_type = args.norm_type
 
         if args.debug:
-            self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
+            # self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
+            self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
         else:
             self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
         self.buffer = None
@@ -217,7 +218,6 @@ class DAE(ContinualModel):
                 outputs = self.net.kbts_forward(inputs, self.task)
 
             loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
-            print(outputs.shape)
             loss.backward()
             self.opt.step()
             _, predicts = outputs.max(1)

@@ -5,9 +5,113 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.functional import avg_pool2d, relu
-
-from backbone import MammothBackbone, _DynamicModel
+import numpy as np
+# from backbone import MammothBackbone, _DynamicModel
 from backbone.utils.ata_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
+
+class _DynamicModel(nn.Module):
+    def __init__(self):
+        super(_DynamicModel, self).__init__()
+        self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
+        self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
+
+    def get_optim_params(self):
+        params = []
+        for m in self.DM:
+            params += m.get_optim_params()
+        return params
+
+    def count_params(self, t=-1):
+        if t == -1:
+            t = len(self.DM[-1].num_out)-1
+        num_params = []
+        num_neurons = []
+        for m in self.DM:
+            num_params.append(m.count_params(t))
+            num_neurons.append(m.shape_out[t+1].item())
+        return num_params, num_neurons
+
+    def freeze(self):
+        for m in self.DM:
+            m.freeze()
+    
+    def clear_memory(self):
+        for m in self.DM[:-1]:
+            m.clear_memory()
+    
+    def get_kb_params(self, t):
+        for m in self.DM[:-1]:
+            m.get_kb_params(t)
+    
+    def get_masked_kb_params(self, t):
+        if t == 0:
+            add_in = self.DM[0].base_in_features
+        else:
+            add_in = 0
+
+        for m in self.DM[:-1]:
+            add_in = m.get_masked_kb_params(t, add_in)
+
+    def set_jr_params(self):
+        add_in = 0
+        for m in self.DM:
+            add_in = m.set_jr_params(add_in)
+
+    def ERK_sparsify(self, sparsity=0.9):
+        # print('initialize by ERK')
+        density = 1 - sparsity
+        erk_power_scale = 1
+
+        total_params = 0
+        for m in self.DM[:-1]:
+            total_params += m.score.numel()
+        is_epsilon_valid = False
+
+        dense_layers = set()
+        while not is_epsilon_valid:
+            divisor = 0
+            rhs = 0
+            for m in self.DM[:-1]:
+                m.raw_probability = 0
+                n_param = np.prod(m.score.shape)
+                n_zeros = n_param * (1 - density)
+                n_ones = n_param * density
+
+                if m in dense_layers:
+                    rhs -= n_zeros
+                else:
+                    rhs += n_ones
+                    m.raw_probability = (np.sum(m.score.shape) / np.prod(m.score.shape)) ** erk_power_scale
+                    divisor += m.raw_probability * n_param
+
+            epsilon = rhs / divisor
+            max_prob = np.max([m.raw_probability for m in self.DM[:-1]])
+            max_prob_one = max_prob * epsilon
+            if max_prob_one > 1:
+                is_epsilon_valid = False
+                for m in self.DM[:-1]:
+                    if m.raw_probability == max_prob:
+                        # print(f"Sparsity of var:{mask_name} had to be set to 0.")
+                        dense_layers.add(m)
+            else:
+                is_epsilon_valid = True
+
+        total_nonzero = 0.0
+        # With the valid epsilon, we can set sparsities of the remaning layers.
+        min_sparsity = 0.5
+        for i, m in enumerate(self.DM[:-1]):
+            n_param = np.prod(m.score.shape)
+            if m in dense_layers:
+                m.sparsity = min_sparsity
+            else:
+                probability_one = epsilon * m.raw_probability
+                m.sparsity = max(1 - probability_one, min_sparsity)
+            # print(
+            #     f"layer: {i}, shape: {m.score.shape}, sparsity: {m.sparsity}"
+            # )
+            total_nonzero += (1-m.sparsity) * m.score.numel()
+        print(f"Overall sparsity {1-total_nonzero / total_params}")
+
 
 def conv3x3(in_planes: int, out_planes: int, stride: int=1, norm_type=None, args=None) -> F.conv2d:
     """
