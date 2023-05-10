@@ -230,7 +230,9 @@ class DAE(ContinualModel):
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params, num_neurons)
                 # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
             else:
-                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params)
+                num_neurons = [m.shape_out[-1] for m in self.net.DM]
+                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params, num_neurons)
+                # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params)
                 # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
         if squeeze:
             self.net.squeeze(self.opt.state)
