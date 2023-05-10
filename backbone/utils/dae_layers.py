@@ -477,9 +477,10 @@ class DynamicBlock(nn.Module):
                 track_running_stats = True
             else:
                 track_running_stats = False
-            self.ets_norm_layers.append(DynamicNorm(layer.shape_out[-1] + add_out, affine=affine, track_running_stats=track_running_stats))
-            self.kbts_norm_layers.append(DynamicNorm(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats))
-            # self.kbts_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats).to(device))
+            # self.ets_norm_layers.append(DynamicNorm(layer.shape_out[-1] + add_out, affine=affine, track_running_stats=track_running_stats))
+            # self.kbts_norm_layers.append(DynamicNorm(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats))
+            self.kbts_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats).to(device))
+            self.ets_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out, affine=affine, track_running_stats=track_running_stats).to(device))
 
         for add_in, layer in zip(add_ins_, self.layers):
             layer.expand(add_in, (add_out, add_out_kbts))
