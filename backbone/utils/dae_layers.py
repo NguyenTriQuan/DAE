@@ -164,7 +164,8 @@ class _DynamicLayer(nn.Module):
             self.score = nn.Parameter(torch.Tensor(fan_out_kbts, fan_in_kbts).to(device))
 
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
-        self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', torch.ones_like(self.score).to(device))
+        # self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', torch.ones_like(self.score).to(device))
+        self.register_buffer('kbts_mask'+f'_{len(self.num_out)-1}', torch.ones_like(self.score).to(device))
         
         self.set_reg_strength()
             
@@ -343,7 +344,7 @@ class _DynamicLayer(nn.Module):
             apply_mask_out(self.fwt_weight[-1], mask_out, optim_state)
 
             self.num_out[-1] = self.weight[-1].shape[0]
-            self.shape_out[-1] = self.num_out.sum()
+            self.shape_out[-1] = sum(self.num_out)
 
             mask = torch.ones(self.shape_out[-2], dtype=bool, device=device)
             mask = torch.cat([mask, mask_out])
@@ -357,7 +358,7 @@ class _DynamicLayer(nn.Module):
             apply_mask_in(self.bwt_weight[-1], mask_in, optim_state)
 
             self.num_in[-1] = self.weight[-1].shape[1]
-            self.shape_in[-1] = self.num_in.sum()
+            self.shape_in[-1] = sum(self.num_in)
 
         self.mask_out = None
         self.set_reg_strength()
