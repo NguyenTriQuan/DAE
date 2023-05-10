@@ -244,6 +244,9 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
 
         out = self.linear.ets_forward(feature, t)
+        print('forward')
+        for m in self.DM:
+            print(m.shape_out)
         return out
     
     def kbts_forward(self, x: torch.Tensor, t) -> torch.Tensor:
@@ -277,6 +280,7 @@ class ResNet(_DynamicModel):
         for m in self.DB:
             self.total_strength += m.strength
 
+        print('expand')
         for m in self.DM:
             print(m.shape_out)
 
@@ -296,7 +300,12 @@ class ResNet(_DynamicModel):
         for m in self.DB:
             self.total_strength += m.strength
 
+        print('squeeze')
+        for m in self.DM:
+            print(m.shape_out)
+
     def get_masked_kb_params(self, t):
+        
         if t == 0:
             add_in = self.conv1.get_masked_kb_params(t, [None], [None])
         else:
