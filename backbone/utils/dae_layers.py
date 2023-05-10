@@ -83,7 +83,7 @@ class _DynamicLayer(nn.Module):
         # self.register_buffer('num_out', torch.IntTensor([]).to(device))
         # self.register_buffer('num_in', torch.IntTensor([]).to(device))
         self.shape_out = [0]
-        self.shape_in = []
+        self.shape_in = [0]
         self.num_out = []
         self.num_in = []
         self.kbts_sparsities = []
