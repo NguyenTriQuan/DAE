@@ -676,8 +676,8 @@ class DynamicNorm(nn.Module):
         self.num_features = num_features
         
         if self.affine:
-            self.weight = nn.Parameter(torch.ones(num_features).to(device))
-            self.bias = nn.Parameter(torch.zeros(num_features).to(device))
+            self.weight = nn.Parameter(torch.ones(num_features, dtype=torch.float32).to(device))
+            self.bias = nn.Parameter(torch.zeros(num_features, dtype=torch.float32).to(device))
 
         if self.track_running_stats:
             self.register_buffer(f'running_mean', torch.zeros(num_features).to(device))
