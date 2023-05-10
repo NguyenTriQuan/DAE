@@ -212,9 +212,10 @@ class ResNet(_DynamicModel):
         self.linear = DynamicClassifier(nf * 8 * block.expansion, num_classes, norm_type=norm_type, args=args, s=1)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
-        for n, m in self.named_modules():
-            if isinstance(m, _DynamicLayer):
-                m.name = n
+        # for n, m in self.named_modules():
+        #     if isinstance(m, _DynamicLayer):
+        #         print(n)
+        #         m.name = n
         
     def _make_layer(self, block: BasicBlock, planes: int,
                     num_blocks: int, stride: int, norm_type, args) -> nn.Module:
@@ -323,4 +324,4 @@ def resnet10(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) 
     :param nf: number of filters
     :return: ResNet network
     """
-    return ResNet(BasicBlock, [1, 2, 1, 1], nclasses, 32, norm_type, args)
+    return ResNet(BasicBlock, [2, 1, 1, 1], nclasses, 32, norm_type, args)

@@ -435,7 +435,7 @@ class DynamicBlock(nn.Module):
     def ets_forward(self, inputs, t):
         out = 0
         for x, layer in zip(inputs, self.layers):
-            out += layer.ets_forward(x, t)
+            out = out + layer.ets_forward(x, t)
             # out += self.ets_norm_layers[t](layer.ets_forward(x, t))
             
         out = self.activation(self.ets_norm_layers[t](out))
@@ -445,7 +445,7 @@ class DynamicBlock(nn.Module):
     def kbts_forward(self, inputs, t):
         out = 0
         for x, layer in zip(inputs, self.layers):
-            out += layer.kbts_forward(x, t)
+            out = out + layer.kbts_forward(x, t)
 
         out = self.activation(self.kbts_norm_layers[t](out))
         return out
