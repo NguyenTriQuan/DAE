@@ -251,8 +251,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         # save model and buffer
         model.net.clear_memory()
-        torch.save(model, base_path_memory() + args.title + '.model')
-        torch.save(dataset, base_path_memory() + args.title + '.dataset')
+        # torch.save(model, base_path_memory() + args.title + '.model')
+        # torch.save(dataset, base_path_memory() + args.title + '.dataset')
         torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
         torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
         # estimate memory size
