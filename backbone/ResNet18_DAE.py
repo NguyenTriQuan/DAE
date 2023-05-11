@@ -218,7 +218,8 @@ class ResNet(_DynamicModel):
         self.linear = DynamicClassifier(nf * 8 * block.expansion, num_classes, norm_type=norm_type, args=args, s=1)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
-        self.jr_layers = nn.ModuleList([])
+        self.ets_cal_layers = nn.ModuleList([])
+        self.kbts_cal_layers = nn.ModuleList([])
         # for n, m in self.named_modules():
         #     if isinstance(m, _DynamicLayer):
         #         print(n)
@@ -241,9 +242,14 @@ class ResNet(_DynamicModel):
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
     
-    def cal_forward(self, feature, t):
+    def cal_ets_forward(self, feature, t):
         out = self.linear.ets_forward(feature, t)
-        out = self.jr_layers[t](feature, out)
+        out = self.ets_cal_layers[t](feature, out)
+        return out
+    
+    def cal_kbts_forward(self, feature, t):
+        out = self.linear.kbts_forward(feature, t)
+        out = self.kbts_cal_layers[t](feature, out)
         return out
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
@@ -259,7 +265,7 @@ class ResNet(_DynamicModel):
             return feature
         out = self.linear.ets_forward(feature, t)
         if cal:
-            out = self.jr_layers[t](feature, out)
+            out = self.ets_cal_layers[t](feature, out)
         return out
     
     def kbts_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
@@ -276,7 +282,7 @@ class ResNet(_DynamicModel):
             return feature
         out = self.linear.kbts_forward(feature, t)
         if cal:
-            out = self.jr_layers[t](feature, out)
+            out = self.kbts_cal_layers[t](feature, out)
         return out
     
     def expand(self, new_classes, t):
@@ -326,8 +332,10 @@ class ResNet(_DynamicModel):
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
     def set_jr_params(self):
-        feat_dim = self.linear.shape_in[-1]
-        self.jr_layers.append(CalibrationBlock(feat_dim, 100).to(device))
+        ets_dim = self.linear.weight_ets[-1].shape[1]
+        kbts_dim = self.linear.weight_kbts[-1].shape[1]
+        self.ets_cal_layers.append(CalibrationBlock(ets_dim, 100).to(device))
+        self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 100).to(device))
         
 
 

@@ -257,8 +257,8 @@ class DAE(ContinualModel):
                         factor = 1
                     else:
                         factor = -1
-                    outputs = self.net.cal_forward(logits_data[k+2][idx], k)
-                    outputs = ensemble_outputs([outputs])
+                    outputs = [self.net.cal_ets_forward(logits_data[2*k+2][idx], k), self.net.cal_kbts_forward(logits_data[2*k+1+2][idx], k)]
+                    outputs = ensemble_outputs(outputs)
                     loss += factor * entropy(outputs.exp()).sum()
                 
             loss.backward()
@@ -365,16 +365,18 @@ class DAE(ContinualModel):
             samples_per_class = self.args.buffer_size // (self.dataset.N_CLASSES_PER_TASK * (self.task))
 
         self.net.eval()
-        new_data = [[] for _ in range(self.task+3)]
+        new_data = [[] for _ in range(2 + (self.task+1)*2)]
         for inputs, labels in train_loader:
             new_data[0].append(inputs)
             new_data[1].append(labels)
             inputs = inputs.to(self.device)
             for i in range(self.task+1):
-                new_data[i+2].append(self.net.ets_forward(self.dataset.test_transforms[i](inputs), i, feat=True).detach().clone().cpu())
+                x = self.dataset.test_transforms[i](inputs)
+                new_data[i*2 + 2].append(self.net.ets_forward(x, i, feat=True).detach().clone().cpu())
+                new_data[i*2 + 1 + 2].append(self.net.kbts_forward(x, i, feat=True).detach().clone().cpu())
 
         new_data = [torch.cat(temp) for temp in new_data]
-        buffer_data = [[] for _ in range(self.task+3)]
+        buffer_data = [[] for _ in range(2 + (self.task+1)*2)]
         for c in new_data[1].unique():
             idx = (new_data[1] == c)
             # ents = entropy(self.logits_loader.dataset.tensors[-1])
@@ -385,15 +387,18 @@ class DAE(ContinualModel):
                 buffer_data[i] += [new_data[i][idx][:samples_per_class]]
 
         if self.buffer is not None:
-            new_logits = []
+            ets_logits = []
+            kbts_logits = []
             for temp in self.buffer:
                 inputs = temp[0].to(self.device)
-                new_logits.append(self.net.ets_forward(self.dataset.test_transforms[self.task](inputs), self.task, feat=True).detach().clone().cpu())
+                ets_logits.append(self.net.ets_forward(self.dataset.test_transforms[self.task](inputs), self.task, feat=True).detach().clone().cpu())
+                kbts_logits.append(self.net.kbts_forward(self.dataset.test_transforms[self.task](inputs), self.task, feat=True).detach().clone().cpu())
 
-            new_logits = torch.cat(new_logits)
+            ets_logits = torch.cat(ets_logits)
+            kbts_logits = torch.cat(kbts_logits)
             old_data = list(self.buffer.dataset.tensors)
-            old_data.append(new_logits)
-            for i in range(len(new_data)):
+            old_data += [ets_logits, kbts_logits]
+            for i in range(len(buffer_data)):
                 buffer_data[i] += [old_data[i]]
         buffer_data = [torch.cat(temp) for temp in buffer_data]
         self.buffer = DataLoader(TensorDataset(*buffer_data), batch_size=self.args.batch_size, shuffle=True)
@@ -417,7 +422,7 @@ class DAE(ContinualModel):
         self.net.eval()
         samples_per_class = self.args.buffer_size // (self.dataset.N_CLASSES_PER_TASK * (self.task+1))
         
-        data = [[] for _ in range(self.task+3)]
+        data = [[] for _ in range(2 + (self.task+1)*2)]
         for _y in self.buffer.dataset.tensors[1].unique():
             idx = (self.buffer.dataset.tensors[1] == _y)
             for i in range(len(self.buffer.dataset.tensors)):
