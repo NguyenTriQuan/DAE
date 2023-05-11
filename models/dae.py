@@ -113,12 +113,17 @@ class DAE(ContinualModel):
 
     def forward(self, inputs, t=None, mode='ets_kbts_jr'):
         x = self.dataset.test_transform(inputs)
-        if t is not None and 'jr' not in mode:
+        if 'jr' in mode:
+            cal = True
+        else:
+            cal = False
+
+        if t is not None:
             outputs = []
             if 'ets' in mode:
-                outputs.append(self.net.ets_forward(x, t))
+                outputs.append(self.net.ets_forward(x, t, cal=cal))
             if 'kbts' in mode:
-                outputs.append(self.net.kbts_forward(x, t))
+                outputs.append(self.net.kbts_forward(x, t, cal=cal))
 
             outputs = ensemble_outputs(outputs)
             # print(t, 'mean', outputs.mean((0)).mean(-1), 'std', outputs.std((0)).mean(-1))
@@ -127,10 +132,6 @@ class DAE(ContinualModel):
         else:
             joint_entropy_tasks = []
             outputs_tasks = []
-            if 'jr' in mode:
-                cal = True
-            else:
-                cal = False
             for i in range(self.task+1):
                 outputs = []
                 weights = []
@@ -251,7 +252,7 @@ class DAE(ContinualModel):
                 buffer_data = [tmp.to(self.device) for tmp in buffer_data]
                 for j in range(len(logits_data)):
                     logits_data[j] = torch.cat([buffer_data[j], logits_data[j]])
-            outputs = [self.net.linear.ets_forward(logits_data[t+2], t, cal=True) for t in range(self.task+1)]
+            outputs = [self.net.cal_forward(logits_data[t+2], t) for t in range(self.task+1)]
             outputs = torch.cat(outputs, dim=1)
             loss = self.loss(outputs, logits_data[1])
             # for t in range(self.task):

@@ -9,6 +9,7 @@ from torch.nn.functional import avg_pool2d, relu
 
 # from backbone import MammothBackbone, _DynamicModel
 from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class _DynamicModel(nn.Module):
     def __init__(self):
@@ -70,11 +71,6 @@ class _DynamicModel(nn.Module):
 
         for m in self.DM[:-1]:
             add_in = m.get_masked_kb_params(t, add_in)
-
-    def set_jr_params(self):
-        add_in = 0
-        for m in self.DM:
-            add_in = m.set_jr_params(add_in)
 
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')
@@ -163,24 +159,32 @@ class BasicBlock(nn.Module):
         self.conv2 = DynamicBlock([shortcut, conv2], norm_type, args)
 
     def ets_forward(self, x: torch.Tensor, t) -> torch.Tensor:
-        """
-        Compute a forward pass.
-        :param x: input tensor (batch_size, input_size)
-        :return: output tensor (10)
-        """
         out = self.conv1.ets_forward([x], t)
         out = self.conv2.ets_forward([x, out], t)
         return out
     
     def kbts_forward(self, x: torch.Tensor, t) -> torch.Tensor:
-        """
-        Compute a forward pass.
-        :param x: input tensor (batch_size, input_size)
-        :return: output tensor (10)
-        """
         out = self.conv1.kbts_forward([x], t)
         out = self.conv2.kbts_forward([x, out], t)
         return out
+    
+class CalibrationBlock(nn.Module):
+    """
+    Calibration output using feature.
+    """
+    def __init__(self, feat_dim: int, hidden_dim: int) -> None:
+        super(CalibrationBlock, self).__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(feat_dim, hidden_dim, bias=True),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 2, bias=True),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, feature, output) -> torch.Tensor:
+        s = self.layers(feature)
+        output = output * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
+        return output
 
 
 class ResNet(_DynamicModel):
@@ -212,6 +216,7 @@ class ResNet(_DynamicModel):
         self.linear = DynamicClassifier(nf * 8 * block.expansion, num_classes, norm_type=norm_type, args=args, s=1)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
+        self.jr_layers = nn.ModuleList([])
         # for n, m in self.named_modules():
         #     if isinstance(m, _DynamicLayer):
         #         print(n)
@@ -233,6 +238,11 @@ class ResNet(_DynamicModel):
             layers.append(block(self.in_planes, planes, stride, norm_type, args))
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
+    
+    def cal_forward(self, feature, t):
+        out = self.linear.ets_forward(feature, t)
+        out = self.jr_layers[t](feature, out)
+        return out
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
         self.get_kb_params(t)
@@ -245,7 +255,9 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         if feat:
             return feature
-        out = self.linear.ets_forward(feature, t, cal)
+        out = self.linear.ets_forward(feature, t)
+        if cal:
+            out = self.jr_layers[t](feature, out)
         return out
     
     def kbts_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
@@ -260,7 +272,9 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         if feat:
             return feature
-        out = self.linear.kbts_forward(feature, t, cal)
+        out = self.linear.kbts_forward(feature, t)
+        if cal:
+            out = self.jr_layers[t](feature, out)
         return out
     
     def expand(self, new_classes, t):
@@ -308,6 +322,11 @@ class ResNet(_DynamicModel):
         for block in self.layers:
             add_in_1 = block.conv1.get_masked_kb_params(t, [add_in], [None])
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
+
+    def set_jr_params(self):
+        feat_dim = self.linear.shape_in[-1]
+        self.jr_layers.append(CalibrationBlock(feat_dim, 100).to(device))
+        
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:

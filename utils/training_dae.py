@@ -106,8 +106,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         # model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
         # squeeze = False
         if 'join' in args.ablation:
-            n_epochs = 50
-            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+            n_epochs = 100
+            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [70, 85], gamma=0.1, verbose=False)
             squeeze = False
     elif 'kbts' in mode:
         # temp = model.net.get_optim_kbts_params()
@@ -122,7 +122,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
     elif 'jr' in mode:
         n_epochs = 50
-        model.opt = torch.optim.SGD([model.net.linear.get_optim_jr_params()], lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+        model.opt = torch.optim.SGD([model.net.jr_layers[-1].parameters()], lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
 
     for epoch in range(n_epochs):
@@ -150,12 +150,12 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
-    # if args.debug:
-    #     num = 1000
-    #     dataset.train_data = dataset.train_data[:num]
-    #     dataset.train_targets = dataset.train_targets[:num]
-    #     dataset.test_data = dataset.test_data[:num]
-    #     dataset.test_targets = dataset.test_targets[:num]
+    if 'sub' in args.ablation:
+        num = 5000
+        dataset.train_data = dataset.train_data[:num]
+        dataset.train_targets = dataset.train_targets[:num]
+        dataset.test_data = dataset.test_data[:num]
+        dataset.test_targets = dataset.test_targets[:num]
     model.dataset = dataset
     if not args.nowand:
         assert wandb is not None, "Wandb not installed, please install it or run without wandb"
@@ -214,21 +214,18 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
 
-        # accs = evaluate(model, dataset, task=None, mode='ets')
-        # mean_acc = np.mean(accs, axis=1)
-        # print(f'ets accs: cil {accs[0]}, til {accs[1]}')
-        # print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+        if 'kbts' not in args.ablation:
+            eval_mode = 'ets_kbts'
+        else:
+            eval_mode = 'ets'
+
+        accs = evaluate(model, dataset, task=None, mode=eval_mode)
+        mean_acc = np.mean(accs, axis=1)
+        print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
+        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+        
         if 'jr' not in args.ablation:
-            if 'kbts' not in args.ablation:
-                eval_mode = 'ets_kbts'
-            else:
-                eval_mode = 'ets'
-
-            accs = evaluate(model, dataset, task=None, mode=eval_mode)
-            mean_acc = np.mean(accs, axis=1)
-            print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
-            print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
-
+            model.net.set_jr_params()
             with torch.no_grad():
                 model.get_rehearsal_logits(train_loader)
             # jr training
@@ -237,16 +234,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
             with torch.no_grad():
                 model.fill_buffer(train_loader)
-            print(model.net.linear.cal_weight_ets[-1].norm(2))
-            print(model.net.linear.cal_bias_ets[-1].norm(2))
+            
             accs = evaluate(model, dataset, task=None, mode=eval_mode)
             mean_acc = np.mean(accs, axis=1)
             print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
             print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         print('checking forgetting')
-        accs = evaluate(model, dataset, task=None, mode='kbts')
-        print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
+        if 'kbts' not in args.ablation:
+            accs = evaluate(model, dataset, task=None, mode='kbts')
+            print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
 
         accs = evaluate(model, dataset, task=None, mode='ets')
         print(f'ets accs: cil {accs[0]}, til {accs[1]}')
