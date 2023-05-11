@@ -180,7 +180,7 @@ class CalibrationBlock(nn.Module):
             nn.Linear(hidden_dim, hidden_dim, bias=True),
             nn.ReLU(),
             nn.Linear(hidden_dim, 1, bias=True),
-            nn.Sigmoid()
+            nn.Softplus()
         )
     
     def forward(self, feature, output) -> torch.Tensor:
