@@ -45,6 +45,8 @@ def get_parser() -> ArgumentParser:
                         help='batch normalization layer', default='none')
     parser.add_argument('--debug', action='store_true',
                         help='Quick test.')
+    parser.add_argument('--verbose', action='store_true',
+                        help='compute test accuracy and number of params.')
     parser.add_argument('--lr_score', type=float, required=False,
                         help='score learning rate.', default=0.1)
     return parser
@@ -112,13 +114,13 @@ class DAE(ContinualModel):
         # self.device = 'cpu'
 
     def forward(self, inputs, t=None, mode='ets_kbts_jr'):
-        x = self.dataset.test_transform(inputs)
         if 'jr' in mode:
             cal = True
         else:
             cal = False
 
         if t is not None:
+            x = self.dataset.test_transforms[t](inputs)
             outputs = []
             if 'ets' in mode:
                 outputs.append(self.net.ets_forward(x, t, cal=cal))
@@ -133,6 +135,7 @@ class DAE(ContinualModel):
             joint_entropy_tasks = []
             outputs_tasks = []
             for i in range(self.task+1):
+                x = self.dataset.test_transforms[i](inputs)
                 outputs = []
                 weights = []
                 if 'ets' in mode:
@@ -194,19 +197,23 @@ class DAE(ContinualModel):
             # model.net.train(status)
             return accs, accs_mask_classes
     
-    def train(self, train_loader, progress_bar, mode, squeeze, epoch):
+    def train(self, train_loader, progress_bar, mode, squeeze, epoch, verbose=False):
         total = 0
         correct = 0
         total_loss = 0
-        accs = self.eval(self.task, mode=mode)
-        num_params, num_neurons = self.net.count_params()
-        num_params = sum(num_params)
+        if verbose:
+            test_acc = self.eval(self.task, mode=mode)[0][0]
+            num_params, num_neurons = self.net.count_params()
+            num_params = sum(num_params)
+        else:
+            test_acc = 0
+            num_params = 0
         self.net.train()
         for i, data in enumerate(train_loader):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             inputs = self.dataset.train_transform(inputs)
-            inputs = self.dataset.test_transform(inputs)
+            inputs = self.dataset.test_transforms[self.task](inputs)
             self.opt.zero_grad()
             if mode == 'ets':
                 outputs = self.net.ets_forward(inputs, self.task)
@@ -223,10 +230,10 @@ class DAE(ContinualModel):
             if squeeze:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
                 num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
-                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params, num_neurons)
+                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, num_params, num_neurons)
                 # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
             else:
-                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, accs[0][0], num_params)
+                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, num_params)
                 # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
         if squeeze:
             self.net.squeeze(self.opt.state)
@@ -237,37 +244,69 @@ class DAE(ContinualModel):
         total = 0
         correct = 0
         total_loss = 0
-        if self.buffer is not None:
-            buffer_loader = iter(self.buffer)
-        for i, logits_data in enumerate(self.logits_loader):
+        
+        for i, logits_data in enumerate(self.buffer):
             self.opt.zero_grad()
             logits_data = [tmp.to(self.device) for tmp in logits_data]
-            if self.buffer is not None:
-                try:
-                    buffer_data = next(buffer_loader)
-                except StopIteration:
-                    buffer_loader = iter(self.buffer)
-                    buffer_data = next(buffer_loader)
-
-                buffer_data = [tmp.to(self.device) for tmp in buffer_data]
-                for j in range(len(logits_data)):
-                    logits_data[j] = torch.cat([buffer_data[j], logits_data[j]])
-            outputs = [self.net.cal_forward(logits_data[t+2], t) for t in range(self.task+1)]
-            outputs = torch.cat(outputs, dim=1)
-            loss = self.loss(outputs, logits_data[1])
-            # for t in range(self.task):
-            #     outputs = self.net.linear.ets_forward(logits_data[t+2], t, cal=True)
-                # outputs = ensemble_outputs([outputs])
-                # loss += entropy(outputs.exp())
+            
+            loss = 0
+            for t in range(self.task+1):
+                idx = (logits_data[1] >= self.dataset.N_CLASSES_PER_TASK * t) & (logits_data[1] < self.dataset.N_CLASSES_PER_TASK * (t+1))
+                for k in range(self.task+1):
+                    if k == t:
+                        factor = 1
+                    else:
+                        factor = -1
+                    outputs = self.net.cal_forward(logits_data[k+2][idx], k)
+                    outputs = ensemble_outputs([outputs])
+                    loss += factor * entropy(outputs.exp()).sum()
+                
             loss.backward()
             self.opt.step()
-            _, predicts = outputs.max(1)
-            correct += torch.sum(predicts == logits_data[1]).item()
+            # _, predicts = outputs.max(1)
+            # correct += torch.sum(predicts == logits_data[1]).item()
             total += logits_data[1].shape[0]
-            total_loss += loss.item() * logits_data[1].shape[0]
-            progress_bar.prog(i, len(self.logits_loader), epoch, self.task, total_loss/total, correct/total*100)
+            total_loss += loss.item()
+            progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss/total)
 
         self.scheduler.step()
+
+    # def train_rehearsal(self, progress_bar, epoch):
+    #     self.net.train()
+    #     total = 0
+    #     correct = 0
+    #     total_loss = 0
+    #     # if self.buffer is not None:
+    #     #     buffer_loader = iter(self.buffer)
+    #     for i, logits_data in enumerate(self.buffer):
+    #         self.opt.zero_grad()
+    #         logits_data = [tmp.to(self.device) for tmp in logits_data]
+    #         # if self.buffer is not None:
+    #         #     try:
+    #         #         buffer_data = next(buffer_loader)
+    #         #     except StopIteration:
+    #         #         buffer_loader = iter(self.buffer)
+    #         #         buffer_data = next(buffer_loader)
+
+    #         #     buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+    #         #     for j in range(len(logits_data)):
+    #         #         logits_data[j] = torch.cat([buffer_data[j], logits_data[j]])
+    #         outputs = [self.net.cal_forward(logits_data[t+2], t) for t in range(self.task+1)]
+    #         outputs = torch.cat(outputs, dim=1)
+    #         loss = self.loss(outputs, logits_data[1])
+    #         # for t in range(self.task):
+    #         #     outputs = self.net.linear.ets_forward(logits_data[t+2], t, cal=True)
+    #             # outputs = ensemble_outputs([outputs])
+    #             # loss += entropy(outputs.exp())
+    #         loss.backward()
+    #         self.opt.step()
+    #         _, predicts = outputs.max(1)
+    #         correct += torch.sum(predicts == logits_data[1]).item()
+    #         total += logits_data[1].shape[0]
+    #         total_loss += loss.item() * logits_data[1].shape[0]
+    #         progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss/total, correct/total*100)
+
+    #     self.scheduler.step()
 
 
     # def train_rehearsal(self, progress_bar, epoch):
@@ -320,34 +359,50 @@ class DAE(ContinualModel):
         self.net.freeze()
 
     def get_rehearsal_logits(self, train_loader):
-        self.net.eval()
-        data = [[] for _ in range(self.task+3)]
-        for inputs, labels in train_loader:
-            data[0].append(inputs)
-            data[1].append(labels)
-            inputs = inputs.to(self.device)
-            inputs = self.dataset.test_transform(inputs)
-            for i in range(self.task+1):
-                # outputs = [self.net(inputs, i, mode='ets'), self.net(inputs, i, mode='kbts')]
-                # data[i+2].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
-                data[i+2].append(self.net.ets_forward(inputs, i, feat=True).detach().clone().cpu())
+        if self.buffer is None:
+            samples_per_class = self.args.buffer_size // (self.dataset.N_CLASSES_PER_TASK * (self.task+1))
+        else:
+            samples_per_class = self.args.buffer_size // (self.dataset.N_CLASSES_PER_TASK * (self.task))
 
-        data = [torch.cat(temp) for temp in data]
-        self.logits_loader = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
+        self.net.eval()
+        new_data = [[] for _ in range(self.task+3)]
+        for inputs, labels in train_loader:
+            new_data[0].append(inputs)
+            new_data[1].append(labels)
+            inputs = inputs.to(self.device)
+            for i in range(self.task+1):
+                new_data[i+2].append(self.net.ets_forward(self.dataset.test_transforms[i](inputs), i, feat=True).detach().clone().cpu())
+
+        new_data = [torch.cat(temp) for temp in new_data]
+        buffer_data = [[] for _ in range(self.task+3)]
+        for c in new_data[1].unique():
+            idx = (new_data[1] == c)
+            # ents = entropy(self.logits_loader.dataset.tensors[-1])
+            #select samples with highest entropy
+            # values, indices = ents[idx].sort(dim=0, descending=True)
+            for i in range(len(new_data)):
+                # data[i] += [self.logits_loader.dataset.tensors[i][idx][indices[:samples_per_class]]]
+                buffer_data[i] += [new_data[i][idx][:samples_per_class]]
 
         if self.buffer is not None:
             new_logits = []
-            for buffer_data in self.buffer:
-                inputs = buffer_data[0].to(self.device)
-                inputs = self.dataset.test_transform(inputs)
-                # outputs = [self.net(inputs, self.task-1, mode='ets'), self.net(inputs, self.task-1, mode='kbts')]
-                # new_logits.append(ensemble_outputs(outputs).exp().detach().clone().cpu())
-                new_logits.append(self.net.ets_forward(inputs, self.task, feat=True).detach().clone().cpu())
+            for temp in self.buffer:
+                inputs = temp[0].to(self.device)
+                new_logits.append(self.net.ets_forward(self.dataset.test_transforms[self.task](inputs), self.task, feat=True).detach().clone().cpu())
 
             new_logits = torch.cat(new_logits)
-            data = list(self.buffer.dataset.tensors)
-            data.append(new_logits)
-            self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
+            old_data = list(self.buffer.dataset.tensors)
+            old_data.append(new_logits)
+            for i in range(len(new_data)):
+                buffer_data[i] += [old_data[i]]
+        buffer_data = [torch.cat(temp) for temp in buffer_data]
+        self.buffer = DataLoader(TensorDataset(*buffer_data), batch_size=self.args.batch_size, shuffle=True)
+        print(buffer_data[1].unique())
+        # for c in buffer_data[1].unique():
+        #     idx = (buffer_data[1] == c)
+        #     print(c, idx.sum())
+        # for i in buffer_data:
+        #     print(i.shape)
 
 
     def fill_buffer(self, train_loader) -> None:
@@ -363,11 +418,10 @@ class DAE(ContinualModel):
         samples_per_class = self.args.buffer_size // (self.dataset.N_CLASSES_PER_TASK * (self.task+1))
         
         data = [[] for _ in range(self.task+3)]
-        if self.task > 1:
-            for _y in self.buffer.dataset.tensors[1].unique():
-                idx = (self.buffer.dataset.tensors[1] == _y)
-                for i in range(len(self.buffer.dataset.tensors)):
-                    data[i] += [self.buffer.dataset.tensors[i][idx][:samples_per_class]]
+        for _y in self.buffer.dataset.tensors[1].unique():
+            idx = (self.buffer.dataset.tensors[1] == _y)
+            for i in range(len(self.buffer.dataset.tensors)):
+                data[i] += [self.buffer.dataset.tensors[i][idx][:samples_per_class]]
                 # inputs = self.dataset.test_transform(data[0].to(self.device))
                 # outputs = [self.net(inputs, self.task-1, mode='ets'), self.net(inputs, self.task-1, mode='kbts')]
                 # data[-1].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
@@ -375,126 +429,20 @@ class DAE(ContinualModel):
         classes_start, classes_end = (self.task) * self.dataset.N_CLASSES_PER_TASK, (self.task+1) * self.dataset.N_CLASSES_PER_TASK
         print(f'Filling Buffer: samples per class {samples_per_class}, classes start {classes_start}, classes end {classes_end}')
 
-        for _y in self.logits_loader.dataset.tensors[1].unique():
-            idx = (self.logits_loader.dataset.tensors[1] == _y)
-            # ents = entropy(self.logits_loader.dataset.tensors[-1])
-            #select samples with highest entropy
-            # values, indices = ents[idx].sort(dim=0, descending=True)
-            for i in range(len(self.logits_loader.dataset.tensors)):
-                # data[i] += [self.logits_loader.dataset.tensors[i][idx][indices[:samples_per_class]]]
-                data[i] += [self.logits_loader.dataset.tensors[i][idx][:samples_per_class]]
+        # for _y in self.logits_loader.dataset.tensors[1].unique():
+        #     idx = (self.logits_loader.dataset.tensors[1] == _y)
+        #     # ents = entropy(self.logits_loader.dataset.tensors[-1])
+        #     #select samples with highest entropy
+        #     # values, indices = ents[idx].sort(dim=0, descending=True)
+        #     for i in range(len(self.logits_loader.dataset.tensors)):
+        #         # data[i] += [self.logits_loader.dataset.tensors[i][idx][indices[:samples_per_class]]]
+        #         data[i] += [self.logits_loader.dataset.tensors[i][idx][:samples_per_class]]
         
         data = [torch.cat(temp) for temp in data]
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         print('Buffer size:', data[0].shape)
         self.net.train(mode)
+        # print(data[0].mean((0, 2, 3)), data[0].std((0, 2, 3), unbiased=False))
         for i in data:
             print(i.shape)
-
-
-def get_related_layers(net, input_shape):
-    idx = []
-
-    def forward_identical_hook(m, i, o):
-        o[0] = i[0]
-        return
-    
-    def forward_hook(m, i, o):
-        m.output_idx = random.random() * m.input_idx
-        o[0] += m.output_idx
-        return
-    
-    def forward_pre_hook(m, i):
-        m.idx = len(idx)
-        idx.append(m.idx)
-        if len(i[0].shape) == 4:
-            m.input_idx = i[0][0,0,0,0].item()
-        else:
-            m.input_idx = i[0][0,0].item()
-
-        return (torch.zeros_like(i[0]), i[1], i[2])
-
-    handes = []
-    for m in net.modules():
-        if isinstance(m, _DynamicLayer):
-            h1 = m.register_forward_pre_hook(forward_pre_hook)
-            h2 = m.register_forward_hook(forward_hook)
-            handes += [h1, h2]
-        elif isinstance(m, DynamicNorm):
-            h3 = m.register_forward_hook(forward_identical_hook)
-            handes += [h3]
-    # for m in net.DM:
-    #     h1 = m.register_forward_pre_hook(forward_pre_hook)
-    #     h2 = m.register_forward_hook(forward_hook)
-    #     handes += [h1, h2]
-    c, h, w = input_shape
-    data = torch.ones((1, c, h, w), dtype=torch.float, device='cuda')
-    net.eval()
-    out = net(data, 0, mode='ets')  
-    for h in handes:
-        h.remove()
-    
-    for n, m in net.named_modules():
-        if isinstance(m, _DynamicLayer):
-            # print(n, m.base_in_features, m.base_out_features, m.input_idx, m.output_idx)
-            m.name = n
-            m.prev_layers = []
-            m.next_layers = []
-    eps = 1e-6
-    for i in range(len(net.DM)):
-        for j in range(i):
-            if abs(net.DM[i].input_idx - net.DM[j].output_idx) < eps:
-                net.DM[i].prev_layers.append(net.DM[j])
-                net.DM[j].next_layers.append(net.DM[i])
-            else:
-                for k in range(j):
-                    if abs(net.DM[i].input_idx - net.DM[j].output_idx - net.DM[k].output_idx) < eps:
-                        net.DM[i].prev_layers += [net.DM[j], net.DM[k]]
-                        net.DM[j].next_layers += [net.DM[i]]
-                        net.DM[k].next_layers += [net.DM[i]]
-
-                    if abs(net.DM[i].input_idx - net.DM[j].output_idx - net.DM[k].input_idx) < eps:
-                        net.DM[i].prev_layers += [net.DM[j]] + net.DM[k].prev_layers
-                        net.DM[j].next_layers += [net.DM[i]]
-                        for g in net.DM[k].prev_layers:
-                            g.next_layers += [net.DM[i]]
-
-                    if abs(net.DM[i].input_idx - net.DM[k].output_idx - net.DM[j].input_idx) < eps:
-                        net.DM[i].prev_layers += [net.DM[k]] + net.DM[j].prev_layers
-                        net.DM[k].next_layers += [net.DM[i]]
-                        for g in net.DM[j].prev_layers:
-                            g.next_layers += [net.DM[i]]
-
-                    if abs(net.DM[i].input_idx - net.DM[j].input_idx - net.DM[k].input_idx) < eps:
-                        net.DM[i].prev_layers += net.DM[j].prev_layers + net.DM[k].prev_layers
-                        for g in net.DM[j].prev_layers:
-                            g.next_layers += [net.DM[i]]
-                        for g in net.DM[k].prev_layers:
-                            g.next_layers += [net.DM[i]]
-
-    net.prev_layers = []
-    for m in net.DM:
-        m.prev_layers = tuple(set(m.prev_layers))
-        m.next_layers = tuple(set(m.next_layers))
-        if len(m.prev_layers) != 0:
-            net.prev_layers.append(m.prev_layers)
-        print(m.name, m.base_in_features, m.base_out_features, m.input_idx, m.output_idx)
-        for j, n in enumerate(m.prev_layers):
-            print('prev', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
-        for j, n in enumerate(m.next_layers):
-            print('next', j, n.name, n.base_in_features, n.base_out_features, n.input_idx, n.output_idx)
-        print()
-    net.prev_layers = list(set(net.prev_layers))
-    net.prev_layers = sorted(net.prev_layers, key=lambda layers: tuple([layer.idx for layer in layers]))
-    for i, layers in enumerate(net.prev_layers):
-        if len(layers) == 0:
-            print(i, layers)
-        for m in layers:
-            print(i, m.name, m.base_in_features, m.base_out_features)
-
-    all_layers = []
-    for layers in net.prev_layers:
-        all_layers += list(layers)
-    for m in net.DM[:-1]:
-        assert m in all_layers
 

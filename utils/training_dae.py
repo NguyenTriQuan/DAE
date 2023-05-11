@@ -112,7 +112,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         if 'jr' in mode:
             model.train_rehearsal(progress_bar, epoch)
         else:          
-            model.train(train_loader, progress_bar, mode, squeeze, epoch)
+            model.train(train_loader, progress_bar, mode, squeeze, epoch, args.verbose)
 
         if epoch >= num_squeeze:
             squeeze = False
@@ -134,13 +134,18 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
     if 'sub' in args.ablation:
-        ratio = 0.1
-        idx = int(dataset.train_data.shape[0]*ratio)
-        dataset.train_data = dataset.train_data[:idx]
-        dataset.train_targets = dataset.train_targets[:idx]
-        idx = int(dataset.test_data.shape[0]*ratio)
-        dataset.test_data = dataset.test_data[:idx]
-        dataset.test_targets = dataset.test_targets[:idx]
+        ratio = 0.2
+        data = []
+        targets = []
+        for c in dataset.train_targets.unique():
+            idx = dataset.train_targets == c
+            num = int(ratio * idx.sum())
+            data.append(dataset.train_data[idx][:num])
+            targets.append(dataset.train_targets[idx][:num])
+        dataset.train_data = torch.cat(data)
+        dataset.train_targets = torch.cat(targets)
+        print(dataset.train_data.shape)
+        
     model.dataset = dataset
     if not args.nowand:
         assert wandb is not None, "Wandb not installed, please install it or run without wandb"
@@ -210,16 +215,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             with torch.no_grad():
                 model.get_rehearsal_logits(train_loader)
             # jr training
-            eval_mode = eval_mode + '_jr'
-            train_loop(t, model, dataset, args, progress_bar, train_loader, mode=eval_mode)
+            if t > 0:
+                eval_mode = eval_mode + '_jr'
+                train_loop(t, model, dataset, args, progress_bar, train_loader, mode=eval_mode)
+                accs = evaluate(model, dataset, task=None, mode=eval_mode)
+                mean_acc = np.mean(accs, axis=1)
+                print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
+                print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
             with torch.no_grad():
                 model.fill_buffer(train_loader)
-            
-            accs = evaluate(model, dataset, task=None, mode=eval_mode)
-            mean_acc = np.mean(accs, axis=1)
-            print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
-            print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
         print('checking forgetting')
         if 'kbts' not in args.ablation:
