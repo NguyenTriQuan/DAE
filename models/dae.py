@@ -257,9 +257,10 @@ class DAE(ContinualModel):
                     outputs = [self.net.cal_ets_forward(logits_data[2*k+2][idx], k), self.net.cal_kbts_forward(logits_data[2*k+1+2][idx], k)]
                     outputs = ensemble_outputs(outputs)
                     join_entropy = entropy(outputs.exp()).sum()
-                    total_entropy += join_entropy
                     if k == t:
                         correct_entropy = join_entropy
+                    else:
+                        total_entropy += join_entropy
                 loss += correct_entropy / total_entropy
                 
             loss.backward()
