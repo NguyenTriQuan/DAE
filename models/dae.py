@@ -252,14 +252,15 @@ class DAE(ContinualModel):
             loss = 0
             for t in range(self.task+1):
                 idx = (logits_data[1] >= self.dataset.N_CLASSES_PER_TASK * t) & (logits_data[1] < self.dataset.N_CLASSES_PER_TASK * (t+1))
+                total_entropy = 0
                 for k in range(self.task+1):
-                    if k == t:
-                        factor = self.task + 1
-                    else:
-                        factor = -1
                     outputs = [self.net.cal_ets_forward(logits_data[2*k+2][idx], k), self.net.cal_kbts_forward(logits_data[2*k+1+2][idx], k)]
                     outputs = ensemble_outputs(outputs)
-                    loss += factor * entropy(outputs.exp()).sum()
+                    join_entropy = entropy(outputs.exp()).sum()
+                    total_entropy += join_entropy
+                    if k == t:
+                        correct_entropy = join_entropy
+                loss += correct_entropy / total_entropy
                 
             loss.backward()
             self.opt.step()
