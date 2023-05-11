@@ -254,7 +254,7 @@ class DAE(ContinualModel):
                 idx = (logits_data[1] >= self.dataset.N_CLASSES_PER_TASK * t) & (logits_data[1] < self.dataset.N_CLASSES_PER_TASK * (t+1))
                 for k in range(self.task+1):
                     if k == t:
-                        factor = 1
+                        factor = self.task + 1
                     else:
                         factor = -1
                     outputs = [self.net.cal_ets_forward(logits_data[2*k+2][idx], k), self.net.cal_kbts_forward(logits_data[2*k+1+2][idx], k)]
@@ -448,6 +448,6 @@ class DAE(ContinualModel):
         print('Buffer size:', data[0].shape)
         self.net.train(mode)
         # print(data[0].mean((0, 2, 3)), data[0].std((0, 2, 3), unbiased=False))
-        for i in data:
-            print(i.shape)
+        # for i in data:
+        #     print(i.shape)
 
