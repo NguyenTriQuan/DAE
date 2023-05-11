@@ -569,13 +569,19 @@ class DynamicClassifier(DynamicLinear):
         self.bias_ets = nn.ParameterList([])
         self.bias_kbts = nn.ParameterList([])
 
+        self.cal_weight_ets = nn.ParameterList([])
+        self.cal_bias_ets = nn.ParameterList([])
+        self.cal_weight_kbts = nn.ParameterList([])
+        self.cal_bias_kbts = nn.ParameterList([])
+
     def ets_forward(self, x, t, cal=False): 
         weight = self.weight_ets[t]
         bias = self.bias_ets[t]
         out = F.linear(x, weight, bias)
         if cal:
-            s = F.linear(x, self.cal_weight_ets, self.cal_bias_ets)
-            out = out * s[:, 0] + s[:, 1]
+            s = F.linear(x, self.cal_weight_ets[t], self.cal_bias_ets[t])
+            s = F.softplus(s)
+            out = out * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
         return out
     
     def kbts_forward(self, x, t, cal=False):
@@ -583,8 +589,9 @@ class DynamicClassifier(DynamicLinear):
         bias = self.bias_kbts[t]
         out = F.linear(x, weight, bias)
         if cal:
-            s = F.linear(x, self.cal_weight_kbts, self.cal_bias_kbts)
-            out = out * s[:, 0] + s[:, 1]
+            s = F.linear(x, self.cal_weight_kbts[t], self.cal_bias_kbts[t])
+            s = F.softplus(s)
+            out = out * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
         return out
     
     def expand(self, add_in, add_out):
@@ -611,15 +618,15 @@ class DynamicClassifier(DynamicLinear):
         bound_std = self.gain / math.sqrt(self.num_out[-1])
         self.weight_ets.append(nn.Parameter(torch.Tensor(self.num_out[-1], self.shape_in[-1]).normal_(0, bound_std).to(device)))
         self.bias_ets.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device))) 
-        self.cal_weight_ets = nn.Parameter(torch.Tensor(2, self.shape_in[-1]).normal_(0, bound_std).to(device))
-        self.cal_bias_ets = nn.Parameter(torch.zeros(2).to(device))
+        self.cal_weight_ets.append(nn.Parameter(torch.Tensor(2, self.shape_in[-1]).normal_(0, bound_std).to(device)))
+        self.cal_bias_ets.append(nn.Parameter(torch.zeros(2).to(device)))
 
         # bound_std = self.gain / math.sqrt(fan_in_kbts)
         bound_std = self.gain / math.sqrt(self.num_out[-1])
         self.weight_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_kbts).normal_(0, bound_std).to(device)))
         self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device)))
-        self.cal_weight_kbts = nn.Parameter(torch.Tensor(2, fan_in_kbts).normal_(0, bound_std).to(device))
-        self.cal_bias_kbts = nn.Parameter(torch.zeros(2).to(device))
+        self.cal_weight_kbts.append(nn.Parameter(torch.Tensor(2, fan_in_kbts).normal_(0, bound_std).to(device)))
+        self.cal_bias_kbts.append(nn.Parameter(torch.zeros(2).to(device)))
 
         # self.weight_jr = nn.Parameter(torch.Tensor(self.shape_out[-1], self.base_in_features).normal_(0, bound_std).to(device))
         # self.bias_jr = nn.Parameter(torch.zeros(self.shape_out[-1]).to(device))
@@ -645,6 +652,9 @@ class DynamicClassifier(DynamicLinear):
 
     def get_optim_kbts_params(self):
         return [self.weight_kbts[-1], self.bias_kbts[-1]]
+    
+    def get_optim_jr_params(self):
+        return [self.cal_weight_ets[-1], self.cal_bias_ets[-1], self.cal_weight_kbts[-1], self.cal_bias_kbts[-1]]
 
     def count_params(self, t):
         count = 0

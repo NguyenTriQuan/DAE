@@ -111,42 +111,36 @@ class DAE(ContinualModel):
         self.soft = torch.nn.Softmax(dim=1)
         # self.device = 'cpu'
 
-    def forward(self, x, t=None, mode='ets_kbts_jr'):
-        
-        if t is not None:
-            x = self.dataset.test_transforms[t](x)
+    def forward(self, inputs, t=None, mode='ets_kbts_jr'):
+        x = self.dataset.test_transform(inputs)
+        if t is not None and 'jr' not in mode:
             outputs = []
-            if 'jr' in mode:
-                out_jr = self.net(x, self.task, mode='jr')
-                out_jr = out_jr[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
-                outputs.append(out_jr)
             if 'ets' in mode:
                 outputs.append(self.net.ets_forward(x, t))
             if 'kbts' in mode:
                 outputs.append(self.net.kbts_forward(x, t))
 
-            # outputs = outputs[0]
             outputs = ensemble_outputs(outputs)
+            # print(t, 'mean', outputs.mean((0)).mean(-1), 'std', outputs.std((0)).mean(-1))
             _, predicts = outputs.max(1)
             return predicts + t * self.dataset.N_CLASSES_PER_TASK
         else:
             joint_entropy_tasks = []
             outputs_tasks = []
             if 'jr' in mode:
-                out_jr = self.net(x, self.task, mode='jr')
+                cal = True
+            else:
+                cal = False
             for i in range(self.task+1):
                 outputs = []
                 weights = []
-                x = self.dataset.test_transforms[i](x)
                 if 'ets' in mode:
-                    out = self.net.ets_forward(x, i)
+                    out = self.net.ets_forward(x, i, cal=cal)
                     outputs.append(out)
                 if 'kbts' in mode:
-                    out = self.net.kbts_forward(x, i)
+                    out = self.net.kbts_forward(x, i, cal=cal)
                     outputs.append(out)
-                if 'jr' in mode:
-                    out = out_jr[:, self.net.DM[-1].shape_out[i]:self.net.DM[-1].shape_out[i+1]]
-                    outputs.append(out)
+
                 outputs = ensemble_outputs(outputs)
                 # outputs = outputs[0]
                 outputs_tasks.append(outputs)
@@ -211,7 +205,7 @@ class DAE(ContinualModel):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             inputs = self.dataset.train_transform(inputs)
-            inputs = self.dataset.test_transforms[-1](inputs)
+            inputs = self.dataset.test_transform(inputs)
             self.opt.zero_grad()
             if mode == 'ets':
                 outputs = self.net.ets_forward(inputs, self.task)
@@ -237,14 +231,14 @@ class DAE(ContinualModel):
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
 
-    def train_rehearsal(self, train_loader, progress_bar, epoch):
+    def train_rehearsal(self, progress_bar, epoch):
         self.net.train()
         total = 0
         correct = 0
         total_loss = 0
         if self.buffer is not None:
             buffer_loader = iter(self.buffer)
-        for i, data in enumerate(train_loader):
+        for i, logits_data in enumerate(self.logits_loader):
             self.opt.zero_grad()
             logits_data = [tmp.to(self.device) for tmp in logits_data]
             if self.buffer is not None:
@@ -257,14 +251,13 @@ class DAE(ContinualModel):
                 buffer_data = [tmp.to(self.device) for tmp in buffer_data]
                 for j in range(len(logits_data)):
                     logits_data[j] = torch.cat([buffer_data[j], logits_data[j]])
-
-            inputs = self.dataset.train_transform(logits_data[0])
-            inputs = self.dataset.test_transforms[-1](logits_data[0])
-            outputs = self.net(inputs, self.task, mode='jr')
+            outputs = [self.net.linear.ets_forward(logits_data[t+2], t, cal=True) for t in range(self.task+1)]
+            outputs = torch.cat(outputs, dim=1)
             loss = self.loss(outputs, logits_data[1])
-            for t in range(self.task-1):
-                outputs_task = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
-                loss += self.args.alpha * modified_kl_div(smooth(logits_data[t+2], 2, 1), smooth(self.soft(outputs_task), 2, 1))
+            # for t in range(self.task):
+            #     outputs = self.net.linear.ets_forward(logits_data[t+2], t, cal=True)
+                # outputs = ensemble_outputs([outputs])
+                # loss += entropy(outputs.exp())
             loss.backward()
             self.opt.step()
             _, predicts = outputs.max(1)
@@ -272,6 +265,9 @@ class DAE(ContinualModel):
             total += logits_data[1].shape[0]
             total_loss += loss.item() * logits_data[1].shape[0]
             progress_bar.prog(i, len(self.logits_loader), epoch, self.task, total_loss/total, correct/total*100)
+
+        self.scheduler.step()
+
 
     # def train_rehearsal(self, progress_bar, epoch):
     #     self.net.train()
@@ -308,6 +304,7 @@ class DAE(ContinualModel):
     #         total += logits_data[1].shape[0]
     #         total_loss += loss.item() * logits_data[1].shape[0]
     #         progress_bar.prog(i, len(self.logits_loader), epoch, self.task, total_loss/total, correct/total*100)
+        # self.scheduler.step()
 
 
     def begin_task(self, dataset):
@@ -323,15 +320,16 @@ class DAE(ContinualModel):
 
     def get_rehearsal_logits(self, train_loader):
         self.net.eval()
-        data = [[] for _ in range(self.task+2)]
+        data = [[] for _ in range(self.task+3)]
         for inputs, labels in train_loader:
             data[0].append(inputs)
             data[1].append(labels)
             inputs = inputs.to(self.device)
-            inputs = self.dataset.test_transforms[-1](inputs)
-            for i in range(self.task):
-                outputs = [self.net(inputs, i, mode='ets'), self.net(inputs, i, mode='kbts')]
-                data[i+2].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
+            inputs = self.dataset.test_transform(inputs)
+            for i in range(self.task+1):
+                # outputs = [self.net(inputs, i, mode='ets'), self.net(inputs, i, mode='kbts')]
+                # data[i+2].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
+                data[i+2].append(self.net.ets_forward(inputs, i, feat=True).detach().clone().cpu())
 
         data = [torch.cat(temp) for temp in data]
         self.logits_loader = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
@@ -340,9 +338,10 @@ class DAE(ContinualModel):
             new_logits = []
             for buffer_data in self.buffer:
                 inputs = buffer_data[0].to(self.device)
-                inputs = self.dataset.test_transforms[self.task-1](inputs)
-                outputs = [self.net(inputs, self.task-1, mode='ets'), self.net(inputs, self.task-1, mode='kbts')]
-                new_logits.append(ensemble_outputs(outputs).exp().detach().clone().cpu())
+                inputs = self.dataset.test_transform(inputs)
+                # outputs = [self.net(inputs, self.task-1, mode='ets'), self.net(inputs, self.task-1, mode='kbts')]
+                # new_logits.append(ensemble_outputs(outputs).exp().detach().clone().cpu())
+                new_logits.append(self.net.ets_forward(inputs, self.task, feat=True).detach().clone().cpu())
 
             new_logits = torch.cat(new_logits)
             data = list(self.buffer.dataset.tensors)
@@ -360,9 +359,9 @@ class DAE(ContinualModel):
         """
         mode = self.net.training
         self.net.eval()
-        samples_per_class = self.args.buffer_size // (self.dataset.N_CLASSES_PER_TASK * self.task)
+        samples_per_class = self.args.buffer_size // (self.dataset.N_CLASSES_PER_TASK * (self.task+1))
         
-        data = [[] for _ in range(self.task+2)]
+        data = [[] for _ in range(self.task+3)]
         if self.task > 1:
             for _y in self.buffer.dataset.tensors[1].unique():
                 idx = (self.buffer.dataset.tensors[1] == _y)
@@ -372,21 +371,24 @@ class DAE(ContinualModel):
                 # outputs = [self.net(inputs, self.task-1, mode='ets'), self.net(inputs, self.task-1, mode='kbts')]
                 # data[-1].append(ensemble_outputs(outputs).exp().detach().clone().cpu())
 
-        classes_start, classes_end = (self.task-1) * self.dataset.N_CLASSES_PER_TASK, self.task * self.dataset.N_CLASSES_PER_TASK
+        classes_start, classes_end = (self.task) * self.dataset.N_CLASSES_PER_TASK, (self.task+1) * self.dataset.N_CLASSES_PER_TASK
         print(f'Filling Buffer: samples per class {samples_per_class}, classes start {classes_start}, classes end {classes_end}')
 
         for _y in self.logits_loader.dataset.tensors[1].unique():
             idx = (self.logits_loader.dataset.tensors[1] == _y)
-            ents = entropy(self.logits_loader.dataset.tensors[-1])
+            # ents = entropy(self.logits_loader.dataset.tensors[-1])
             #select samples with highest entropy
-            values, indices = ents[idx].sort(dim=0, descending=True)
+            # values, indices = ents[idx].sort(dim=0, descending=True)
             for i in range(len(self.logits_loader.dataset.tensors)):
-                data[i] += [self.logits_loader.dataset.tensors[i][idx][indices[:samples_per_class]]]
+                # data[i] += [self.logits_loader.dataset.tensors[i][idx][indices[:samples_per_class]]]
+                data[i] += [self.logits_loader.dataset.tensors[i][idx][:samples_per_class]]
         
         data = [torch.cat(temp) for temp in data]
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         print('Buffer size:', data[0].shape)
         self.net.train(mode)
+        for i in data:
+            print(i.shape)
 
 
 def get_related_layers(net, input_shape):

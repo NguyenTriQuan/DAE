@@ -234,7 +234,7 @@ class ResNet(_DynamicModel):
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
 
-    def ets_forward(self, x: torch.Tensor, t, cal=False) -> torch.Tensor:
+    def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
         self.get_kb_params(t)
         out = self.conv1.ets_forward([x], t)
         
@@ -243,14 +243,12 @@ class ResNet(_DynamicModel):
 
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
-
+        if feat:
+            return feature
         out = self.linear.ets_forward(feature, t, cal)
-        # print('forward')
-        # for m in self.DM:
-        #     print(m.shape_out)
         return out
     
-    def kbts_forward(self, x: torch.Tensor, t, cal=False) -> torch.Tensor:
+    def kbts_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
         self.get_masked_kb_params(t)
 
         out = self.conv1.kbts_forward([x], t)
@@ -260,7 +258,8 @@ class ResNet(_DynamicModel):
 
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
-
+        if feat:
+            return feature
         out = self.linear.kbts_forward(feature, t, cal)
         return out
     
