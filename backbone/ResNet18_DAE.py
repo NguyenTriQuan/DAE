@@ -179,13 +179,14 @@ class CalibrationBlock(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim, bias=True),
             nn.ReLU(),
-            nn.Linear(hidden_dim, 2, bias=True),
+            nn.Linear(hidden_dim, 1, bias=True),
             nn.Sigmoid()
         )
     
     def forward(self, feature, output) -> torch.Tensor:
         s = self.layers(feature)
-        output = output * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
+        # output = output * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
+        output = output * s
         return output
 
 
