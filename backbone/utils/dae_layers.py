@@ -96,8 +96,8 @@ class _DynamicLayer(nn.Module):
             self.kb_weight = torch.empty(0, 0).to(device)
             self.masked_kb_weight = torch.empty(0, 0).to(device)
 
-        self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
-        # self.gain = torch.nn.init.calculate_gain('leaky_relu', 0)
+        # self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
+        self.gain = torch.nn.init.calculate_gain('leaky_relu', 0)
 
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed(args.seed)
