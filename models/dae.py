@@ -253,8 +253,10 @@ class DAE(ContinualModel):
             for t in range(self.task+1):
                 idx = (logits_data[1] >= self.dataset.N_CLASSES_PER_TASK * t) & (logits_data[1] < self.dataset.N_CLASSES_PER_TASK * (t+1))
                 total_entropy = 0
+                inputs = logits_data[0][idx]
                 for k in range(self.task+1):
-                    outputs = [self.net.cal_ets_forward(logits_data[2*k+2][idx], k), self.net.cal_kbts_forward(logits_data[2*k+1+2][idx], k)]
+                    x = self.dataset.test_transforms[k](inputs)
+                    outputs = [self.net.cal_ets_forward(x, logits_data[2*k+2][idx], k), self.net.cal_kbts_forward(x, logits_data[2*k+1+2][idx], k)]
                     outputs = ensemble_outputs(outputs)
                     # join_entropy = entropy(outputs.exp()).sum()
                     if k == t:

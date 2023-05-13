@@ -180,14 +180,27 @@ class CalibrationBlock(nn.Module):
             nn.Linear(hidden_dim, hidden_dim, bias=True),
             nn.ReLU(),
             nn.Linear(hidden_dim, 1, bias=True),
-            nn.Sigmoid()
+        )
+
+        self.shortcut = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d(1),
+            nn.Linear(32, hidden_dim)
         )
     
-    def forward(self, feature, output) -> torch.Tensor:
-        s = self.layers(feature)
-        # output = output * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
-        output = output * s
-        return output
+    def forward(self, inputs, features, outputs) -> torch.Tensor:
+        s = self.layers(features) + self.shortcut(inputs)
+        s = nn.Sigmoid(s)
+        outputs = outputs * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
+        # output = output * s
+        return outputs
 
 
 class ResNet(_DynamicModel):
@@ -243,15 +256,15 @@ class ResNet(_DynamicModel):
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
     
-    def cal_ets_forward(self, feature, t):
-        out = self.linear.ets_forward(feature, t)
-        out = self.ets_cal_layers[t](feature, out)
-        return out
+    def cal_ets_forward(self, inputs, features, t):
+        outputs = self.linear.ets_forward(features, t)
+        outputs = self.ets_cal_layers[t](inputs, features, outputs)
+        return outputs
     
-    def cal_kbts_forward(self, feature, t):
-        out = self.linear.kbts_forward(feature, t)
-        out = self.kbts_cal_layers[t](feature, out)
-        return out
+    def cal_kbts_forward(self, inputs, features, t):
+        outputs = self.linear.kbts_forward(features, t)
+        outputs = self.kbts_cal_layers[t](inputs, features, outputs)
+        return outputs
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
         self.get_kb_params(t)
@@ -266,7 +279,7 @@ class ResNet(_DynamicModel):
             return feature
         out = self.linear.ets_forward(feature, t)
         if cal:
-            out = self.ets_cal_layers[t](feature, out)
+            out = self.ets_cal_layers[t](x, feature, out)
         return out
     
     def kbts_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
@@ -283,7 +296,7 @@ class ResNet(_DynamicModel):
             return feature
         out = self.linear.kbts_forward(feature, t)
         if cal:
-            out = self.kbts_cal_layers[t](feature, out)
+            out = self.kbts_cal_layers[t](x, feature, out)
         return out
     
     def expand(self, new_classes, t):
