@@ -254,6 +254,8 @@ class DAE(ContinualModel):
                 idx = (logits_data[1] >= self.dataset.N_CLASSES_PER_TASK * t) & (logits_data[1] < self.dataset.N_CLASSES_PER_TASK * (t+1))
                 total_entropy = 0
                 inputs = logits_data[0][idx]
+                if inputs.numel() == 0:
+                    continue
                 for k in range(self.task+1):
                     x = self.dataset.test_transforms[k](inputs)
                     outputs = [self.net.cal_ets_forward(x, logits_data[2*k+2][idx], k), self.net.cal_kbts_forward(x, logits_data[2*k+1+2][idx], k)]
