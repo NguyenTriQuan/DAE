@@ -260,15 +260,15 @@ class DAE(ContinualModel):
                     x = self.dataset.test_transforms[k](inputs)
                     outputs = [self.net.cal_ets_forward(x, logits_data[2*k+2][idx], k), self.net.cal_kbts_forward(x, logits_data[2*k+1+2][idx], k)]
                     outputs = ensemble_outputs(outputs)
-                    # join_entropy = entropy(outputs.exp()).sum()
+                    join_entropy = entropy(outputs.exp()).sum()
                     if k == t:
-                        factor = 1
-                        # correct_entropy = join_entropy
+                        # factor = 1
+                        correct_entropy = join_entropy
                     else:
-                        factor = -1
-                        # total_entropy += join_entropy
-                    loss += factor * entropy(outputs.exp()).sum()
-                # loss += correct_entropy / total_entropy
+                        # factor = -1
+                        total_entropy += join_entropy
+                    # loss += factor * entropy(outputs.exp()).sum()
+                loss += correct_entropy / total_entropy
                 
             loss.backward()
             self.opt.step()
@@ -412,6 +412,7 @@ class DAE(ContinualModel):
         buffer_data = [torch.cat(temp) for temp in buffer_data]
         self.buffer = DataLoader(TensorDataset(*buffer_data), batch_size=self.args.batch_size, shuffle=True)
         print(buffer_data[1].unique())
+        print(buffer_data[0].shape)
         # for c in buffer_data[1].unique():
         #     idx = (buffer_data[1] == c)
         #     print(c, idx.sum())
