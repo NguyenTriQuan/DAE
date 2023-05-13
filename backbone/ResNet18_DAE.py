@@ -351,13 +351,18 @@ class ResNet(_DynamicModel):
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
     def set_jr_params(self, t):
-        self.ets_cal_layers = nn.ModuleList([])
-        self.kbts_cal_layers = nn.ModuleList([])
-        for i in range(t+1):
-            ets_dim = self.linear.weight_ets[i].shape[1]
-            kbts_dim = self.linear.weight_kbts[i].shape[1]
-            self.ets_cal_layers.append(CalibrationBlock(ets_dim, 100).to(device))
-            self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 100).to(device))
+        # self.ets_cal_layers = nn.ModuleList([])
+        # self.kbts_cal_layers = nn.ModuleList([])
+        # for i in range(t+1):
+        #     ets_dim = self.linear.weight_ets[i].shape[1]
+        #     kbts_dim = self.linear.weight_kbts[i].shape[1]
+        #     self.ets_cal_layers.append(CalibrationBlock(ets_dim, 100).to(device))
+        #     self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 100).to(device))
+
+        ets_dim = self.linear.weight_ets[-1].shape[1]
+        kbts_dim = self.linear.weight_kbts[-1].shape[1]
+        self.ets_cal_layers.append(CalibrationBlock(ets_dim, 100).to(device))
+        self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 100).to(device))
         
     def get_optim_jr_params(self):
         return list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
