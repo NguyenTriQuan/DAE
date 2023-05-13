@@ -72,7 +72,7 @@ def logmeanexp(x, dim=None, keepdim=False):
 def ensemble_outputs(outputs):
     ## a list of outputs with length [num_member], each with shape [bs, num_cls]
     outputs = torch.stack(outputs, dim=-1) #[bs, num_cls, num_member]
-    outputs = outputs/100
+    outputs = outputs/10
     outputs = F.log_softmax(outputs, dim=-2)
     ## with shape [bs, num_cls]
     log_outputs = logmeanexp(outputs, dim=-1)
