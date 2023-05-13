@@ -191,7 +191,8 @@ class CalibrationBlock(nn.Module):
             nn.ReLU(),
             nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d(1),
+            nn.AvgPool2d(kernel_size=2),
+            nn.Flatten(),
             nn.Linear(32, hidden_dim)
         )
     
