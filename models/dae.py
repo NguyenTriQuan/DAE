@@ -157,7 +157,7 @@ class DAE(ContinualModel):
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             _, predicts = predicted_outputs.max(1)
             # print(outputs_tasks.shape, outputs_tasks.abs().sum((0,2)))
-            print('entropy', joint_entropy_tasks.mean((0)))
+            # print('entropy', joint_entropy_tasks.mean((0)))
             # print('mean', outputs_tasks.mean((0)).mean(-1), 'std', outputs_tasks.std((0)).mean(-1))
             # outputs_tasks = outputs_tasks.permute((1, 0, 2)).reshape((self.task+1, -1))
             # print('min - max', outputs_tasks.min(1)[0], outputs_tasks.max(1)[0])
@@ -240,11 +240,6 @@ class DAE(ContinualModel):
         total = 0
         correct = 0
         total_loss = 0
-        
-        if verbose:
-            test_acc = self.eval(None, mode='ets_kbts_jr')[0][0]
-        else:
-            test_acc = 0
 
         for i, logits_data in enumerate(self.buffer):
             self.opt.zero_grad()
@@ -264,7 +259,8 @@ class DAE(ContinualModel):
                     join_entropy = entropy(outputs.exp()).sum()
                     if k == t:
                         correct_entropy = join_entropy
-                    total_entropy += join_entropy
+                    else:
+                        total_entropy += join_entropy
                 loss += correct_entropy / total_entropy
                 
             loss.backward()
@@ -273,7 +269,7 @@ class DAE(ContinualModel):
             # correct += torch.sum(predicts == logits_data[1]).item()
             total += logits_data[1].shape[0]
             total_loss += loss.item()
-            progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss/total, 0, test_acc)
+            progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss/total)
 
         self.scheduler.step()
 
