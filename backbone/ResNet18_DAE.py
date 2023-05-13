@@ -198,7 +198,7 @@ class CalibrationBlock(nn.Module):
     
     def forward(self, inputs, features, outputs) -> torch.Tensor:
         s = self.layers(features) + self.shortcut(inputs)
-        s = nn.Sigmoid(s)
+        s = F.sigmoid(s)
         outputs = outputs * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
         # output = output * s
         return outputs
