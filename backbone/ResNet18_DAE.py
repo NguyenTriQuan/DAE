@@ -180,7 +180,7 @@ class CalibrationBlock(nn.Module):
             nn.Linear(hidden_dim, hidden_dim, bias=True),
             nn.ReLU(), 
             nn.Linear(hidden_dim, 2, bias=True),
-            nn.Softplus()
+            nn.Sigmoid()
         )
 
         # self.shortcut = nn.Sequential(
