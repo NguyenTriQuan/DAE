@@ -89,7 +89,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         count = 0
         for param in params:
             count += param.numel()
-        print('number of optim params:', count)
+        print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
     elif 'ets' in mode:
@@ -97,7 +97,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         count = 0
         for param in params:
             count += param.numel()
-        print('number of optim params:', count)
+        print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         if 'squeeze' in args.ablation:
             n_epochs = 50
@@ -116,7 +116,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         count = 0
         for param in params + scores:
             count += param.numel()
-        print('number of optim params:', count)
+        print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         n_epochs = 50
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
