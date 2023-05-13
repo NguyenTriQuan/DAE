@@ -212,7 +212,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
         
         if 'jr' not in args.ablation:
-            model.net.set_jr_params()
+            model.net.set_jr_params(t)
             with torch.no_grad():
                 model.get_rehearsal_logits(train_loader)
             # jr training

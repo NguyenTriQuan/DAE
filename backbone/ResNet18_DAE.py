@@ -182,22 +182,22 @@ class CalibrationBlock(nn.Module):
             nn.Linear(hidden_dim, 1, bias=True),
         )
 
-        self.shortcut = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),
-            nn.Flatten(),
-            nn.Linear(32, hidden_dim)
-        )
+        # self.shortcut = nn.Sequential(
+        #     nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
+        #     nn.AvgPool2d(kernel_size=2),
+        #     nn.Flatten(),
+        #     nn.Linear(32, hidden_dim)
+        # )
     
     def forward(self, inputs, features, outputs) -> torch.Tensor:
-        s = self.layers(features) + self.shortcut(inputs)
+        s = self.layers(features)
         s = F.sigmoid(s)
         outputs = outputs * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
         # output = output * s
@@ -346,11 +346,14 @@ class ResNet(_DynamicModel):
             add_in_1 = block.conv1.get_masked_kb_params(t, [add_in], [None])
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
-    def set_jr_params(self):
-        ets_dim = self.linear.weight_ets[-1].shape[1]
-        kbts_dim = self.linear.weight_kbts[-1].shape[1]
-        self.ets_cal_layers.append(CalibrationBlock(ets_dim, 100).to(device))
-        self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 100).to(device))
+    def set_jr_params(self, t):
+        self.ets_cal_layers = nn.ModuleList([])
+        self.kbts_cal_layers = nn.ModuleList([])
+        for i in range(t+1):
+            ets_dim = self.linear.weight_ets[i].shape[1]
+            kbts_dim = self.linear.weight_kbts[i].shape[1]
+            self.ets_cal_layers.append(CalibrationBlock(ets_dim, 100).to(device))
+            self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 100).to(device))
         
 
 
