@@ -179,26 +179,27 @@ class CalibrationBlock(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim, bias=True),
             nn.ReLU(),
-            nn.Linear(hidden_dim, 1, bias=True),
         )
 
-        # self.shortcut = nn.Sequential(
-        #     nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
-        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
-        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
-        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
-        #     nn.AvgPool2d(kernel_size=2),
-        #     nn.Flatten(),
-        #     nn.Linear(32, hidden_dim)
-        # )
+        self.shortcut = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2),
+            nn.Flatten(),
+            nn.Linear(32, hidden_dim, bias=True),
+            nn.ReLU()
+        )
+        self.last =  nn.Linear(hidden_dim, 2, bias=True),
     
     def forward(self, inputs, features, outputs) -> torch.Tensor:
-        s = self.layers(features)
-        s = F.sigmoid(s)
+        s = self.layers(features) + self.shortcut(inputs)
+        s = F.sigmoid(self.last(s))
         outputs = outputs * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
         # output = output * s
         return outputs
@@ -355,6 +356,8 @@ class ResNet(_DynamicModel):
             self.ets_cal_layers.append(CalibrationBlock(ets_dim, 100).to(device))
             self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 100).to(device))
         
+    def get_optim_jr_params(self):
+        return list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
