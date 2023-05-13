@@ -72,7 +72,6 @@ def logmeanexp(x, dim=None, keepdim=False):
 def ensemble_outputs(outputs):
     ## a list of outputs with length [num_member], each with shape [bs, num_cls]
     outputs = torch.stack(outputs, dim=-1) #[bs, num_cls, num_member]
-    outputs = outputs*10
     outputs = F.log_softmax(outputs, dim=-2)
     ## with shape [bs, num_cls]
     log_outputs = logmeanexp(outputs, dim=-1)
@@ -185,10 +184,6 @@ class DAE(ContinualModel):
 
                         correct += torch.sum(pred == labels).item()
                         total += labels.shape[0]
-
-                        if self.dataset.SETTING == 'class-il' and task is None:
-                            pred = self.forward(inputs, k, mode)
-                            correct_mask_classes += torch.sum(pred == labels).item()
 
                 acc = correct / total * 100 if 'class-il' in self.COMPATIBILITY else 0
                 accs.append(round(acc, 2))

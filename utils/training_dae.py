@@ -123,7 +123,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
 
     for epoch in range(n_epochs):
         if 'jr' in mode:
-            model.train_rehearsal(progress_bar, epoch)
+            model.train_rehearsal(progress_bar, epoch, args.verbose)
         else:          
             model.train(train_loader, progress_bar, mode, squeeze, epoch, args.verbose)
 
