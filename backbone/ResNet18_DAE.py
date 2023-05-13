@@ -178,7 +178,7 @@ class CalibrationBlock(nn.Module):
             nn.Linear(feat_dim, hidden_dim, bias=True),
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim, bias=True),
-            nn.ReLU(),
+            nn.ReLU()
         )
 
         self.shortcut = nn.Sequential(
@@ -195,7 +195,7 @@ class CalibrationBlock(nn.Module):
             nn.Linear(32, hidden_dim, bias=True),
             nn.ReLU()
         )
-        self.last =  nn.Linear(hidden_dim, 2, bias=True),
+        self.last =  nn.Linear(hidden_dim, 2, bias=True)
     
     def forward(self, inputs, features, outputs) -> torch.Tensor:
         s = self.layers(features) + self.shortcut(inputs)

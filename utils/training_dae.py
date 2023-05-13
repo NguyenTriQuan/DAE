@@ -86,10 +86,18 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     if 'jr' in mode:
         n_epochs = 50
         params = list(model.net.ets_cal_layers.parameters()) + list(model.net.kbts_cal_layers.parameters())
+        count = 0
+        for param in params:
+            count += param.numel()
+        print('number of optim params:', count)
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
     elif 'ets' in mode:
         params = model.net.get_optim_ets_params()
+        count = 0
+        for param in params:
+            count += param.numel()
+        print('number of optim params:', count)
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         if 'squeeze' in args.ablation:
             n_epochs = 50
@@ -105,6 +113,10 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             squeeze = False
     elif 'kbts' in mode:
         params, scores = model.net.get_optim_kbts_params()
+        count = 0
+        for param in params + scores:
+            count += param.numel()
+        print('number of optim params:', count)
         model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         n_epochs = 50
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
