@@ -281,21 +281,21 @@ class _DynamicLayer(nn.Module):
     def update_scale(self):
         with torch.no_grad():
             i = len(self.weight)-1
-            if self.weight[i].numel() > 0:
+            if self.weight[i].numel() > 1:
                 w_std = self.weight[i].std(dim=self.dim_in, unbiased=False)
                 # w_std = self.weight[i].std(unbiased=False)
                 self.register_buffer(f'weight_scale_{i}', w_std.view(self.view_in))
             else:
                 self.register_buffer(f'weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
-            if self.fwt_weight[i].numel() > 0:
+            if self.fwt_weight[i].numel() > 1:
                 # w_std = self.fwt_weight[i].std(unbiased=False)
                 w_std = self.fwt_weight[i].std(dim=self.dim_in, unbiased=False)
                 self.register_buffer(f'fwt_weight_scale_{i}', w_std.view(self.view_in))
             else:
                 self.register_buffer(f'fwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
-            if self.bwt_weight[i].numel() > 0:
+            if self.bwt_weight[i].numel() > 1:
                 # w_std = self.bwt_weight[i].std(unbiased=False)
                 w_std = self.bwt_weight[i].std(dim=self.dim_in, unbiased=False)
                 self.register_buffer(f'bwt_weight_scale_{i}', w_std.view(self.view_in))
@@ -332,10 +332,10 @@ class _DynamicLayer(nn.Module):
     def set_reg_strength(self):
         fan_in = self.shape_in[-1]
         fan_out = self.num_out[-1]
-        # self.strength = 1 - ((fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1]) / 
-        #                         (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1]))  
+        self.strength = 1 - ((fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1]) / 
+                                (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1]))  
         # self.strength = (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1]) / (fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1])
-        self.strength = (fan_in * fan_out * self.ks)
+        # self.strength = (fan_in * fan_out * self.ks)
 
     def squeeze(self, optim_state, mask_in=None, mask_out=None):
         prune_out = mask_out is not None and mask_out.sum() != self.num_out[-1]
