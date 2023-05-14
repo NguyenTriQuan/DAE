@@ -179,32 +179,32 @@ class CalibrationBlock(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim, bias=True),
             nn.ReLU(), 
-            # nn.Linear(hidden_dim, 2, bias=True),
-            # nn.Sigmoid()
-        )
-
-        self.shortcut = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2),
-            nn.Flatten(),
-            nn.Linear(32, hidden_dim, bias=True),
-            nn.ReLU()
-        )
-        self.last =  nn.Sequential(
             nn.Linear(hidden_dim, 2, bias=True),
             nn.Sigmoid()
         )
+
+        # self.shortcut = nn.Sequential(
+        #     nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
+        #     nn.AvgPool2d(kernel_size=2),
+        #     nn.Flatten(),
+        #     nn.Linear(32, hidden_dim, bias=True),
+        #     nn.ReLU()
+        # )
+        # self.last =  nn.Sequential(
+        #     nn.Linear(hidden_dim, 2, bias=True),
+        #     nn.Sigmoid()
+        # )
     
     def forward(self, inputs, features, outputs) -> torch.Tensor:
-        s = self.last(self.layers(features) + self.shortcut(inputs))
-        # s = self.layers(features)
+        # s = self.last(self.layers(features) + self.shortcut(inputs))
+        s = self.layers(features)
         outputs = outputs * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
         # output = output * s
         return outputs
