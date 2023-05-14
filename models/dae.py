@@ -259,8 +259,7 @@ class DAE(ContinualModel):
                     join_entropy = entropy(outputs.exp()).sum()
                     if k == t:
                         correct_entropy = join_entropy
-                    else:
-                        total_entropy += join_entropy
+                    total_entropy += join_entropy
                 loss += correct_entropy / total_entropy
                 
             loss.backward()

@@ -107,10 +107,10 @@ class ATA(ContinualModel):
         print('lambda tasks', self.lamb)
         self.soft = torch.nn.Softmax(dim=1)
 
-    def forward(self, x, t=None, mode='ets_kbts_jr'):
+    def forward(self, inputs, t=None, mode='ets_kbts_jr'):
         
         if t is not None:
-            x = self.dataset.test_transforms[t](x)
+            x = self.dataset.test_transforms[t](inputs)
             outputs = []
             if 'jr' in mode:
                 out_jr = self.net(x, self.task, mode='jr')
@@ -133,7 +133,7 @@ class ATA(ContinualModel):
             for i in range(self.task+1):
                 outputs = []
                 weights = []
-                x = self.dataset.test_transforms[i](x)
+                x = self.dataset.test_transforms[i](inputs)
                 if 'ets' in mode:
                     out = self.net(x, i, mode='ets')
                     outputs.append(out)
