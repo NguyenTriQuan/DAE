@@ -184,6 +184,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
     print(file=sys.stderr)
     for t in range(dataset.N_TASKS):
+        if t >= args.total_tasks:
+            break
         model.net.train()
         if 'joint' in args.ablation:
             train_loader, test_loader = dataset.get_full_data_loader()

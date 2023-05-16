@@ -135,6 +135,9 @@ def main(args=None):
     else:
         from utils.training import train
 
+    dataset.N_TASKS = args.total_tasks
+    dataset.N_CLASSES_PER_TASK = dataset.N_CLASSES // args.total_tasks
+    
     if isinstance(dataset, ContinualDataset):
         train(model, dataset, args)
     else:

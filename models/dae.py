@@ -49,6 +49,10 @@ def get_parser() -> ArgumentParser:
                         help='compute test accuracy and number of params.')
     parser.add_argument('--lr_score', type=float, required=False,
                         help='score learning rate.', default=0.1)
+    parser.add_argument('--num_tasks', type=int, required=False,
+                        help='number of tasks to run.', default=100)
+    parser.add_argument('--total_tasks', type=int, required=True,
+                        help='total number of tasks.', default=10)
     return parser
 
 def smooth(logits, temp, dim):
