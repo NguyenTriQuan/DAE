@@ -47,7 +47,7 @@ class SequentialCIFAR100(ContinualDataset):
 
     train_data = train_data.permute(0, 3, 1, 2)/255.0
     test_data = test_data.permute(0, 3, 1, 2)/255.0
-    print(train_data.mean((0, 2, 3)), train_data.std((0, 2, 3), unbiased=False))
+    # print(train_data.mean((0, 2, 3)), train_data.std((0, 2, 3), unbiased=False))
 
 
     def get_data_loaders(self):
