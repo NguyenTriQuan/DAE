@@ -518,8 +518,9 @@ class DynamicBlock(nn.Module):
         aux = 1 - lamb * lr * strength / norm
         aux = F.threshold(aux, 0, 0, False)
         self.mask_out = (aux > 0).clone().detach()
-        temp = (aux**2).sum().sqrt()
-        aux = aux / temp
+        std_new = (self.ets_norm_layers[-1].running_var[layer.shape_out[-2]:] * (aux ** 2)).sum().sqrt()
+        std_old = self.ets_norm_layers[-1].running_var[layer.shape_out[-2]:].sum().sqrt()
+        aux = aux * std_old / std_new
         for layer in self.layers:
             layer.weight[-1].data *= aux.view(layer.view_in)
             layer.fwt_weight[-1].data *= aux.view(layer.view_in)
