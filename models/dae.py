@@ -31,8 +31,8 @@ def get_parser() -> ArgumentParser:
                         help='capacity control.')
     parser.add_argument('--alpha', type=float, required=True,
                         help='Join Rehearsal Distillation penalty weight.')
-    parser.add_argument('--dropout', type=float, required=True,
-                        help='Dropout probability.')
+    parser.add_argument('--dropout', type=float, required=False,
+                        help='Dropout probability.', default=0.0)
     parser.add_argument('--sparsity', type=float, required=True,
                         help='Super mask sparsity.')
     parser.add_argument('--temperature', default=1, type=float, required=False,
