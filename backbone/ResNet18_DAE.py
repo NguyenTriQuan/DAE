@@ -168,6 +168,42 @@ class BasicBlock(nn.Module):
         out = self.conv2.kbts_forward([x, out], t)
         return out
     
+class ContrastFeatExtractor(nn.Module):
+    """
+    Calibration output using feature.
+    """
+    def __init__(self, feat_dim: int, hidden_dim: int) -> None:
+        super(ContrastFeatExtractor, self).__init__()
+
+        self.layers = nn.Sequential(
+            nn.Conv2d(3, hidden_dim, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(hidden_dim),
+            nn.ReLU(),
+
+            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(hidden_dim),
+            nn.ReLU(),
+
+            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(hidden_dim),
+            nn.ReLU(),
+
+            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(hidden_dim),
+            nn.ReLU(),
+
+            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(hidden_dim),
+            nn.ReLU(),
+
+            nn.AvgPool2d(kernel_size=2),
+            nn.Flatten(),
+            nn.Linear(hidden_dim, feat_dim, bias=True),
+        )
+    
+    def forward(self, inputs) -> torch.Tensor:
+        return self.layers(inputs)
+    
 class CalibrationBlock(nn.Module):
     """
     Calibration output using feature.
@@ -179,34 +215,15 @@ class CalibrationBlock(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim, bias=True),
             nn.ReLU(), 
+        )
+        self.last = nn.Sequential(
             nn.Linear(hidden_dim, 2, bias=True),
             nn.Sigmoid()
         )
-
-        # self.shortcut = nn.Sequential(
-        #     nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
-        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
-        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
-        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
-        #     nn.AvgPool2d(kernel_size=2),
-        #     nn.Flatten(),
-        #     nn.Linear(32, hidden_dim, bias=True),
-        #     nn.ReLU()
-        # )
-        # self.last =  nn.Sequential(
-        #     nn.Linear(hidden_dim, 2, bias=True),
-        #     nn.Sigmoid()
-        # )
     
-    def forward(self, inputs, features, outputs) -> torch.Tensor:
-        # s = self.last(self.layers(features) + self.shortcut(inputs))
-        s = self.layers(features)
+    def forward(self, features, shortcuts, outputs) -> torch.Tensor:
+        s = self.last(self.layers(features) + shortcuts)
         outputs = outputs * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
-        # output = output * s
         return outputs
 
 
@@ -241,6 +258,7 @@ class ResNet(_DynamicModel):
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
+        self.contrast_feat_extractor = ContrastFeatExtractor(100, 32).to(device)
         # for n, m in self.named_modules():
         #     if isinstance(m, _DynamicLayer):
         #         print(n)
@@ -264,13 +282,15 @@ class ResNet(_DynamicModel):
         return nn.ModuleList(layers)
     
     def cal_ets_forward(self, inputs, features, t):
+        shortcuts = self.contrast_feat_extractor(inputs)
         outputs = self.linear.ets_forward(features, t)
-        outputs = self.ets_cal_layers[t](inputs, features, outputs)
+        outputs = self.ets_cal_layers[t](features, shortcuts, outputs)
         return outputs
     
     def cal_kbts_forward(self, inputs, features, t):
+        shortcuts = self.contrast_feat_extractor(inputs)
         outputs = self.linear.kbts_forward(features, t)
-        outputs = self.kbts_cal_layers[t](inputs, features, outputs)
+        outputs = self.kbts_cal_layers[t](features, shortcuts, outputs)
         return outputs
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
@@ -282,11 +302,12 @@ class ResNet(_DynamicModel):
 
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
-        if feat:
-            return feature
         out = self.linear.ets_forward(feature, t)
         if cal:
-            out = self.ets_cal_layers[t](x, feature, out)
+            shortcut = self.contrast_feat_extractor(x)
+            out = self.ets_cal_layers[t](feature, shortcut, out)
+        if feat:
+            return feature, out
         return out
     
     def kbts_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
@@ -299,18 +320,17 @@ class ResNet(_DynamicModel):
 
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
-        if feat:
-            return feature
         out = self.linear.kbts_forward(feature, t)
         if cal:
-            out = self.kbts_cal_layers[t](x, feature, out)
+            shortcut = self.contrast_feat_extractor(x)
+            out = self.kbts_cal_layers[t](feature, shortcut, out)
+        if feat:
+            return feature, out
         return out
     
     def expand(self, new_classes, t):
         if t == 0:
             add_in = self.conv1.expand([(None, None)], [(None, None)])
-            # if 'op' in self.args.ablation:
-            #     self.conv1.layers[0].base_in_features = 0
         else:
             add_in = self.conv1.expand([(0, 0)], [(None, None)])
 
@@ -323,8 +343,6 @@ class ResNet(_DynamicModel):
         for m in self.DB:
             self.total_strength += m.strength
 
-        # for m in self.DB:
-        #     print(m.ets_norm_layers[-1].weight)
 
     def squeeze(self, optim_state):
         mask_in = None
@@ -353,6 +371,7 @@ class ResNet(_DynamicModel):
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
     def set_jr_params(self, t):
+        # self.contrast_feat_extractor = ContrastFeatExtractor(100, 32)
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
         for i in range(t+1):
@@ -367,7 +386,7 @@ class ResNet(_DynamicModel):
         # self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 100).to(device))
         
     def get_optim_jr_params(self):
-        return list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
+        return list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.contrast_feat_extractor.parameters())
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
