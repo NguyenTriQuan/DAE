@@ -441,19 +441,16 @@ class DAE(ContinualModel):
                 x = self.dataset.test_transforms[i](inputs)
                 outputs = []
                 feat, out = self.net.ets_forward(x, i, feat=True)
-                data[2*i+3].append(feat.detach().clone().cpu())
+                data[3*i+3].append(feat.detach().clone().cpu())
                 outputs.append(out)
                 feat, out = self.net.kbts_forward(x, i, feat=True)
-                data[2*i+1+3].append(feat.detach().clone().cpu())
+                data[3*i+1+3].append(feat.detach().clone().cpu())
                 outputs.append(out)
                 outputs = ensemble_outputs(outputs)
-                data[2*i+2+3].append(entropy(outputs.exp()).sum().detach().clone().cpu())
+                data[3*i+2+3].append(entropy(outputs.exp()).sum().detach().clone().cpu())
 
-        for temp in data:
-            for z in temp:
-                print(z.shape)
         data = [torch.cat(temp) for temp in data]
-        criteria = data[2*self.task+2+3] / torch.sum(torch.stack([data[2*i+2+3] for i in range(self.task+1)], dim=1), dim=1)
+        criteria = data[3*self.task+2+3] / torch.sum(torch.stack([data[3*i+2+3] for i in range(self.task+1)], dim=1), dim=1)
         values, indices = criteria.sort(dim=0, descending=True)
         data = [temp[indices[:samples_per_task]] for temp in data]
 
@@ -504,7 +501,7 @@ class DAE(ContinualModel):
         data = [[] for _ in range(len(self.buffer.dataset.tensors))]
         for t in range(self.task+1):
             idx = (buf_data[2] == t)
-            criteria = buf_data[2*t+2+3][idx] / torch.sum(torch.stack([buf_data[2*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
+            criteria = buf_data[3*t+2+3][idx] / torch.sum(torch.stack([buf_data[3*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
             values, indices = criteria.sort(dim=0, descending=True)
             for j in range(len(data)):
                 data[j].append(buf_data[j][indices[:samples_per_task]])
