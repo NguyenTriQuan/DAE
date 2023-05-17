@@ -450,7 +450,7 @@ class DAE(ContinualModel):
                 data[2*i+2+3].append(entropy(outputs.exp()).sum().detach().clone().cpu())
 
         for temp in data:
-            print(len(temp))
+            print(temp)
         data = [torch.cat(temp) for temp in data]
         criteria = data[2*self.task+2+3] / torch.sum(torch.stack([data[2*i+2+3] for i in range(self.task+1)], dim=1), dim=1)
         values, indices = criteria.sort(dim=0, descending=True)
