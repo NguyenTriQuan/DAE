@@ -447,6 +447,7 @@ class DAE(ContinualModel):
                 data[3*i+1+3].append(feat.detach().clone().cpu())
                 outputs.append(out)
                 outputs = ensemble_outputs(outputs)
+                print(entropy(outputs.exp()).sum().detach().clone().cpu().shape)
                 data[3*i+2+3].append(entropy(outputs.exp()).sum().detach().clone().cpu())
 
         for temp in data:
