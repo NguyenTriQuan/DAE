@@ -277,7 +277,7 @@ class ResNet(_DynamicModel):
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
-        self.contrast_feat_extractor = ContrastFeatExtractor(256, 32).to(device)
+        # self.contrast_feat_extractor = ContrastFeatExtractor(256, 32).to(device)
         # for n, m in self.named_modules():
         #     if isinstance(m, _DynamicLayer):
         #         print(n)
@@ -390,7 +390,8 @@ class ResNet(_DynamicModel):
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
     def set_jr_params(self, t):
-        # self.contrast_feat_extractor = ContrastFeatExtractor(100, 32)
+        self.contrast_feat_extractor = ContrastFeatExtractor(256, 32).to(device)
+        # self.contrast_feat_extractor = ContrastFeatExtractor(256, 32)
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
         for i in range(t+1):
