@@ -143,8 +143,9 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         if epoch >= num_squeeze:
             squeeze = False
     
-    accs = evaluate(model, dataset, task=t, mode=mode)
-    print('\n{} Accuracy for {} task(s): {} %'.format(mode, t+1, round(accs[0][0], 2)), file=sys.stderr)
+    if 'cal' not in mode or 'tc' not in mode:
+        accs = evaluate(model, dataset, task=t, mode=mode)
+        print('\n{} Accuracy for {} task(s): {} %'.format(mode, t+1, round(accs[0][0], 2)), file=sys.stderr)
 
 
 def train(model: ContinualModel, dataset: ContinualDataset,
@@ -247,7 +248,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 eval_mode = eval_mode + '_cal'
                 if 'tc' not in args.ablation:
                     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='tc')
-                    
+
                 train_loop(t, model, dataset, args, progress_bar, train_loader, mode=eval_mode)
                 accs = evaluate(model, dataset, task=None, mode=eval_mode)
                 mean_acc = np.mean(accs, axis=1)
