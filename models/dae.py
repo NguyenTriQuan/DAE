@@ -315,10 +315,9 @@ class DAE(ContinualModel):
                     x = self.dataset.test_transforms[k](inputs)
                     outputs = []
                     if 'ets' in mode:
-                        outputs += [self.net.cal_ets_forward(x, data[2*k+2][idx], k)]
+                        outputs += [self.net.cal_ets_forward(x, data[3*k+3][idx], k)]
                     if 'kbts' in mode:
-                        outputs += [self.net.cal_kbts_forward(x, data[2*k+1+2][idx], k)]
-                    outputs = [self.net.cal_ets_forward(x, data[2*k+2][idx], k), self.net.cal_kbts_forward(x, data[2*k+1+2][idx], k)]
+                        outputs += [self.net.cal_kbts_forward(x, data[3*k+1+3][idx], k)]
                     outputs = ensemble_outputs(outputs)
                     join_entropy = entropy(outputs.exp())
                     if k == t:
