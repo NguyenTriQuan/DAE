@@ -324,7 +324,6 @@ class DAE(ContinualModel):
                         correct_entropy = join_entropy
                     total_entropy += join_entropy
                 loss += torch.sum(correct_entropy / total_entropy)
-            loss /= data[0].shape[0]
             loss.backward()
             self.opt.step()
             # _, predicts = outputs.max(1)
@@ -429,6 +428,11 @@ class DAE(ContinualModel):
         else:
             samples_per_task = self.args.buffer_size // (self.task)
 
+        if self.task == 0:
+            samples_per_class = self.args.buffer_size // ((self.task+1) * self.dataset.N_CLASSES_PER_TASK)
+        else:
+            samples_per_class = self.args.buffer_size // (self.task * self.dataset.N_CLASSES_PER_TASK)
+
         self.net.eval()
         data = [[] for _ in range(3 + (self.task+1) * 3)]
 
@@ -455,9 +459,15 @@ class DAE(ContinualModel):
         data = [torch.cat(temp) for temp in data]
         # criteria = data[3*self.task+2+3] / torch.sum(torch.stack([data[3*i+2+3] for i in range(self.task+1)], dim=1), dim=1)
         # values, indices = criteria.sort(dim=0, descending=True)
-        indices = np.arange(data[0].shape[0])
-        np.random.shuffle(indices)
-        data = [temp[indices[:samples_per_task]] for temp in data]
+        # indices = np.arange(data[0].shape[0])
+        # np.random.shuffle(indices)
+        # data = [temp[indices[:samples_per_task]] for temp in data]
+
+        indices = []
+        for c in data[1].unique():
+            indices.append((data[1] == c)[:samples_per_class])
+        indices = torch.cat(indices)
+        data = [temp[indices] for temp in data]
 
         if self.task > 0:
             buf_ent = []
@@ -501,17 +511,24 @@ class DAE(ContinualModel):
         mode = self.net.training
         self.net.eval()
         samples_per_task = self.args.buffer_size // (self.task+1)
+        samples_per_class = self.args.buffer_size // ((self.task+1) * self.dataset.N_CLASSES_PER_TASK)
         
-        buf_data = self.buffer.dataset.tensors
-        data = [[] for _ in range(len(self.buffer.dataset.tensors))]
-        for t in range(self.task+1):
-            idx = (buf_data[2] == t)
-            # criteria = buf_data[3*t+2+3][idx] / torch.sum(torch.stack([buf_data[3*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
-            # values, indices = criteria.sort(dim=0, descending=True)
-            indices = np.arange(buf_data[0][idx].shape[0])
-            np.random.shuffle(indices)
-            for j in range(len(data)):
-                data[j].append(buf_data[j][idx][indices[:samples_per_task]])
+        data = list(self.buffer.dataset.tensors)
+        # data = [[] for _ in range(len(self.buffer.dataset.tensors))]
+        # for t in range(self.task+1):
+        #     idx = (buf_data[2] == t)
+        #     # criteria = buf_data[3*t+2+3][idx] / torch.sum(torch.stack([buf_data[3*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
+        #     # values, indices = criteria.sort(dim=0, descending=True)
+        #     indices = np.arange(buf_data[0][idx].shape[0])
+        #     np.random.shuffle(indices)
+        #     for j in range(len(data)):
+        #         data[j].append(buf_data[j][idx][indices[:samples_per_task]])
+
+        indices = []
+        for c in data[1].unique():
+            indices.append((data[1] == c)[:samples_per_class])
+        indices = torch.cat(indices)
+        data = [temp[indices] for temp in data]
 
         data = [torch.cat(temp) for temp in data]
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
