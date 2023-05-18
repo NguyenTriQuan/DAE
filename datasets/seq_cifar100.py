@@ -59,14 +59,16 @@ class SequentialCIFAR100(ContinualDataset):
         test_loader = DataLoader(TensorDataset(self.test_data[test_mask], self.test_targets[test_mask]), batch_size=self.args.val_batch_size, shuffle=False)
         self.test_loaders.append(test_loader)
         self.train_loader = train_loader
-        mean = train_loader.dataset.tensors[0].mean((0, 2, 3))
-        std = train_loader.dataset.tensors[0].std((0, 2, 3), unbiased=False)
-        print(f'Classes: {self.i} - {self.i+self.N_CLASSES_PER_TASK}, mean = {mean}, std = {std}')
+        if 'dis' in self.args.ablation:
+            mean = train_loader.dataset.tensors[0].mean((0, 2, 3))
+            std = train_loader.dataset.tensors[0].std((0, 2, 3), unbiased=False)
+            print(f'Classes: {self.i} - {self.i+self.N_CLASSES_PER_TASK}, mean = {mean}, std = {std}')
+            self.test_transforms += [torch.nn.Sequential(
+                    K.augmentation.Normalize(mean, std)
+                )]
+        else:
+            self.test_transforms += [self.test_transform]
         self.i += self.N_CLASSES_PER_TASK
-        self.test_transforms += [torch.nn.Sequential(
-                K.augmentation.Normalize(mean, std)
-            )]
-        # self.test_transforms += [self.test_transform]
         return train_loader, test_loader
     
     def get_full_data_loader(self):
