@@ -168,27 +168,27 @@ class BasicBlock(nn.Module):
         out = self.conv2.kbts_forward([x, out], t)
         return out
     
-class BasicBlock(nn.Module):
-    """
-    The basic block of ResNet.
-    """
-    expansion = 1
+# class BasicBlock(nn.Module):
+#     """
+#     The basic block of ResNet.
+#     """
+#     expansion = 1
 
-    def __init__(self, in_planes: int, planes: int, stride: int=1) -> None:
-        """
-        Instantiates the basic block of the network.
-        :param in_planes: the number of input channels
-        :param planes: the number of channels (to be possibly expanded)
-        """
-        super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
-        self.shortcut = nn.Conv2d(planes, planes, kernel_size=1, stride=stride, padding=1, bias=False)
+#     def __init__(self, in_planes: int, planes: int, stride: int=1) -> None:
+#         """
+#         Instantiates the basic block of the network.
+#         :param in_planes: the number of input channels
+#         :param planes: the number of channels (to be possibly expanded)
+#         """
+#         super(BasicBlock, self).__init__()
+#         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+#         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
+#         self.shortcut = nn.Conv2d(planes, planes, kernel_size=1, stride=stride, padding=1, bias=False)
 
-    def ets_forward(self, x: torch.Tensor, t) -> torch.Tensor:
-        out = F.relu(self.conv1())
-        out = self.conv2.ets_forward([x, out], t)
-        return out
+#     def ets_forward(self, x: torch.Tensor, t) -> torch.Tensor:
+#         out = F.relu(self.conv1())
+#         out = self.conv2.ets_forward([x, out], t)
+#         return out
     
 class ContrastFeatExtractor(nn.Module):
     """
