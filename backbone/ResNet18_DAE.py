@@ -168,6 +168,28 @@ class BasicBlock(nn.Module):
         out = self.conv2.kbts_forward([x, out], t)
         return out
     
+class BasicBlock(nn.Module):
+    """
+    The basic block of ResNet.
+    """
+    expansion = 1
+
+    def __init__(self, in_planes: int, planes: int, stride: int=1) -> None:
+        """
+        Instantiates the basic block of the network.
+        :param in_planes: the number of input channels
+        :param planes: the number of channels (to be possibly expanded)
+        """
+        super(BasicBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.shortcut = nn.Conv2d(planes, planes, kernel_size=1, stride=stride, padding=1, bias=False)
+
+    def ets_forward(self, x: torch.Tensor, t) -> torch.Tensor:
+        out = F.relu(self.conv1())
+        out = self.conv2.ets_forward([x, out], t)
+        return out
+    
 class ContrastFeatExtractor(nn.Module):
     """
     Calibration output using feature.
@@ -176,29 +198,24 @@ class ContrastFeatExtractor(nn.Module):
         super(ContrastFeatExtractor, self).__init__()
 
         self.layers = nn.Sequential(
-            nn.Conv2d(3, hidden_dim, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(hidden_dim),
+            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
             nn.ReLU(),
 
-            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(hidden_dim),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
             nn.ReLU(),
 
-            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(hidden_dim),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
             nn.ReLU(),
 
-            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(hidden_dim),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
             nn.ReLU(),
 
-            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(hidden_dim),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
             nn.ReLU(),
 
             nn.AvgPool2d(kernel_size=2),
             nn.Flatten(),
-            nn.Linear(hidden_dim, feat_dim, bias=True),
+            nn.Linear(256, feat_dim, bias=True),
         )
     
     def forward(self, inputs) -> torch.Tensor:
@@ -260,7 +277,7 @@ class ResNet(_DynamicModel):
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
-        self.contrast_feat_extractor = ContrastFeatExtractor(100, 32).to(device)
+        self.contrast_feat_extractor = ContrastFeatExtractor(256, 32).to(device)
         # for n, m in self.named_modules():
         #     if isinstance(m, _DynamicLayer):
         #         print(n)
@@ -379,8 +396,8 @@ class ResNet(_DynamicModel):
         for i in range(t+1):
             ets_dim = self.linear.weight_ets[i].shape[1]
             kbts_dim = self.linear.weight_kbts[i].shape[1]
-            self.ets_cal_layers.append(CalibrationBlock(ets_dim, 100).to(device))
-            self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 100).to(device))
+            self.ets_cal_layers.append(CalibrationBlock(ets_dim, 256).to(device))
+            self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 256).to(device))
 
         # ets_dim = self.linear.weight_ets[-1].shape[1]
         # kbts_dim = self.linear.weight_kbts[-1].shape[1]
