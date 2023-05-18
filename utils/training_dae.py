@@ -96,7 +96,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     elif 'tc' in mode:
         # tasks contrast:
         n_epochs = 50
-        params = model.net.get_optim_cal_params()
+        params = model.net.get_optim_tc_params()
         count = 0
         for param in params:
             count += param.numel()
