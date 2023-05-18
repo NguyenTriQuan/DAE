@@ -453,8 +453,10 @@ class DAE(ContinualModel):
         #     for j in temp:
         #         print(j.shape)
         data = [torch.cat(temp) for temp in data]
-        criteria = data[3*self.task+2+3] / torch.sum(torch.stack([data[3*i+2+3] for i in range(self.task+1)], dim=1), dim=1)
-        values, indices = criteria.sort(dim=0, descending=True)
+        # criteria = data[3*self.task+2+3] / torch.sum(torch.stack([data[3*i+2+3] for i in range(self.task+1)], dim=1), dim=1)
+        # values, indices = criteria.sort(dim=0, descending=True)
+        indices = np.arange(data[0].shape[0])
+        np.random.shuffle(indices)
         data = [temp[indices[:samples_per_task]] for temp in data]
 
         if self.task > 0:
@@ -504,8 +506,10 @@ class DAE(ContinualModel):
         data = [[] for _ in range(len(self.buffer.dataset.tensors))]
         for t in range(self.task+1):
             idx = (buf_data[2] == t)
-            criteria = buf_data[3*t+2+3][idx] / torch.sum(torch.stack([buf_data[3*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
-            values, indices = criteria.sort(dim=0, descending=True)
+            # criteria = buf_data[3*t+2+3][idx] / torch.sum(torch.stack([buf_data[3*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
+            # values, indices = criteria.sort(dim=0, descending=True)
+            indices = np.arange(buf_data[0][idx].shape[0])
+            np.random.shuffle(indices)
             for j in range(len(data)):
                 data[j].append(buf_data[j][idx][indices[:samples_per_task]])
 
