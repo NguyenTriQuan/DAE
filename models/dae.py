@@ -319,11 +319,12 @@ class DAE(ContinualModel):
                     if 'kbts' in mode:
                         outputs += [self.net.cal_kbts_forward(x, data[3*k+1+3][idx], k)]
                     outputs = ensemble_outputs(outputs)
-                    join_entropy = entropy(outputs.exp())
+                    join_entropy = entropy(outputs.exp()).sum()
                     if k == t:
                         correct_entropy = join_entropy
                     total_entropy += join_entropy
-                loss += torch.sum(correct_entropy / total_entropy)
+                # loss += torch.sum(correct_entropy / total_entropy)
+                loss += correct_entropy / total_entropy
             loss.backward()
             self.opt.step()
             # _, predicts = outputs.max(1)
