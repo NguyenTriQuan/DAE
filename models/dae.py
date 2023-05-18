@@ -144,8 +144,8 @@ class DAE(ContinualModel):
         self.soft = torch.nn.Softmax(dim=1)
         # self.device = 'cpu'
 
-    def forward(self, inputs, t=None, mode='ets_kbts_jr'):
-        if 'jr' in mode:
+    def forward(self, inputs, t=None, mode='ets_kbts_cal'):
+        if 'cal' in mode:
             cal = True
         else:
             cal = False
@@ -319,11 +319,11 @@ class DAE(ContinualModel):
                         outputs += [self.net.cal_kbts_forward(x, data[2*k+1+2][idx], k)]
                     outputs = [self.net.cal_ets_forward(x, data[2*k+2][idx], k), self.net.cal_kbts_forward(x, data[2*k+1+2][idx], k)]
                     outputs = ensemble_outputs(outputs)
-                    join_entropy = entropy(outputs.exp()).sum()
+                    join_entropy = entropy(outputs.exp())
                     if k == t:
                         correct_entropy = join_entropy
                     total_entropy += join_entropy
-                loss += correct_entropy / total_entropy
+                loss += torch.sum(correct_entropy / total_entropy)
                 
             loss.backward()
             self.opt.step()

@@ -385,8 +385,11 @@ class ResNet(_DynamicModel):
         # self.ets_cal_layers.append(CalibrationBlock(ets_dim, 100).to(device))
         # self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 100).to(device))
         
-    def get_optim_jr_params(self):
+    def get_optim_cal_params(self):
         return list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.contrast_feat_extractor.parameters())
+    
+    def get_optim_tc_params(self):
+        return list(self.contrast_feat_extractor.parameters())
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:

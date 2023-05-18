@@ -83,9 +83,20 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     squeeze = False
     num_squeeze = 50
     progress_bar = ProgressBar(verbose=not args.non_verbose)
-    if 'jr' in mode:
+    if 'cal' in mode:
+        # calibration outputs
         n_epochs = 50
-        params = list(model.net.ets_cal_layers.parameters()) + list(model.net.kbts_cal_layers.parameters())
+        params = model.net.get_optim_cal_params()
+        count = 0
+        for param in params:
+            count += param.numel()
+        print(f'Training mode: {mode}, Number of optim params: {count}')
+        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+    elif 'tc':
+        # tasks contrast:
+        n_epochs = 50
+        params = model.net.get_optim_cal_params()
         count = 0
         for param in params:
             count += param.numel()
@@ -122,8 +133,10 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
 
     for epoch in range(n_epochs):
-        if 'jr' in mode:
-            model.train_rehearsal(progress_bar, epoch, args.verbose)
+        if 'cal' in mode:
+            model.train_calibration(progress_bar, epoch, mode, args.verbose)
+        elif 'tc' in mode:
+            model.train_contrast(progress_bar, epoch, mode, args.verbose)
         else:          
             model.train(train_loader, progress_bar, mode, squeeze, epoch, args.verbose)
 
@@ -225,13 +238,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
         
-        if 'jr' not in args.ablation:
+        if 'cal' not in args.ablation:
             model.net.set_jr_params(t)
             with torch.no_grad():
                 model.get_rehearsal_logits(train_loader)
             # jr training
             if t > 0:
-                eval_mode = eval_mode + '_jr'
+                eval_mode = eval_mode + '_cal'
+                if 'tc' not in args.ablation:
+                    train_loop(t, model, dataset, args, progress_bar, train_loader, mode='tc')
+                    
                 train_loop(t, model, dataset, args, progress_bar, train_loader, mode=eval_mode)
                 accs = evaluate(model, dataset, task=None, mode=eval_mode)
                 mean_acc = np.mean(accs, axis=1)
