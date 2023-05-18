@@ -189,12 +189,12 @@ class DAE(ContinualModel):
             _, predicts = predicted_outputs.max(1)
             # print(outputs_tasks.shape, outputs_tasks.abs().sum((0,2)))
             # print('entropy', joint_entropy_tasks.mean((0)))
-            print('mean', outputs_tasks.mean((0)).mean(-1), 'std', outputs_tasks.std((0)).mean(-1))
+            # print('mean', outputs_tasks.mean((0)).mean(-1), 'std', outputs_tasks.std((0)).mean(-1))
             # outputs_tasks = outputs_tasks.permute((1, 0, 2)).reshape((self.task+1, -1))
             # print('min - max', outputs_tasks.min(1)[0], outputs_tasks.max(1)[0])
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
         
-    def eval(self, task=None, mode='ets_kbts_jr'):
+    def eval(self, task=None, mode='ets_kbts_cal'):
         with torch.no_grad():
             self.net.eval()
             accs, accs_mask_classes = [], []
@@ -307,6 +307,7 @@ class DAE(ContinualModel):
             loss = 0
             for t in range(self.task+1):
                 idx = (data[2] == t)
+                print(sum(idx))
                 total_entropy = 0
                 inputs = data[0][idx]
                 if inputs.numel() == 0:
