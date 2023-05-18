@@ -102,7 +102,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [180, 195], gamma=0.1, verbose=False)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [170, 190], gamma=0.1, verbose=False)
     elif 'ets' in mode:
         params = model.net.get_optim_ets_params()
         count = 0
