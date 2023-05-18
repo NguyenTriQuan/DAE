@@ -319,7 +319,7 @@ class DAE(ContinualModel):
                     if 'kbts' in mode:
                         outputs += [self.net.cal_kbts_forward(x, data[3*k+1+3][idx], k)]
                     outputs = ensemble_outputs(outputs)
-                    join_entropy = entropy(outputs.exp()).sum()
+                    join_entropy = entropy(outputs.exp())
                     if k == t:
                         correct_entropy = join_entropy
                     total_entropy += join_entropy
