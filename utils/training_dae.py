@@ -245,16 +245,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             with torch.no_grad():
                 model.get_rehearsal_logits(train_loader)
             # jr training
-            if t > 0:
-                eval_mode = eval_mode + '_cal'
-                if 'tc' not in args.ablation:
-                    train_loop(t, model, dataset, args, progress_bar, train_loader, mode='tc')
+            # if t > 0:
+            #     eval_mode = eval_mode + '_cal'
+            #     if 'tc' not in args.ablation:
+            #         train_loop(t, model, dataset, args, progress_bar, train_loader, mode='tc')
 
-                train_loop(t, model, dataset, args, progress_bar, train_loader, mode=eval_mode)
-                accs = evaluate(model, dataset, task=None, mode=eval_mode)
-                mean_acc = np.mean(accs, axis=1)
-                print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
-                print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+            #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode=eval_mode)
+            #     accs = evaluate(model, dataset, task=None, mode=eval_mode)
+            #     mean_acc = np.mean(accs, axis=1)
+            #     print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
+            #     print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
             with torch.no_grad():
                 model.fill_buffer(train_loader)
