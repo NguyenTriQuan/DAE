@@ -237,7 +237,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         accs = evaluate(model, dataset, task=None, mode=eval_mode)
         mean_acc = np.mean(accs, axis=1)
-        print(f'ets_kbts accs: cil {accs[0]}, til {accs[1]}')
+        print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
         
         if 'cal' not in args.ablation:
@@ -253,7 +253,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 train_loop(t, model, dataset, args, progress_bar, train_loader, mode=eval_mode)
                 accs = evaluate(model, dataset, task=None, mode=eval_mode)
                 mean_acc = np.mean(accs, axis=1)
-                print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
+                print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
                 print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
 
             with torch.no_grad():
