@@ -222,7 +222,8 @@ class CalibrationBlock(nn.Module):
         )
     
     def forward(self, features, shortcuts, outputs) -> torch.Tensor:
-        s = self.last(self.layers(features) + shortcuts)
+        # s = self.last(self.layers(features) + shortcuts)
+        s = self.last(self.layers(features))
         outputs = outputs * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
         return outputs
 
