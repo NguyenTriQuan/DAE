@@ -324,7 +324,7 @@ class DAE(ContinualModel):
                         correct_entropy = join_entropy
                     total_entropy += join_entropy
                 loss += torch.sum(correct_entropy / total_entropy)
-                
+            loss /= data[0].shape[0]
             loss.backward()
             self.opt.step()
             # _, predicts = outputs.max(1)

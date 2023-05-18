@@ -218,7 +218,7 @@ class CalibrationBlock(nn.Module):
         )
         self.last = nn.Sequential(
             nn.Linear(hidden_dim, 2, bias=True),
-            nn.Sigmoid()
+            nn.Softplus()
         )
     
     def forward(self, features, shortcuts, outputs) -> torch.Tensor:
