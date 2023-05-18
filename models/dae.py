@@ -307,7 +307,6 @@ class DAE(ContinualModel):
             loss = 0
             for t in range(self.task+1):
                 idx = (data[2] == t)
-                print(sum(idx))
                 total_entropy = 0
                 inputs = data[0][idx]
                 if inputs.numel() == 0:
