@@ -143,7 +143,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         if epoch >= num_squeeze:
             squeeze = False
     
-    if 'cal' not in mode or 'tc' not in mode:
+    if 'cal' not in mode and 'tc' not in mode:
         accs = evaluate(model, dataset, task=t, mode=mode)
         print('\n{} Accuracy for {} task(s): {} %'.format(mode, t+1, round(accs[0][0], 2)), file=sys.stderr)
 
