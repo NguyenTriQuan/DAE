@@ -447,12 +447,11 @@ class DAE(ContinualModel):
                 data[3*i+1+3].append(feat.detach().clone().cpu())
                 outputs.append(out)
                 outputs = ensemble_outputs(outputs)
-                print(outputs.shape)
-                data[3*i+2+3].append(entropy(outputs.exp()).sum().detach().clone().cpu())
+                data[3*i+2+3].append(entropy(outputs.exp()).detach().clone().cpu())
 
-        for temp in data:
-            for j in temp:
-                print(j.shape)
+        # for temp in data:
+        #     for j in temp:
+        #         print(j.shape)
         data = [torch.cat(temp) for temp in data]
         criteria = data[3*self.task+2+3] / torch.sum(torch.stack([data[3*i+2+3] for i in range(self.task+1)], dim=1), dim=1)
         values, indices = criteria.sort(dim=0, descending=True)
@@ -473,7 +472,7 @@ class DAE(ContinualModel):
                 buf_kbts_feat.append(feat.detach().clone().cpu())
                 outputs.append(out)
                 outputs = ensemble_outputs(outputs)
-                buf_ent.append(entropy(outputs.exp()).sum().detach().clone().cpu())
+                buf_ent.append(entropy(outputs.exp()).detach().clone().cpu())
 
             buf_data = list(self.buffer.dataset.tensors) + [torch.cat(buf_ets_feat), torch.cat(buf_kbts_feat), torch.cat(buf_ent)] 
             data = [torch.cat([buf_temp, temp]) for buf_temp, temp in zip(buf_data, data)]
