@@ -277,10 +277,13 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            inputs = torch.cat([self.dataset.test_transforms[-1](self.dataset.train_transform(data[0])), 
-                                self.dataset.test_transforms[-1](self.dataset.train_transform(data[0]))])
+            inputs = torch.cat([data[0], torch.rot90(data[0], 1, (2, 3)), torch.rot90(data[0], 2, (2, 3)), torch.rot90(data[0], 3, (2, 3))])
+            tasks = torch.cat([data[2]*4, data[2]*4+1, data[2]*4+2, data[2]*4+3])
+
+            inputs = torch.cat([inputs, self.dataset.test_transforms[-1](self.dataset.train_transform(inputs))])
+            tasks = torch.cat([tasks, tasks])
+
             features = self.net.contrast_feat_extractor(inputs)
-            tasks = torch.cat([data[2], data[2]])
             loss = sup_con_loss(features, tasks, self.args.temperature)
                 
             loss.backward()
@@ -493,13 +496,12 @@ class DAE(ContinualModel):
             
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         print(data[2].unique())
-        print(data[1].unique())
         print(data[0].shape)
-        # for c in buffer_data[1].unique():
-        #     idx = (buffer_data[1] == c)
-        #     print(c, idx.sum())
-        # for i in buffer_data:
-        #     print(i.shape)
+        print(data[1].unique())
+        for c in data[1].unique():
+            idx = (data[1] == c)
+            print(c, idx.sum())
+        
 
 
     def fill_buffer(self, train_loader) -> None:
