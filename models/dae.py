@@ -465,7 +465,7 @@ class DAE(ContinualModel):
 
         indices = []
         for c in data[1].unique():
-            idx = np.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
+            idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
             print(len(idx), idx)
             indices.append(idx)
         indices = torch.cat(indices)
@@ -529,7 +529,7 @@ class DAE(ContinualModel):
         data = list(self.buffer.dataset.tensors)
         indices = []
         for c in data[1].unique():
-            idx = np.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
+            idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
             print(len(idx), idx)
             indices.append(idx)
         indices = torch.cat(indices)
