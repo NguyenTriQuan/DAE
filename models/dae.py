@@ -461,7 +461,7 @@ class DAE(ContinualModel):
             buf_ent = []
             buf_ets_feat = []
             buf_kbts_feat = []
-            for temp in self.buffer_data:
+            for temp in self.buffer:
                 inputs = temp[0].to(self.device)
                 x = self.dataset.test_transforms[self.task](inputs)
                 outputs = []
