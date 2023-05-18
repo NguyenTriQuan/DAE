@@ -277,7 +277,8 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            inputs = torch.cat[self.dataset.test_transforms[-1](self.dataset.train_transform(data[0])), self.dataset.test_transforms[-1](self.dataset.train_transform(data[0]))]
+            inputs = torch.cat([self.dataset.test_transforms[-1](self.dataset.train_transform(data[0])), 
+                                self.dataset.test_transforms[-1](self.dataset.train_transform(data[0]))])
             features = self.net.contrast_feat_extractor(inputs)
             tasks = torch.cat([data[2], data[2]])
             loss = sup_con_loss(features, tasks, self.args.temperature)
