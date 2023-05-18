@@ -465,7 +465,9 @@ class DAE(ContinualModel):
 
         indices = []
         for c in data[1].unique():
-            indices.append((data[1] == c)[:samples_per_class])
+            idx = np.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
+            print(len(idx), idx)
+            indices.append(idx)
         indices = torch.cat(indices)
         data = [temp[indices] for temp in data]
 
@@ -513,7 +515,7 @@ class DAE(ContinualModel):
         samples_per_task = self.args.buffer_size // (self.task+1)
         samples_per_class = self.args.buffer_size // ((self.task+1) * self.dataset.N_CLASSES_PER_TASK)
         
-        data = list(self.buffer.dataset.tensors)
+        # data = list(self.buffer.dataset.tensors)
         # data = [[] for _ in range(len(self.buffer.dataset.tensors))]
         # for t in range(self.task+1):
         #     idx = (buf_data[2] == t)
@@ -524,13 +526,16 @@ class DAE(ContinualModel):
         #     for j in range(len(data)):
         #         data[j].append(buf_data[j][idx][indices[:samples_per_task]])
 
+        data = list(self.buffer.dataset.tensors)
         indices = []
         for c in data[1].unique():
-            indices.append((data[1] == c)[:samples_per_class])
+            idx = np.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
+            print(len(idx), idx)
+            indices.append(idx)
         indices = torch.cat(indices)
         data = [temp[indices] for temp in data]
 
-        data = [torch.cat(temp) for temp in data]
+        # data = [torch.cat(temp) for temp in data]
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         print(data[2].unique())
         print(data[1].unique())
