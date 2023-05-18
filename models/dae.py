@@ -503,12 +503,11 @@ class DAE(ContinualModel):
         buf_data = self.buffer.dataset.tensors
         data = [[] for _ in range(len(self.buffer.dataset.tensors))]
         for t in range(self.task+1):
-            print(buf_data[2])
             idx = (buf_data[2] == t)
             criteria = buf_data[3*t+2+3][idx] / torch.sum(torch.stack([buf_data[3*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
             values, indices = criteria.sort(dim=0, descending=True)
             for j in range(len(data)):
-                data[j].append(buf_data[j][indices[:samples_per_task]])
+                data[j].append(buf_data[j][idx][indices[:samples_per_task]])
 
         data = [torch.cat(temp) for temp in data]
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
