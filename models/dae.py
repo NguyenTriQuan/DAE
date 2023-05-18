@@ -511,6 +511,7 @@ class DAE(ContinualModel):
 
         data = [torch.cat(temp) for temp in data]
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
+        print(data[2].unique())
         print(data[1].unique())
         print(data[0].shape)
 
