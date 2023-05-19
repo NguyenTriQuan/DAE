@@ -305,7 +305,7 @@ class ResNet(_DynamicModel):
     def cal_forward(self, ets_features, kbts_features, t, cal=False):
         hidden = self.ets_cal_layers[t](ets_features) + self.kbts_cal_layers[t](kbts_features)
         if cal:
-            return self.cal_head(hidden)[t]
+            return self.cal_head(hidden)[:, t]
         else:
             return self.projector(hidden)
         
