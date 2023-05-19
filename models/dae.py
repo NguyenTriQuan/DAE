@@ -277,10 +277,13 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            inputs = torch.cat([data[0], torch.rot90(data[0], 1, (2, 3)), torch.rot90(data[0], 2, (2, 3)), torch.rot90(data[0], 3, (2, 3))])
-            tasks = torch.cat([data[2]*4, data[2]*4+1, data[2]*4+2, data[2]*4+3])
+            # inputs = torch.cat([data[0], torch.rot90(data[0], 1, (2, 3)), torch.rot90(data[0], 2, (2, 3)), torch.rot90(data[0], 3, (2, 3))])
+            # tasks = torch.cat([data[2]*4, data[2]*4+1, data[2]*4+2, data[2]*4+3])
 
-            inputs = torch.cat([inputs, self.dataset.test_transforms[-1](self.dataset.train_transform(inputs))])
+            inputs = data[0]
+            tasks = data[2]
+
+            inputs = torch.cat([inputs, self.dataset.contrast_transform(inputs)])
             tasks = torch.cat([tasks, tasks])
 
             features = self.net.contrast_feat_extractor(inputs)

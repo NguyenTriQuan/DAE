@@ -91,7 +91,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         for param in params:
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9)
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
     elif 'tc' in mode:
         # tasks contrast:
@@ -101,7 +101,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         for param in params:
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9)
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [170, 190], gamma=0.1, verbose=False)
     elif 'ets' in mode:
         params = model.net.get_optim_ets_params()

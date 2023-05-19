@@ -231,9 +231,10 @@ class CalibrationBlock(nn.Module):
             nn.Linear(feat_dim, hidden_dim, bias=True),
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim, bias=True),
-            nn.ReLU(), 
         )
         self.last = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim, bias=True),
+            nn.ReLU(),
             nn.Linear(hidden_dim, 2, bias=True),
             nn.Sigmoid()
         )
@@ -390,15 +391,15 @@ class ResNet(_DynamicModel):
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
     def set_jr_params(self, t):
-        self.contrast_feat_extractor = ContrastFeatExtractor(256, 32).to(device)
+        self.contrast_feat_extractor = ContrastFeatExtractor(128, 32).to(device)
         # self.contrast_feat_extractor = ContrastFeatExtractor(256, 32)
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
         for i in range(t+1):
             ets_dim = self.linear.weight_ets[i].shape[1]
             kbts_dim = self.linear.weight_kbts[i].shape[1]
-            self.ets_cal_layers.append(CalibrationBlock(ets_dim, 256).to(device))
-            self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 256).to(device))
+            self.ets_cal_layers.append(CalibrationBlock(ets_dim, 128).to(device))
+            self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 128).to(device))
 
         # ets_dim = self.linear.weight_ets[-1].shape[1]
         # kbts_dim = self.linear.weight_kbts[-1].shape[1]
