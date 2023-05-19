@@ -248,12 +248,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 model.get_rehearsal_logits(train_loader)
             # jr training
             if t > 0:
-                accs = evaluate(model, dataset, task=None, mode='kbts_ets_cal')
-                mean_acc = np.mean(accs, axis=1)
-                print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
-                print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
-
-                eval_mode = eval_mode + '_cal'
+                eval_mode = 'ets_kbts_cal'
                 if 'tc' not in args.ablation:
                     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='tc')
 
