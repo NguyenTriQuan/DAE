@@ -219,6 +219,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         #         results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
         
 
+        model.net.set_jr_params(t)
+        
+        # jr training
+        if t > 0:
+           
+            accs = evaluate(model, dataset, task=None, mode='kbts_ets_cal')
+            mean_acc = np.mean(accs, axis=1)
+            print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
+            print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+
         # kbts training
         if 'kbts' not in args.ablation:
             train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')

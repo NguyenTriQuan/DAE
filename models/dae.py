@@ -154,15 +154,11 @@ class DAE(ContinualModel):
             x = self.dataset.test_transforms[t](inputs)
             outputs = []
             if 'ets' in mode:
-                outputs.append(self.net.ets_forward(x, t, cal=cal))
+                outputs.append(self.net.ets_forward(x, t, feat=True))
             if 'kbts' in mode:
-                outputs.append(self.net.kbts_forward(x, t, cal=cal))
+                outputs.append(self.net.kbts_forward(x, t, feat=True))
 
-            if cal:
-                scales = self.net.cal_forward(outputs[0], outputs[1], t, cal=True).view(-1, 1)
-                outputs = [temp * scales for temp in outputs]
             outputs = ensemble_outputs(outputs)
-            # print(t, 'mean', outputs.mean((0)).mean(-1), 'std', outputs.std((0)).mean(-1))
             _, predicts = outputs.max(1)
             return predicts + t * self.dataset.N_CLASSES_PER_TASK
         else:
@@ -171,16 +167,18 @@ class DAE(ContinualModel):
             for i in range(self.task+1):
                 x = self.dataset.test_transforms[i](inputs)
                 outputs = []
-                weights = []
+                features = []
                 if 'ets' in mode:
-                    out = self.net.ets_forward(x, i, cal=cal)
+                    feat, out = self.net.ets_forward(x, i, feat=True)
                     outputs.append(out)
+                    features.append(feat)
                 if 'kbts' in mode:
-                    out = self.net.kbts_forward(x, i, cal=cal)
+                    feat, out = self.net.kbts_forward(x, i, feat=True)
                     outputs.append(out)
+                    features.append(feat)
 
                 if cal:
-                    scales = self.net.cal_forward(outputs[0], outputs[1], i, cal=True).view(-1, 1)
+                    scales = self.net.cal_forward(features[0], features[1], i, cal=True).view(-1, 1)
                     outputs = [temp * scales for temp in outputs]
                 outputs = ensemble_outputs(outputs)
                 # outputs = outputs[0]
