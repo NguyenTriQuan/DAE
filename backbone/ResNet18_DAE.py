@@ -320,9 +320,6 @@ class ResNet(_DynamicModel):
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
         out = self.linear.ets_forward(feature, t)
-        if cal:
-            shortcut = self.contrast_feat_extractor(x)
-            out = self.ets_cal_layers[t](feature, shortcut, out)
         if feat:
             return feature, out
         return out
@@ -338,9 +335,6 @@ class ResNet(_DynamicModel):
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
         out = self.linear.kbts_forward(feature, t)
-        if cal:
-            shortcut = self.contrast_feat_extractor(x)
-            out = self.kbts_cal_layers[t](feature, shortcut, out)
         if feat:
             return feature, out
         return out

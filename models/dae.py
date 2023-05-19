@@ -158,6 +158,9 @@ class DAE(ContinualModel):
             if 'kbts' in mode:
                 outputs.append(self.net.kbts_forward(x, t, cal=cal))
 
+            if cal:
+                scales = self.net.cal_forward(outputs[0], outputs[1], t, cal=True).view(-1, 1)
+                outputs = [temp * scales for temp in outputs]
             outputs = ensemble_outputs(outputs)
             # print(t, 'mean', outputs.mean((0)).mean(-1), 'std', outputs.std((0)).mean(-1))
             _, predicts = outputs.max(1)
@@ -176,6 +179,9 @@ class DAE(ContinualModel):
                     out = self.net.kbts_forward(x, i, cal=cal)
                     outputs.append(out)
 
+                if cal:
+                    scales = self.net.cal_forward(outputs[0], outputs[1], i, cal=True).view(-1, 1)
+                    outputs = [temp * scales for temp in outputs]
                 outputs = ensemble_outputs(outputs)
                 # outputs = outputs[0]
                 outputs_tasks.append(outputs)
