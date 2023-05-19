@@ -304,6 +304,7 @@ class DAE(ContinualModel):
             data = [tmp.to(self.device) for tmp in data]
             
             scales = torch.cat([self.net.cal_forward(data[3*t+3], data[3*t+1+3], t, cal=True) for t in range(self.task+1)])
+            print(scales.shape)
             scales = scales.view(-1, 1)
             ets_outputs = torch.cat([self.net.linear.ets_forward(data[3*t+3], t) for t in range(self.task+1)])
             kbts_outputs = torch.cat([self.net.linear.kbts_forward(data[3*t+1+3], t) for t in range(self.task+1)])
