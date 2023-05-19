@@ -434,12 +434,12 @@ class ResNet(_DynamicModel):
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, feat_dim)
-        )
+        ).to(device)
 
         self.cal_head = nn.Sequential(
             nn.Linear(hidden_dim, self.args.total_tasks),
             nn.Sigmoid()
-        )
+        ).to(device)
         
     def get_optim_cal_params(self):
         return list(self.cal_head.parameters())
