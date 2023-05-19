@@ -554,10 +554,10 @@ class DAE(ContinualModel):
         indices = torch.cat(indices)
         data = [temp[indices] for temp in data]
 
-        for t in range(self.task+1):
-            idx = (data[2] == t)
-            criteria = data[3*t+2+3][idx] / torch.sum(torch.stack([data[3*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
-            print(criteria)
+        # for t in range(self.task+1):
+        #     idx = (data[2] == t)
+        #     criteria = data[3*t+2+3][idx] / torch.sum(torch.stack([data[3*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
+        #     print(criteria)
 
         # indices = []
         # for c in data[1].unique():
