@@ -537,8 +537,8 @@ class DAE(ContinualModel):
         for t in range(self.task+1):
             idx = (data[2] == t)
             criteria = data[3*t+2+3][idx] / torch.sum(torch.stack([data[3*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
-            values, indices = criteria.sort(dim=0, descending=True)
-            indices.append(torch.arange(data[1].shape[0])[idx][indices[:samples_per_task]])
+            values, stt = criteria.sort(dim=0, descending=True)
+            indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_task]])
         indices = torch.cat(indices)
         data = [temp[indices] for temp in data]
 
