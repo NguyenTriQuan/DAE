@@ -301,17 +301,13 @@ class ResNet(_DynamicModel):
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
     
-    def cal_ets_forward(self, inputs, features, t):
-        shortcuts = self.contrast_feat_extractor(inputs)
-        outputs = self.linear.ets_forward(features, t)
-        outputs = self.ets_cal_layers[t](features, shortcuts, outputs)
-        return outputs
     
-    def cal_kbts_forward(self, inputs, features, t):
-        shortcuts = self.contrast_feat_extractor(inputs)
-        outputs = self.linear.kbts_forward(features, t)
-        outputs = self.kbts_cal_layers[t](features, shortcuts, outputs)
-        return outputs
+    def cal_forward(self, ets_features, kbts_features, t=None):
+        hidden = self.ets_cal_layers(ets_features) + self.kbts_cal_layers(kbts_features)
+        if t is None:
+            return self.projector(hidden)
+        else:
+            return self.cal_head(hidden)[t]
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
         self.get_kb_params(t)
@@ -391,6 +387,8 @@ class ResNet(_DynamicModel):
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
     def set_jr_params(self, t):
+        hidden_dim = 128
+        feat_dim = 128
         # self.ets_cal_layers = nn.ModuleList([])
         # self.kbts_cal_layers = nn.ModuleList([])
         # for i in range(t+1):
@@ -399,17 +397,54 @@ class ResNet(_DynamicModel):
         #     self.ets_cal_layers.append(CalibrationBlock(ets_dim, 128).to(device))
         #     self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 128).to(device))
 
-        self.contrast_feat_extractor = ContrastFeatExtractor(128, 32).to(device)
+        # self.contrast_feat_extractor = ContrastFeatExtractor(128, 32).to(device)
         ets_dim = self.linear.weight_ets[-1].shape[1]
         kbts_dim = self.linear.weight_kbts[-1].shape[1]
-        self.ets_cal_layers.append(CalibrationBlock(ets_dim, 128).to(device))
-        self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 128).to(device))
+        # self.ets_cal_layers.append(CalibrationBlock(ets_dim, 128).to(device))
+        # self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 128).to(device))
+        self.ets_cal_layers.append(
+            nn.Sequential(
+                nn.Dropout(0.5),
+                nn.Linear(ets_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.5),
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.5),
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU()
+            ).to(device)
+        )
+        self.kbts_cal_layers.append(
+            nn.Sequential(
+                nn.Dropout(0.5),
+                nn.Linear(kbts_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.5),
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.5),
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU()
+            ).to(device)
+        )
+        
+        self.projector = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, feat_dim)
+        )
+
+        self.cal_head = nn.Sequential(
+            nn.Linear(hidden_dim, self.args.total_tasks),
+            nn.Sigmoid()
+        )
         
     def get_optim_cal_params(self):
-        return list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
+        return list(self.cal_head.parameters())
     
     def get_optim_tc_params(self):
-        return list(self.contrast_feat_extractor.parameters())
+        return list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.projector.parameters())
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
