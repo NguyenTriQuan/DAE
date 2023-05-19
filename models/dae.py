@@ -284,6 +284,9 @@ class DAE(ContinualModel):
             
             labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
             features = torch.cat([self.net.cal_forward(data[3*t+3], data[3*t+1+3], t) for t in range(self.task+1)])
+            print(labels)
+            labels = torch.cat([labels, labels])
+            features = torch.cat([features, features])
             loss = sup_con_loss(features, labels, self.args.temperature)
                 
             loss.backward()
@@ -308,6 +311,7 @@ class DAE(ContinualModel):
             data = [tmp.to(self.device) for tmp in data]
             
             scales = torch.cat([self.net.cal_forward(data[3*t+3], data[3*t+1+3], t, cal=True) for t in range(self.task+1)])
+            print(scales)
             scales = scales.view(-1, 1)
             ets_outputs = torch.cat([self.net.linear.ets_forward(data[3*t+3], t) for t in range(self.task+1)])
             kbts_outputs = torch.cat([self.net.linear.kbts_forward(data[3*t+1+3], t) for t in range(self.task+1)])

@@ -133,6 +133,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         n_epochs = 50
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
 
+    if 'epoch' in args.albation:
+        n_epochs = 10
     for epoch in range(n_epochs):
         if 'cal' in mode:
             model.train_calibration(progress_bar, epoch, mode, args.verbose)
