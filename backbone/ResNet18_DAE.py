@@ -302,12 +302,13 @@ class ResNet(_DynamicModel):
         return nn.ModuleList(layers)
     
     
-    def cal_forward(self, ets_features, kbts_features, t=None):
-        hidden = self.ets_cal_layers(ets_features) + self.kbts_cal_layers(kbts_features)
-        if t is None:
-            return self.projector(hidden)
-        else:
+    def cal_forward(self, ets_features, kbts_features, t, cal=False):
+        hidden = self.ets_cal_layers[t](ets_features) + self.kbts_cal_layers[t](kbts_features)
+        if cal:
             return self.cal_head(hidden)[t]
+        else:
+            return self.projector(hidden)
+        
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
         self.get_kb_params(t)
