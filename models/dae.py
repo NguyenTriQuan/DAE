@@ -154,9 +154,9 @@ class DAE(ContinualModel):
             x = self.dataset.test_transforms[t](inputs)
             outputs = []
             if 'ets' in mode:
-                outputs.append(self.net.ets_forward(x, t, feat=True))
+                outputs.append(self.net.ets_forward(x, t))
             if 'kbts' in mode:
-                outputs.append(self.net.kbts_forward(x, t, feat=True))
+                outputs.append(self.net.kbts_forward(x, t))
 
             outputs = ensemble_outputs(outputs)
             _, predicts = outputs.max(1)
