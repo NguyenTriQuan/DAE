@@ -302,8 +302,8 @@ class ResNet(_DynamicModel):
         return nn.ModuleList(layers)
     
     
-    def cal_forward(self, ets_features, kbts_features, t, cal=False):
-        hidden = self.ets_cal_layers[t](ets_features) + self.kbts_cal_layers[t](kbts_features)
+    def cal_forward(self, inputs, ets_features, kbts_features, t, cal=False):
+        hidden = self.ets_cal_layers[t](ets_features) + self.kbts_cal_layers[t](kbts_features) + self.task_feature_layers(inputs)
         if cal:
             return self.cal_head(hidden)[:, 2*t: 2*(t+1)]
         else:
@@ -384,19 +384,32 @@ class ResNet(_DynamicModel):
     def set_jr_params(self, t):
         hidden_dim = 128
         feat_dim = 128
-        # self.ets_cal_layers = nn.ModuleList([])
-        # self.kbts_cal_layers = nn.ModuleList([])
-        # for i in range(t+1):
-        #     ets_dim = self.linear.weight_ets[i].shape[1]
-        #     kbts_dim = self.linear.weight_kbts[i].shape[1]
-        #     self.ets_cal_layers.append(CalibrationBlock(ets_dim, 128).to(device))
-        #     self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 128).to(device))
 
-        # self.contrast_feat_extractor = ContrastFeatExtractor(128, 32).to(device)
         ets_dim = self.linear.weight_ets[-1].shape[1]
         kbts_dim = self.linear.weight_kbts[-1].shape[1]
-        # self.ets_cal_layers.append(CalibrationBlock(ets_dim, 128).to(device))
-        # self.kbts_cal_layers.append(CalibrationBlock(kbts_dim, 128).to(device))
+
+        self.task_feature_layers = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.ReLU(),
+
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+
+            nn.AvgPool2d(kernel_size=2),
+            nn.Flatten(),
+            nn.Dropout(0.5),
+            nn.Linear(feat_dim, feat_dim, bias=True),
+        ).to(device)
+
         self.ets_cal_layers.append(
             nn.Sequential(
                 nn.Dropout(0.5),
@@ -438,12 +451,12 @@ class ResNet(_DynamicModel):
         
     def get_optim_cal_params(self):
         if 'tc' in self.args.ablation:
-            return list(self.cal_head.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters())
+            return list(self.cal_head.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.task_feature_layers)
         else:
             return list(self.cal_head.parameters())
     
     def get_optim_tc_params(self):
-        return list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.projector.parameters())
+        return list(self.projector.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.task_feature_layers)
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:

@@ -180,7 +180,7 @@ class DAE(ContinualModel):
                     features.append(feat)
 
                 if cal:
-                    scales = self.net.cal_forward(features[0], features[1], i, cal=True)
+                    scales = self.net.cal_forward(x, features[0], features[1], i, cal=True)
                     outputs = [temp * scales[:, 0].view(-1, 1) + scales[:, 1].view(-1, 1) for temp in outputs]
                 outputs = ensemble_outputs(outputs)
                 # outputs = outputs[0]
@@ -283,9 +283,10 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
+            inputs = self.dataset.contrast_transform(data[0])
             # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
             labels = torch.cat([(data[2] == t) * (data[2]+1) for t in range(self.task+1)])
-            features = torch.cat([self.net.cal_forward(data[3*t+3], data[3*t+1+3], t) for t in range(self.task+1)])
+            features = torch.cat([self.net.cal_forward(inputs, data[3*t+3], data[3*t+1+3], t) for t in range(self.task+1)])
             # print(labels)
             labels = torch.cat([labels, labels])
             features = torch.cat([features, features])
@@ -311,8 +312,8 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            
-            scales = torch.cat([self.net.cal_forward(data[3*t+3], data[3*t+1+3], t, cal=True) for t in range(self.task+1)])
+            inputs = self.dataset.contrast_transform(data[0])
+            scales = torch.cat([self.net.cal_forward(inputs, data[3*t+3], data[3*t+1+3], t, cal=True) for t in range(self.task+1)])
             # print(scales)
             alpha = scales[:, 0].view(-1, 1)
             beta = scales[:, 1].view(-1, 1)
@@ -327,30 +328,8 @@ class DAE(ContinualModel):
             loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
             loss = torch.mean(loss)
 
-            # for t in range(self.task+1):
-            #     idx = (data[2] == t)
-            #     total_entropy = 0
-            #     inputs = data[0][idx]
-            #     if inputs.numel() == 0:
-            #         continue
-            #     for k in range(self.task+1):
-            #         x = self.dataset.test_transforms[k](inputs)
-            #         outputs = []
-            #         if 'ets' in mode:
-            #             outputs += [self.net.cal_ets_forward(x, data[3*k+3][idx], k)]
-            #         if 'kbts' in mode:
-            #             outputs += [self.net.cal_kbts_forward(x, data[3*k+1+3][idx], k)]
-            #         outputs = ensemble_outputs(outputs)
-            #         join_entropy = entropy(outputs.exp())
-            #         if k == t:
-            #             correct_entropy = join_entropy
-            #         total_entropy += join_entropy
-            #     loss += torch.sum(correct_entropy / total_entropy)
-                # loss += correct_entropy / total_entropy
             loss.backward()
             self.opt.step()
-            # _, predicts = outputs.max(1)
-            # correct += torch.sum(predicts == logits_data[1]).item()
             total += data[1].shape[0]
             total_loss += loss.item()
             if verbose:
