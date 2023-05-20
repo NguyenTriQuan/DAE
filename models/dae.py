@@ -282,7 +282,7 @@ class DAE(ContinualModel):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
             # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
-            labels = torch.cat([data[2] == t for t in range(self.task+1)])
+            labels = torch.cat([(data[2] == t) * (data[2]+1) for t in range(self.task+1)])
             features = torch.cat([self.net.cal_forward(data[3*t+3], data[3*t+1+3], t) for t in range(self.task+1)])
             # print(labels)
             labels = torch.cat([labels, labels])
