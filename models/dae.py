@@ -180,7 +180,7 @@ class DAE(ContinualModel):
                     features.append(feat)
 
                 if cal:
-                    scales = self.net.cal_forward(features[0], features[1], i, cal=True).view(-1, 1)
+                    scales = self.net.cal_forward(features[0], features[1], i, cal=True)
                     outputs = [temp * scales[:, 0].view(1, -1) + scales[:, 1].view(1, -1) for temp in outputs]
                 outputs = ensemble_outputs(outputs)
                 # outputs = outputs[0]
