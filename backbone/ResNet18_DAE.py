@@ -451,12 +451,12 @@ class ResNet(_DynamicModel):
         
     def get_optim_cal_params(self):
         if 'tc' in self.args.ablation:
-            return list(self.cal_head.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.task_feature_layers)
+            return list(self.cal_head.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.task_feature_layers.parameters())
         else:
             return list(self.cal_head.parameters())
     
     def get_optim_tc_params(self):
-        return list(self.projector.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.task_feature_layers)
+        return list(self.projector.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.task_feature_layers.parameters())
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
