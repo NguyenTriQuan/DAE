@@ -281,8 +281,8 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            
-            labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
+            # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
+            labels = torch.cat([data[2] == t for t in range(self.task+1)])
             features = torch.cat([self.net.cal_forward(data[3*t+3], data[3*t+1+3], t) for t in range(self.task+1)])
             # print(labels)
             labels = torch.cat([labels, labels])
@@ -317,11 +317,12 @@ class DAE(ContinualModel):
             kbts_outputs = torch.cat([self.net.linear.kbts_forward(data[3*t+1+3], t) for t in range(self.task+1)])
 
             outputs = [ets_outputs * scales, kbts_outputs * scales]
-            labels = torch.cat([(data[2] == t).float() for t in range(self.task+1)])
-            labels[labels==0] = -1
             outputs = ensemble_outputs(outputs)
             join_entropy = entropy(outputs.exp())
-            loss = torch.sum(join_entropy * labels)
+            join_entropy = join_entropy.view(self.task+1, data[0].shape[0]).permute(1, 0)
+            labels = torch.stack([data[2] == t for t in range(self.task+1)], dim=1)
+            loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
+            loss = torch.mean(loss)
 
             # for t in range(self.task+1):
             #     idx = (data[2] == t)
