@@ -436,8 +436,10 @@ class ResNet(_DynamicModel):
         ).to(device)
         
     def get_optim_cal_params(self):
-        # return list(self.cal_head.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters())
-        return list(self.cal_head.parameters())
+        if 'tc' in self.args.ablation:
+            return list(self.cal_head.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters())
+        else:
+            return list(self.cal_head.parameters())
     
     def get_optim_tc_params(self):
         return list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.projector.parameters())
