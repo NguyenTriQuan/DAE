@@ -54,6 +54,8 @@ def get_parser() -> ArgumentParser:
                         help='number of tasks to run.', default=100)
     parser.add_argument('--total_tasks', type=int, required=True,
                         help='total number of tasks.', default=10)
+    parser.add_argument('--factor', type=float, required=False,
+                        help='entropy scale factor.', default=1)
     return parser
 
 def smooth(logits, temp, dim):
