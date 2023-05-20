@@ -305,7 +305,7 @@ class ResNet(_DynamicModel):
     def cal_forward(self, ets_features, kbts_features, t, cal=False):
         hidden = self.ets_cal_layers[t](ets_features) + self.kbts_cal_layers[t](kbts_features)
         if cal:
-            return self.cal_head(hidden)[:, t] * self.args.factor
+            return self.cal_head(hidden)[:, 2*t: 2*(t+1)]
         else:
             return self.projector(hidden)
         
@@ -431,9 +431,10 @@ class ResNet(_DynamicModel):
         ).to(device)
 
         self.cal_head = nn.Sequential(
-            nn.Linear(hidden_dim, self.args.total_tasks),
+            nn.Linear(hidden_dim, self.args.total_tasks * 2),
             nn.Sigmoid()
         ).to(device)
+
         
     def get_optim_cal_params(self):
         if 'tc' in self.args.ablation:
