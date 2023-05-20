@@ -407,7 +407,7 @@ class ResNet(_DynamicModel):
             nn.AvgPool2d(kernel_size=2),
             nn.Flatten(),
             nn.Dropout(0.5),
-            nn.Linear(feat_dim, feat_dim, bias=True),
+            nn.Linear(256, feat_dim, bias=True),
         ).to(device)
 
         self.ets_cal_layers.append(
