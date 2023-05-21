@@ -304,6 +304,7 @@ class ResNet(_DynamicModel):
     
     def cal_forward(self, inputs, ets_features, kbts_features, t, cal=False):
         hidden = self.ets_cal_layers[t](ets_features) + self.kbts_cal_layers[t](kbts_features) + self.task_feature_layers(inputs)
+        hidden = self.join_feature_layers(hidden)
         if cal:
             return self.cal_head(hidden)[:, 2*t: 2*(t+1)]
         else:
@@ -407,7 +408,8 @@ class ResNet(_DynamicModel):
             nn.AvgPool2d(kernel_size=2),
             nn.Flatten(),
             nn.Dropout(0.5),
-            nn.Linear(256, feat_dim, bias=True),
+            nn.Linear(256, hidden_dim, bias=True),
+            nn.ReLU()
         ).to(device)
 
         self.ets_cal_layers.append(
@@ -436,6 +438,13 @@ class ResNet(_DynamicModel):
                 nn.ReLU()
             ).to(device)
         )
+
+        self.join_feature_layers = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+        ).to(device)
         
         self.projector = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
@@ -451,12 +460,14 @@ class ResNet(_DynamicModel):
         
     def get_optim_cal_params(self):
         if 'tc' in self.args.ablation:
-            return list(self.cal_head.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.task_feature_layers.parameters())
+            return list(self.cal_head.parameters()) + list(self.kbts_cal_layers.parameters()) \
+                + list(self.ets_cal_layers.parameters()) + list(self.task_feature_layers.parameters()) + list(self.join_feature_layers.parameters())
         else:
             return list(self.cal_head.parameters())
     
     def get_optim_tc_params(self):
-        return list(self.projector.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.task_feature_layers.parameters())
+        return list(self.projector.parameters()) + list(self.kbts_cal_layers.parameters()) \
+            + list(self.ets_cal_layers.parameters()) + list(self.task_feature_layers.parameters()) + list(self.join_feature_layers.parameters())
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
