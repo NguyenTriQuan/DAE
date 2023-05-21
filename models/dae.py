@@ -283,13 +283,17 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            inputs = self.dataset.contrast_transform(data[0])
-            # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
-            labels = torch.cat([(data[2] == t) * (data[2]+1) for t in range(self.task+1)])
-            features = torch.cat([self.net.cal_forward(inputs, data[3*t+3], data[3*t+1+3], t) for t in range(self.task+1)])
-            # print(labels)
-            labels = torch.cat([labels, labels])
-            features = torch.cat([features, features])
+            # inputs = self.dataset.contrast_transform(data[0])
+            # # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
+            # labels = torch.cat([(data[2] == t) * (data[2]+1) for t in range(self.task+1)])
+            # features = torch.cat([self.net.cal_forward(inputs, data[3*t+3], data[3*t+1+3], t) for t in range(self.task+1)])
+            # labels = torch.cat([labels, labels])
+            # features = torch.cat([features, features])
+
+            inputs = torch.cat([data[0], data[0]])
+            inputs = self.dataset.contrast_transform(inputs)
+            labels = torch.cat([data[2], data[2]])
+            features = self.net.cal_forward(inputs, None, None, None, cal=False)
             loss = sup_con_loss(features, labels, self.args.temperature)
                 
             loss.backward()

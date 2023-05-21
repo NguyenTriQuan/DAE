@@ -303,8 +303,9 @@ class ResNet(_DynamicModel):
     
     
     def cal_forward(self, inputs, ets_features, kbts_features, t, cal=False):
-        hidden = self.ets_cal_layers[t](ets_features) + self.kbts_cal_layers[t](kbts_features) + self.task_feature_layers(inputs)
-        hidden = self.join_feature_layers(hidden)
+        # hidden = self.ets_cal_layers[t](ets_features) + self.kbts_cal_layers[t](kbts_features) + self.task_feature_layers(inputs)
+        # hidden = self.join_feature_layers(hidden)
+        hidden = self.task_feature_layers(inputs)
         if cal:
             return self.cal_head(hidden)[:, 2*t: 2*(t+1)]
         else:
@@ -414,7 +415,6 @@ class ResNet(_DynamicModel):
 
         self.ets_cal_layers.append(
             nn.Sequential(
-                nn.Dropout(0.5),
                 nn.Linear(ets_dim, hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(0.5),
@@ -422,12 +422,12 @@ class ResNet(_DynamicModel):
                 nn.ReLU(),
                 nn.Dropout(0.5),
                 nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU()
+                nn.ReLU(),
+                nn.Dropout(0.5),
             ).to(device)
         )
         self.kbts_cal_layers.append(
             nn.Sequential(
-                nn.Dropout(0.5),
                 nn.Linear(kbts_dim, hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(0.5),
@@ -435,15 +435,18 @@ class ResNet(_DynamicModel):
                 nn.ReLU(),
                 nn.Dropout(0.5),
                 nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU()
+                nn.ReLU(),
+                nn.Dropout(0.5),
             ).to(device)
         )
 
         self.join_feature_layers = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(0.5),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(0.5),
         ).to(device)
         
         self.projector = nn.Sequential(
