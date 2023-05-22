@@ -315,7 +315,6 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            inputs = self.dataset.contrast_transform(data[0])\
             
             if 'ets' in mode:
                 scales = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=True) for t in range(self.task+1)])
@@ -468,8 +467,8 @@ class DAE(ContinualModel):
 
         if 'be' not in self.args.ablation: 
             indices = []
-            for t in range(self.task+1):
-                idx = (data[2] == t)
+            for c in range(data[1].unique()):
+                idx = (data[1] == c)
                 join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
                 labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
                 loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
