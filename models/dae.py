@@ -171,13 +171,17 @@ class DAE(ContinualModel):
             joint_entropy_tasks = []
             outputs_tasks = []
             for i in range(self.task+1):
-                x = self.dataset.test_transforms[i](inputs)
-                outputs = []
-                features = []
                 if 'ba' in self.args.ablation:
                     # batch augmentation
-                    x_ = torch.cat([torch.rot90(x, rot, (2, 3)) for rot in range(4)])
-                    x = x_
+                    N = 8
+                    aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).view(N*inputs.shape[0], *inputs.shape[1:])
+                    x = self.dataset.train_transform(aug_inputs)
+                    x = self.dataset.test_transforms[i](x)
+                    x = torch.cat([self.dataset.test_transforms[i](inputs), x])
+                else:
+                    x = self.dataset.test_transforms[i](inputs)
+                outputs = []
+                features = []
                 if 'ets' in mode:
                     feat, out = self.net.ets_forward(x, i, feat=True)
                     if 'cal' in mode:
@@ -195,8 +199,8 @@ class DAE(ContinualModel):
                 joint_entropy = entropy(outputs.exp())
 
                 if 'ba' in self.args.ablation:
-                    outputs_tasks.append(outputs.view(4, inputs.shape[0], -1)[0])
-                    joint_entropy_tasks.append(joint_entropy.view(4, inputs.shape[0]).mean(0))
+                    outputs_tasks.append(outputs.view(N+1, inputs.shape[0], -1)[0])
+                    joint_entropy_tasks.append(joint_entropy.view(N+1, inputs.shape[0]).mean(0))
                 else:
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
