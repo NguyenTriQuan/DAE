@@ -326,7 +326,6 @@ class ResNet(_DynamicModel):
     
     def kbts_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
         self.get_masked_kb_params(t)
-
         out = self.conv1.kbts_forward([x], t)
         
         for layer in self.layers:

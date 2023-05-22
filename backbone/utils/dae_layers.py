@@ -255,6 +255,7 @@ class _DynamicLayer(nn.Module):
             self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
         else:
             mask = getattr(self, 'kbts_mask'+f'_{t}')
+            print(t, self.masked_kb_weight.shape, mask.shape)
             weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
         
         if isinstance(self, DynamicConv2D):
