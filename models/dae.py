@@ -56,7 +56,7 @@ def get_parser() -> ArgumentParser:
                         help='total number of tasks.', default=10)
     parser.add_argument('--factor', type=float, required=False,
                         help='entropy scale factor.', default=1)
-    parser.add_argument('--num_aug', type=int, required=True,
+    parser.add_argument('--num_aug', type=int, required=False,
                         help='number of augument samples used when evaluation.', default=16)
     return parser
 
