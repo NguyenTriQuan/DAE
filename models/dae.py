@@ -388,17 +388,20 @@ class DAE(ContinualModel):
 
         if 'be' not in self.args.ablation:
             # buffer entropy
-            if self.task == 0:
-                loss = data[3*self.task+2+3]
-            else:
-                join_entropy = torch.stack([data[3*t+2+3] for t in range(self.task+1)], dim=1)
-                labels = torch.stack([(data[2] == t).float() for t in range(self.task+1)], dim=1)
-                loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
-            
-            values, indices = loss.sort(dim=0, descending=True)
-            # indices = np.arange(data[0].shape[0])
-            # np.random.shuffle(indices)
-            data = [temp[indices[:samples_per_task]] for temp in data]
+            indices = []
+            for c in data[1].unique():
+                idx = (data[1] == c)
+                if self.task == 0:
+                    loss = data[3*self.task+2+3][idx]
+                else:
+                    join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
+                    labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
+                    loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
+
+                values, stt = loss.sort(dim=0, descending=True)
+                indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_task]])
+            indices = torch.cat(indices)
+            data = [temp[indices] for temp in data]
         else:
             # random class balanced selection
             indices = []
@@ -465,19 +468,24 @@ class DAE(ContinualModel):
 
         data = list(self.buffer.dataset.tensors)
 
-        if 'be' not in self.args.ablation: 
+        if 'be' not in self.args.ablation:
+            # buffer entropy
             indices = []
             for c in data[1].unique():
                 idx = (data[1] == c)
-                join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
-                labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
-                loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
+                if self.task == 0:
+                    loss = data[3*self.task+2+3][idx]
+                else:
+                    join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
+                    labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
+                    loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
 
                 values, stt = loss.sort(dim=0, descending=True)
                 indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_task]])
             indices = torch.cat(indices)
             data = [temp[indices] for temp in data]
         else:
+            # random class balanced selection
             indices = []
             for c in data[1].unique():
                 idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
