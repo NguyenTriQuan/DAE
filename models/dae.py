@@ -398,7 +398,7 @@ class DAE(ContinualModel):
                     labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
                     loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
 
-                values, stt = loss.sort(dim=0, descending=True)
+                values, stt = loss.sort(dim=0, descending=False)
                 indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_class]])
             indices = torch.cat(indices)
             data = [temp[indices] for temp in data]
@@ -454,17 +454,6 @@ class DAE(ContinualModel):
         self.net.eval()
         samples_per_task = self.args.buffer_size // (self.task+1)
         samples_per_class = self.args.buffer_size // ((self.task+1) * self.dataset.N_CLASSES_PER_TASK)
-        
-        # data = list(self.buffer.dataset.tensors)
-        # data = [[] for _ in range(len(self.buffer.dataset.tensors))]
-        # for t in range(self.task+1):
-        #     idx = (buf_data[2] == t)
-        #     # criteria = buf_data[3*t+2+3][idx] / torch.sum(torch.stack([buf_data[3*i+2+3][idx] for i in range(self.task+1)], dim=1), dim=1)
-        #     # values, indices = criteria.sort(dim=0, descending=True)
-        #     indices = np.arange(buf_data[0][idx].shape[0])
-        #     np.random.shuffle(indices)
-        #     for j in range(len(data)):
-        #         data[j].append(buf_data[j][idx][indices[:samples_per_task]])
 
         data = list(self.buffer.dataset.tensors)
 
@@ -480,7 +469,7 @@ class DAE(ContinualModel):
                     labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
                     loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
 
-                values, stt = loss.sort(dim=0, descending=True)
+                values, stt = loss.sort(dim=0, descending=False)
                 indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_class]])
             indices = torch.cat(indices)
             data = [temp[indices] for temp in data]
