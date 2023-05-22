@@ -56,6 +56,8 @@ def get_parser() -> ArgumentParser:
                         help='total number of tasks.', default=10)
     parser.add_argument('--factor', type=float, required=False,
                         help='entropy scale factor.', default=1)
+    parser.add_argument('--num_aug', type=int, required=True,
+                        help='number of augument samples used when evaluation.', default=16)
     return parser
 
 def smooth(logits, temp, dim):
@@ -169,7 +171,7 @@ class DAE(ContinualModel):
             for i in range(self.task+1):
                 if 'ba' in mode:
                     # batch augmentation
-                    N = 32
+                    N = self.args.num_aug
                     aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
                     x = self.dataset.train_transform(aug_inputs)
                     x = self.dataset.test_transforms[i](x)
