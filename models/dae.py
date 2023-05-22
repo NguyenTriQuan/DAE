@@ -146,7 +146,7 @@ class DAE(ContinualModel):
         self.soft = torch.nn.Softmax(dim=1)
         # self.device = 'cpu'
 
-    def forward(self, inputs, t=None, mode='ets_kbts_cal'):
+    def forward(self, inputs, t=None, mode='ets_kbts_cal_ba'):
         cal = False
         if 'cal' in mode:
             cal = True
@@ -167,7 +167,7 @@ class DAE(ContinualModel):
             joint_entropy_tasks = []
             outputs_tasks = []
             for i in range(self.task+1):
-                if 'ba' in self.args.ablation:
+                if 'ba' in mode:
                     # batch augmentation
                     N = 32
                     aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
@@ -177,7 +177,6 @@ class DAE(ContinualModel):
                 else:
                     x = self.dataset.test_transforms[i](inputs)
                 outputs = []
-                features = []
                 if 'ets' in mode:
                     out = self.net.ets_forward(x, i, cal=cal)
                     outputs.append(out)
@@ -188,7 +187,7 @@ class DAE(ContinualModel):
                 outputs = ensemble_outputs(outputs)
                 joint_entropy = entropy(outputs.exp())
 
-                if 'ba' in self.args.ablation:
+                if 'ba' in mode:
                     outputs_tasks.append(outputs.view(N+1, inputs.shape[0], -1)[0])
                     joint_entropy_tasks.append(joint_entropy.view(N+1, inputs.shape[0]).mean(0))
                 else:
