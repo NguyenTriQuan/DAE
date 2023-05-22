@@ -327,16 +327,10 @@ class DAE(ContinualModel):
             inputs = self.dataset.train_transform(data[0])
 
             if 'ets' in mode:
-                # scales = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=True) for t in range(self.task+1)])
-                # outputs = torch.cat([self.net.linear.ets_forward(data[3*t+3], t) for t in range(self.task+1)])
-
                 outputs = torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) 
                                       for t in range(self.task+1)])
 
             elif 'kbts' in mode:
-                # scales = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=True) for t in range(self.task+1)])
-                # outputs = torch.cat([self.net.linear.kbts_forward(data[3*t+1+3], t) for t in range(self.task+1)])
-
                 outputs = torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) 
                                       for t in range(self.task+1)])
 

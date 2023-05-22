@@ -39,7 +39,7 @@ class SequentialCIFAR100(ContinualDataset):
                 K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), same_on_batch=False),
                 K.augmentation.RandomHorizontalFlip(same_on_batch=False),
                 K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
-                # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
+                K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
             )
     test_transform = torch.nn.Sequential(
                 K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
@@ -74,7 +74,8 @@ class SequentialCIFAR100(ContinualDataset):
                     K.augmentation.Normalize(mean, std)
                 )]
         else:
-            self.test_transforms += [self.test_transform]
+            # self.test_transforms += [self.test_transform]
+            self.test_transforms += [torch.nn.Sequential()]
         self.i += self.N_CLASSES_PER_TASK
         return train_loader, test_loader
     
