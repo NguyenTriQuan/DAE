@@ -147,21 +147,17 @@ class DAE(ContinualModel):
         # self.device = 'cpu'
 
     def forward(self, inputs, t=None, mode='ets_kbts_cal'):
-
+        cal = False
+        if 'cal' in mode:
+            cal = True
         if t is not None:
             x = self.dataset.test_transforms[t](inputs)
             outputs = []
             if 'ets' in mode:
-                feat, out = self.net.ets_forward(x, t, feat=True)
-                if 'cal' in mode:
-                    scales = self.net.ets_cal_forward(feat, t, cal=True)
-                    out = out * scales.view(-1, 1)
+                out = self.net.ets_forward(x, t, cal=cal)
                 outputs.append(out)
             if 'kbts' in mode:
-                feat, out = self.net.kbts_forward(x, t, feat=True)
-                if 'cal' in mode:
-                    scales = self.net.kbts_cal_forward(feat, t, cal=True)
-                    out = out * scales.view(-1, 1)
+                out = self.net.kbts_forward(x, t, cal=cal)
                 outputs.append(out)
 
             outputs = ensemble_outputs(outputs)
@@ -173,7 +169,7 @@ class DAE(ContinualModel):
             for i in range(self.task+1):
                 if 'ba' in self.args.ablation:
                     # batch augmentation
-                    N = 16
+                    N = 8
                     aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
                     x = self.dataset.train_transform(aug_inputs)
                     x = self.dataset.test_transforms[i](x)
@@ -183,16 +179,10 @@ class DAE(ContinualModel):
                 outputs = []
                 features = []
                 if 'ets' in mode:
-                    feat, out = self.net.ets_forward(x, i, feat=True)
-                    if 'cal' in mode:
-                        scales = self.net.ets_cal_forward(feat, i, cal=True)
-                        out = out * scales.view(-1, 1)
+                    out = self.net.ets_forward(x, i, cal=cal)
                     outputs.append(out)
                 if 'kbts' in mode:
-                    feat, out = self.net.kbts_forward(x, i, feat=True)
-                    if 'cal' in mode:
-                        scales = self.net.kbts_cal_forward(feat, i, cal=True)
-                        out = out * scales.view(-1, 1)
+                    out = self.net.kbts_forward(x, i, cal=cal)
                     outputs.append(out)
 
                 outputs = ensemble_outputs(outputs)
@@ -301,10 +291,15 @@ class DAE(ContinualModel):
             # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
             labels = torch.cat([(data[2] == t) * (data[2] + 1) for t in range(self.task+1)])
             # labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
+            inputs = self.dataset.train_transform(data[0])
             if 'ets' in mode:
-                features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
+                # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
+                features = torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=True, cal=True) 
+                                      for t in range(self.task+1)])
             elif 'kbts' in mode:
-                features = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=False) for t in range(self.task+1)])
+                # features = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=False) for t in range(self.task+1)])
+                features = torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=True, cal=True)
+                                      for t in range(self.task+1)])
             labels = torch.cat([labels, labels])
             features = torch.cat([features, features])
 
@@ -328,15 +323,22 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            
-            if 'ets' in mode:
-                scales = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=True) for t in range(self.task+1)])
-                outputs = torch.cat([self.net.linear.ets_forward(data[3*t+3], t) for t in range(self.task+1)])
-            elif 'kbts' in mode:
-                scales = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=True) for t in range(self.task+1)])
-                outputs = torch.cat([self.net.linear.kbts_forward(data[3*t+1+3], t) for t in range(self.task+1)])
+            inputs = self.dataset.train_transform(data[0])
 
-            outputs = outputs * scales.view(-1, 1)
+            if 'ets' in mode:
+                # scales = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=True) for t in range(self.task+1)])
+                # outputs = torch.cat([self.net.linear.ets_forward(data[3*t+3], t) for t in range(self.task+1)])
+
+                outputs = torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) 
+                                      for t in range(self.task+1)])
+
+            elif 'kbts' in mode:
+                # scales = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=True) for t in range(self.task+1)])
+                # outputs = torch.cat([self.net.linear.kbts_forward(data[3*t+1+3], t) for t in range(self.task+1)])
+
+                outputs = torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) 
+                                      for t in range(self.task+1)])
+
             outputs = ensemble_outputs([outputs])
             join_entropy = entropy(outputs.exp())
             join_entropy = join_entropy.view(self.task+1, data[0].shape[0]).permute(1, 0)

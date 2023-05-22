@@ -300,21 +300,6 @@ class ResNet(_DynamicModel):
             layers.append(block(self.in_planes, planes, stride, norm_type, args))
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
-    
-    
-    def ets_cal_forward(self, features, t, cal=False):
-        hidden = self.ets_cal_layers[t](features)
-        if cal:
-            return self.ets_cal_head(hidden)[:, t]
-        else:
-            return self.ets_projector(hidden)
-        
-    def kbts_cal_forward(self, features, t, cal=False):
-        hidden = self.kbts_cal_layers[t](features)
-        if cal:
-            return self.kbts_cal_head(hidden)[:, t]
-        else:
-            return self.kbts_projector(hidden)
         
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
@@ -327,9 +312,17 @@ class ResNet(_DynamicModel):
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
         out = self.linear.ets_forward(feature, t)
-        if feat:
-            return feature, out
-        return out
+        if cal:
+            hidden = self.ets_cal_layers[t](feature)
+            if feat:
+                return self.ets_projector(hidden)
+            else:
+                return out * self.ets_cal_head(hidden)[:, t].view(-1, 1)
+        else:
+            if feat:
+                return feature, out
+            else:
+                return out
     
     def kbts_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
         self.get_masked_kb_params(t)
@@ -342,9 +335,17 @@ class ResNet(_DynamicModel):
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
         out = self.linear.kbts_forward(feature, t)
-        if feat:
-            return feature, out
-        return out
+        if cal:
+            hidden = self.kbts_cal_layers[t](feature)
+            if feat:
+                return self.kbts_projector(hidden)
+            else:
+                return out * self.kbts_cal_head(hidden)[:, t].view(-1, 1)
+        else:
+            if feat:
+                return feature, out
+            else:
+                return out
     
     def expand(self, new_classes, t):
         if t == 0:
