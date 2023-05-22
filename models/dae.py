@@ -286,7 +286,7 @@ class DAE(ContinualModel):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
             # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
-            labels = torch.cat([(data[2] == t) * (data[2]+1) for t in range(self.task+1)])
+            labels = torch.cat([(data[2] == t) * (data[2] + 1) for t in range(self.task+1)])
             print(labels)
             # labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
             if 'ets' in mode:
