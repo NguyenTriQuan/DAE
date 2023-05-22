@@ -174,7 +174,7 @@ class DAE(ContinualModel):
                 if 'ba' in self.args.ablation:
                     # batch augmentation
                     N = 8
-                    aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).view(N*inputs.shape[0], *inputs.shape[1:])
+                    aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
                     x = self.dataset.train_transform(aug_inputs)
                     x = self.dataset.test_transforms[i](x)
                     x = torch.cat([self.dataset.test_transforms[i](inputs), x])
