@@ -423,26 +423,26 @@ class ResNet(_DynamicModel):
             nn.Sequential(
                 nn.Linear(ets_dim, hidden_dim),
                 nn.ReLU(),
-                nn.Dropout(0.5),
+                # nn.Dropout(0.5),
                 nn.Linear(hidden_dim, hidden_dim),
                 nn.ReLU(),
-                nn.Dropout(0.5),
+                # nn.Dropout(0.5),
                 nn.Linear(hidden_dim, hidden_dim),
                 nn.ReLU(),
-                nn.Dropout(0.5),
+                # nn.Dropout(0.5),
             ).to(device)
         )
         self.kbts_cal_layers.append(
             nn.Sequential(
                 nn.Linear(kbts_dim, hidden_dim),
                 nn.ReLU(),
-                nn.Dropout(0.5),
+                # nn.Dropout(0.5),
                 nn.Linear(hidden_dim, hidden_dim),
                 nn.ReLU(),
-                nn.Dropout(0.5),
+                # nn.Dropout(0.5),
                 nn.Linear(hidden_dim, hidden_dim),
                 nn.ReLU(),
-                nn.Dropout(0.5),
+                # nn.Dropout(0.5),
             ).to(device)
         )
         
