@@ -196,7 +196,7 @@ class DAE(ContinualModel):
 
                 if 'ba' in self.args.ablation:
                     outputs_tasks.append(outputs.view(4, inputs.shape[0], -1)[0])
-                    joint_entropy_tasks.append(joint_entropy.view(4, inputs.shape[0]).mean(1))
+                    joint_entropy_tasks.append(joint_entropy.view(4, inputs.shape[0]).mean(0))
                 else:
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
