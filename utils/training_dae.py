@@ -85,14 +85,14 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     if 'cal' in mode:
         # calibration outputs
-        n_epochs = 50
+        n_epochs = 100
         params = model.net.get_optim_cal_params()
         count = 0
         for param in params:
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9)
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [75, 90], gamma=0.1, verbose=False)
     elif 'tc' in mode:
         # tasks contrast:
         n_epochs = 100
@@ -245,16 +245,20 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
         
         if 'cal' not in args.ablation:
+            eval_mode += '_cal'
             model.net.set_jr_params(t)
             with torch.no_grad():
                 model.get_rehearsal_logits(train_loader)
             # jr training
             if t > 0:
-                eval_mode = 'ets_kbts_cal'
                 if 'tc' not in args.ablation:
-                    train_loop(t, model, dataset, args, progress_bar, train_loader, mode='tc')
+                    train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_tc')
+                    if 'kbts' not in args.ablation:
+                        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_tc')
 
-                train_loop(t, model, dataset, args, progress_bar, train_loader, mode=eval_mode)
+                train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_cal')
+                if 'kbts' not in args.ablation:
+                    train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
                 accs = evaluate(model, dataset, task=None, mode=eval_mode)
                 mean_acc = np.mean(accs, axis=1)
                 print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
@@ -264,12 +268,17 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 model.fill_buffer(train_loader)
 
         print('checking forgetting')
-        if 'kbts' not in args.ablation:
-            accs = evaluate(model, dataset, task=None, mode='kbts')
-            print(f'kbts accs: cil {accs[0]}, til {accs[1]}')
+        accs = evaluate(model, dataset, task=None, mode='kbts')
+        print(f'kbts accs: cil {np.mean(accs[0])} {accs[0]}, til {np.mean(accs[1])} {accs[1]}')
+        if 'cal' not in args.ablation:
+            accs = evaluate(model, dataset, task=None, mode='kbts_cal')
+            print(f'kbts_cal accs: cil {np.mean(accs[0])} {accs[0]}, til {np.mean(accs[1])} {accs[1]}')
 
         accs = evaluate(model, dataset, task=None, mode='ets')
-        print(f'ets accs: cil {accs[0]}, til {accs[1]}')
+        print(f'ets accs: cil {np.mean(accs[0])} {accs[0]}, til {np.mean(accs[1])} {accs[1]}')
+        if 'cal' not in args.ablation:
+            accs = evaluate(model, dataset, task=None, mode='ets_cal')
+            print(f'ets_cal accs: cil {np.mean(accs[0])} {accs[0]}, til {np.mean(accs[1])} {accs[1]}')
 
         # accs = evaluate(model, dataset, task=None, mode='jr')
         # print(f'jr accs: cil {accs[0]}, til {accs[1]}')

@@ -147,18 +147,22 @@ class DAE(ContinualModel):
         # self.device = 'cpu'
 
     def forward(self, inputs, t=None, mode='ets_kbts_cal'):
-        if 'cal' in mode:
-            cal = True
-        else:
-            cal = False
 
         if t is not None:
             x = self.dataset.test_transforms[t](inputs)
             outputs = []
             if 'ets' in mode:
-                outputs.append(self.net.ets_forward(x, t))
+                feat, out = self.net.ets_forward(x, t, feat=True)
+                if 'cal' in mode:
+                    scales = self.net.ets_cal_forward(feat, t, cal=True)
+                    out = out * scales.view(-1, 1)
+                outputs.append(out)
             if 'kbts' in mode:
-                outputs.append(self.net.kbts_forward(x, t))
+                feat, out = self.net.kbts_forward(x, t, feat=True)
+                if 'cal' in mode:
+                    scales = self.net.kbts_cal_forward(feat, t, cal=True)
+                    out = out * scales.view(-1, 1)
+                outputs.append(out)
 
             outputs = ensemble_outputs(outputs)
             _, predicts = outputs.max(1)
@@ -172,18 +176,18 @@ class DAE(ContinualModel):
                 features = []
                 if 'ets' in mode:
                     feat, out = self.net.ets_forward(x, i, feat=True)
+                    if 'cal' in mode:
+                        scales = self.net.ets_cal_forward(feat, i, cal=True)
+                        out = out * scales.view(-1, 1)
                     outputs.append(out)
-                    features.append(feat)
                 if 'kbts' in mode:
                     feat, out = self.net.kbts_forward(x, i, feat=True)
+                    if 'cal' in mode:
+                        scales = self.net.kbts_cal_forward(feat, i, cal=True)
+                        out = out * scales.view(-1, 1)
                     outputs.append(out)
-                    features.append(feat)
 
-                if cal:
-                    scales = self.net.cal_forward(x, features[0], features[1], i, cal=True)
-                    outputs = [temp * scales[:, 0].view(-1, 1) + scales[:, 1].view(-1, 1) for temp in outputs]
                 outputs = ensemble_outputs(outputs)
-                # outputs = outputs[0]
                 outputs_tasks.append(outputs)
                 joint_entropy = entropy(outputs.exp())
                 joint_entropy_tasks.append(joint_entropy)
@@ -265,11 +269,9 @@ class DAE(ContinualModel):
                 num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
                 if verbose:
                     progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, num_params, num_neurons)
-                # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
             else:
                 if verbose:
                     progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, num_params)
-                # progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100)
         if squeeze:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
@@ -283,23 +285,19 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            # inputs = self.dataset.contrast_transform(data[0])
-            # # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
-            # labels = torch.cat([(data[2] == t) * (data[2]+1) for t in range(self.task+1)])
-            # features = torch.cat([self.net.cal_forward(inputs, data[3*t+3], data[3*t+1+3], t) for t in range(self.task+1)])
-            # labels = torch.cat([labels, labels])
-            # features = torch.cat([features, features])
+            # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
+            labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
+            if 'ets' in mode:
+                features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
+            elif 'kbts' in mode:
+                features = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=False) for t in range(self.task+1)])
+            labels = torch.cat([labels, labels])
+            features = torch.cat([features, features])
 
-            inputs = torch.cat([data[0], data[0]])
-            inputs = self.dataset.contrast_transform(inputs)
-            labels = torch.cat([data[2], data[2]])
-            features = self.net.cal_forward(inputs, None, None, None, cal=False)
             loss = sup_con_loss(features, labels, self.args.temperature)
                 
             loss.backward()
             self.opt.step()
-            # _, predicts = outputs.max(1)
-            # correct += torch.sum(predicts == logits_data[1]).item()
             total += data[1].shape[0]
             total_loss += loss.item()
             if verbose:
@@ -316,16 +314,17 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            inputs = self.dataset.contrast_transform(data[0])
-            scales = torch.cat([self.net.cal_forward(inputs, data[3*t+3], data[3*t+1+3], t, cal=True) for t in range(self.task+1)])
-            # print(scales)
-            alpha = scales[:, 0].view(-1, 1)
-            beta = scales[:, 1].view(-1, 1)
-            ets_outputs = torch.cat([self.net.linear.ets_forward(data[3*t+3], t) for t in range(self.task+1)])
-            kbts_outputs = torch.cat([self.net.linear.kbts_forward(data[3*t+1+3], t) for t in range(self.task+1)])
+            inputs = self.dataset.contrast_transform(data[0])\
+            
+            if 'ets' in mode:
+                scales = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=True) for t in range(self.task+1)])
+                outputs = torch.cat([self.net.linear.ets_forward(data[3*t+3], t) for t in range(self.task+1)])
+            elif 'kbts' in mode:
+                scales = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=True) for t in range(self.task+1)])
+                outputs = torch.cat([self.net.linear.kbts_forward(data[3*t+1+3], t) for t in range(self.task+1)])
 
-            outputs = [ets_outputs * alpha + beta, kbts_outputs * alpha + beta]
-            outputs = ensemble_outputs(outputs)
+            outputs = outputs * scales.view(-1, 1)
+            outputs = ensemble_outputs([outputs])
             join_entropy = entropy(outputs.exp())
             join_entropy = join_entropy.view(self.task+1, data[0].shape[0]).permute(1, 0)
             labels = torch.stack([(data[2] == t).float() for t in range(self.task+1)], dim=1)
@@ -340,81 +339,6 @@ class DAE(ContinualModel):
                 progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss/total)
 
         self.scheduler.step()
-
-    # def train_rehearsal(self, progress_bar, epoch):
-    #     self.net.train()
-    #     total = 0
-    #     correct = 0
-    #     total_loss = 0
-    #     # if self.buffer is not None:
-    #     #     buffer_loader = iter(self.buffer)
-    #     for i, logits_data in enumerate(self.buffer):
-    #         self.opt.zero_grad()
-    #         logits_data = [tmp.to(self.device) for tmp in logits_data]
-    #         # if self.buffer is not None:
-    #         #     try:
-    #         #         buffer_data = next(buffer_loader)
-    #         #     except StopIteration:
-    #         #         buffer_loader = iter(self.buffer)
-    #         #         buffer_data = next(buffer_loader)
-
-    #         #     buffer_data = [tmp.to(self.device) for tmp in buffer_data]
-    #         #     for j in range(len(logits_data)):
-    #         #         logits_data[j] = torch.cat([buffer_data[j], logits_data[j]])
-    #         outputs = [self.net.cal_forward(logits_data[t+2], t) for t in range(self.task+1)]
-    #         outputs = torch.cat(outputs, dim=1)
-    #         loss = self.loss(outputs, logits_data[1])
-    #         # for t in range(self.task):
-    #         #     outputs = self.net.linear.ets_forward(logits_data[t+2], t, cal=True)
-    #             # outputs = ensemble_outputs([outputs])
-    #             # loss += entropy(outputs.exp())
-    #         loss.backward()
-    #         self.opt.step()
-    #         _, predicts = outputs.max(1)
-    #         correct += torch.sum(predicts == logits_data[1]).item()
-    #         total += logits_data[1].shape[0]
-    #         total_loss += loss.item() * logits_data[1].shape[0]
-    #         progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss/total, correct/total*100)
-
-    #     self.scheduler.step()
-
-
-    # def train_rehearsal(self, progress_bar, epoch):
-    #     self.net.train()
-    #     total = 0
-    #     correct = 0
-    #     total_loss = 0
-    #     if self.buffer is not None:
-    #         buffer_loader = iter(self.buffer)
-    #     for i, logits_data in enumerate(self.logits_loader):
-    #         self.opt.zero_grad()
-    #         logits_data = [tmp.to(self.device) for tmp in logits_data]
-    #         if self.buffer is not None:
-    #             try:
-    #                 buffer_data = next(buffer_loader)
-    #             except StopIteration:
-    #                 buffer_loader = iter(self.buffer)
-    #                 buffer_data = next(buffer_loader)
-
-    #             buffer_data = [tmp.to(self.device) for tmp in buffer_data]
-    #             for j in range(len(logits_data)):
-    #                 logits_data[j] = torch.cat([buffer_data[j], logits_data[j]])
-
-    #         inputs = self.dataset.train_transform(logits_data[0])
-    #         inputs = self.dataset.test_transforms[-1](logits_data[0])
-    #         outputs = self.net(inputs, self.task, mode='jr')
-    #         loss = self.loss(outputs, logits_data[1])
-    #         for t in range(self.task-1):
-    #             outputs_task = outputs[:, self.net.DM[-1].shape_out[t]:self.net.DM[-1].shape_out[t+1]]
-    #             loss += self.args.alpha * modified_kl_div(smooth(logits_data[t+2], 2, 1), smooth(self.soft(outputs_task), 2, 1))
-    #         loss.backward()
-    #         self.opt.step()
-    #         _, predicts = outputs.max(1)
-    #         correct += torch.sum(predicts == logits_data[1]).item()
-    #         total += logits_data[1].shape[0]
-    #         total_loss += loss.item() * logits_data[1].shape[0]
-    #         progress_bar.prog(i, len(self.logits_loader), epoch, self.task, total_loss/total, correct/total*100)
-        # self.scheduler.step()
 
 
     def begin_task(self, dataset):
