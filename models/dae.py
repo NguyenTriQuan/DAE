@@ -173,7 +173,7 @@ class DAE(ContinualModel):
             for i in range(self.task+1):
                 if 'ba' in self.args.ablation:
                     # batch augmentation
-                    N = 8
+                    N = 32
                     aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
                     x = self.dataset.train_transform(aug_inputs)
                     x = self.dataset.test_transforms[i](x)
