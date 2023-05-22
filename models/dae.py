@@ -174,6 +174,10 @@ class DAE(ContinualModel):
                 x = self.dataset.test_transforms[i](inputs)
                 outputs = []
                 features = []
+                if 'ba' in self.args.ablation:
+                    # batch augmentation
+                    x_ = torch.cat([torch.rot90(x, rot, (2, 3)) for rot in range(4)])
+                    x = x_
                 if 'ets' in mode:
                     feat, out = self.net.ets_forward(x, i, feat=True)
                     if 'cal' in mode:
@@ -188,9 +192,14 @@ class DAE(ContinualModel):
                     outputs.append(out)
 
                 outputs = ensemble_outputs(outputs)
-                outputs_tasks.append(outputs)
                 joint_entropy = entropy(outputs.exp())
-                joint_entropy_tasks.append(joint_entropy)
+
+                if 'ba' in self.args.ablation:
+                    outputs_tasks.append(outputs.view(4, inputs.shape[0], -1)[0])
+                    joint_entropy_tasks.append(joint_entropy.view(4, inputs.shape[0]).mean(1))
+                else:
+                    outputs_tasks.append(outputs)
+                    joint_entropy_tasks.append(joint_entropy)
             
             outputs_tasks = torch.stack(outputs_tasks, dim=1)
             joint_entropy_tasks = torch.stack(joint_entropy_tasks, dim=1)
