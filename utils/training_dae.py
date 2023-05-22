@@ -112,8 +112,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         if 'squeeze' in args.ablation:
-            n_epochs = 50
-            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+            n_epochs = 100
+            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [75, 90], gamma=0.1, verbose=False)
             squeeze = False
         else:
             n_epochs = 80
