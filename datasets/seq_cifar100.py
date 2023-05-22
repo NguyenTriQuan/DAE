@@ -31,7 +31,8 @@ class SequentialCIFAR100(ContinualDataset):
     INPUT_SHAPE = (3, 32, 32)
     
     train_transform = torch.nn.Sequential(
-                K.augmentation.RandomCrop((32, 32), padding=4, same_on_batch=False),
+                K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), same_on_batch=False),
+                # K.augmentation.RandomCrop((32, 32), padding=4, same_on_batch=False),
                 K.augmentation.RandomHorizontalFlip(same_on_batch=False)
             )
     # train_transform = torch.nn.Sequential(
