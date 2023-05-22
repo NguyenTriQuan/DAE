@@ -222,14 +222,15 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         
 
         # kbts training
-        # if 'kbts' not in args.ablation:
-        #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
+        if 'kbts' not in args.ablation:
+            train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
         model.net.clear_memory()
-        # # ets training
-        # if 'ets' not in args.ablation:
-        #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
-        #     num_params, num_neurons = model.net.count_params()
-        #     print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+
+        # ets training
+        if 'ets' not in args.ablation:
+            train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
+            num_params, num_neurons = model.net.count_params()
+            print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
