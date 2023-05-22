@@ -464,23 +464,16 @@ class ResNet(_DynamicModel):
         ).to(device)
 
         
-    def get_optim_ets_cal_params(self):
+    def get_optim_cal_params(self):
         if 'tc' in self.args.ablation:
-            return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters())
+            return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
+                    + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
         else:
-            return list(self.ets_cal_head.parameters())
+            return list(self.ets_cal_head.parameters()) + list(self.kbts_cal_head.parameters())
     
-    def get_optim_ets_tc_params(self):
-        return list(self.ets_projector.parameters()) + list(self.ets_cal_layers.parameters())
-    
-    def get_optim_kbts_cal_params(self):
-        if 'tc' in self.args.ablation:
-            return list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
-        else:
-            return list(self.kbts_cal_head.parameters())
-    
-    def get_optim_kbts_tc_params(self):
-        return list(self.kbts_projector.parameters()) + list(self.kbts_cal_layers.parameters())
+    def get_optim_tc_params(self):
+        return list(self.ets_projector.parameters()) + list(self.ets_cal_layers.parameters()) \
+                + list(self.kbts_projector.parameters()) + list(self.kbts_cal_layers.parameters())
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
