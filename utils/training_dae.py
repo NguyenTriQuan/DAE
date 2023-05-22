@@ -130,8 +130,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        n_epochs = 50
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+        n_epochs = 100
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [75, 90], gamma=0.1, verbose=False)
 
     if 'epoch' in args.ablation:
         n_epochs = 10
@@ -266,7 +266,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_cal')
                 if 'kbts' not in args.ablation:
                     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
-                    
+
                 accs = evaluate(model, dataset, task=None, mode=eval_mode)
                 mean_acc = np.mean(accs, axis=1)
                 print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
