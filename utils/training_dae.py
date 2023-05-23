@@ -390,6 +390,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
         # estimate memory size
         print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
+        print(model.net.state_dict().keys())
         # print('Buffer size:', os.path.getsize(base_path_memory() + args.title + '.buffer'))
         # print(model.net.state_dict().keys())
         # if not args.disable_log:
