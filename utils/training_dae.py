@@ -162,48 +162,48 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         model.task += 1 
         print(f'Task {t}:')
         mode = 'kbts'
-        til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
-        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        til_accs = model.evaluate(task=range(t), mode=mode)
+        cil_accs = model.evaluate(task=None, mode=mode)
         print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
         mode = 'ets'
-        til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
-        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        til_accs = model.evaluate(task=range(t), mode=mode)
+        cil_accs = model.evaluate(task=None, mode=mode)
         print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
         mode = 'ets_kbts'
-        til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
-        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        til_accs = model.evaluate(task=range(t), mode=mode)
+        cil_accs = model.evaluate(task=None, mode=mode)
         print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
         mode = 'ets_kbts_ba'
-        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        cil_accs = model.evaluate(task=None, mode=mode)
         print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
 
         if 'cal' not in args.ablation:
             mode = 'ets_kbts_cal'
-            til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
-            cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+            til_accs = model.evaluate(task=range(t), mode=mode)
+            cil_accs = model.evaluate(task=None, mode=mode)
             print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
             mode = 'ets_kbts_cal_ba'
-            cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+            cil_accs = model.evaluate(task=None, mode=mode)
             print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
 
             mode = 'ets_cal'
-            cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+            cil_accs = model.evaluate(task=None, mode=mode)
             print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
 
             mode = 'kbts_cal'
-            cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+            cil_accs = model.evaluate(task=None, mode=mode)
             print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
 
         mode = 'ets_ba'
-        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        cil_accs = model.evaluate(task=None, mode=mode)
         print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
 
         mode = 'kbts_ba'
-        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        cil_accs = model.evaluate(task=None, mode=mode)
         print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
 
 def train_cal(model: ContinualModel, dataset: ContinualDataset,
@@ -243,13 +243,13 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             if 'kbts' not in args.ablation:
                 train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
 
-            til_accs = model.evaluate(model, dataset, task=range(t), mode=eval_mode)
-            cil_accs = model.evaluate(model, dataset, task=None, mode=eval_mode)
+            til_accs = model.evaluate(task=range(t), mode=eval_mode)
+            cil_accs = model.evaluate(task=None, mode=eval_mode)
             print(f'{eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
             eval_mode += 'ba'
-            til_accs = model.evaluate(model, dataset, task=range(t), mode=eval_mode)
-            cil_accs = model.evaluate(model, dataset, task=None, mode=eval_mode)
+            til_accs = model.evaluate(task=range(t), mode=eval_mode)
+            cil_accs = model.evaluate(task=None, mode=eval_mode)
             print(f'{eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
         with torch.no_grad():
@@ -313,7 +313,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if 'kbts' not in args.ablation:
             mode = 'kbts'
             train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
-            accs = model.evaluate(model, dataset, task=[t], mode=mode)
+            accs = model.evaluate(task=[t], mode=mode)
             print(f'Task {t}, {mode}: til {accs[0]}')
 
         model.net.clear_memory()
@@ -322,7 +322,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if 'ets' not in args.ablation:
             mode = 'ets'
             train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
-            accs = model.evaluate(model, dataset, task=[t], mode=mode)
+            accs = model.evaluate(task=[t], mode=mode)
             print(f'Task {t}, {mode}: til {accs[0]}')
             num_params, num_neurons = model.net.count_params()
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
@@ -336,13 +336,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         else:
             eval_mode = 'ets'
 
-        cil_accs = model.evaluate(model, dataset, task=None, mode=eval_mode)
-        til_accs = model.evaluate(model, dataset, task=[t], mode=eval_mode)
+        cil_accs = model.evaluate(task=None, mode=eval_mode)
+        til_accs = model.evaluate(task=[t], mode=eval_mode)
         print(f'Task {t}, {mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
 
         if 'ba' in args.ablation:
             # batch augmentation
-            accs = model.evaluate(model, dataset, task=None, mode=eval_mode+'_ba')
+            accs = model.evaluate(task=None, mode=eval_mode+'_ba')
             print(f'Task {t}, {mode}: cil {round(np.mean(accs), 2)} {accs}')
         
         if 'cal' not in args.ablation:
@@ -361,13 +361,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 if 'kbts' not in args.ablation:
                     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
 
-                accs = model.evaluate(model, dataset, task=None, mode=eval_mode)
+                accs = model.evaluate(task=None, mode=eval_mode)
                 mean_acc = np.mean(accs, axis=1)
                 print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
                 print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
                 if 'ba' in args.ablation:
                     # batch augmentation
-                    accs = model.evaluate(model, dataset, task=None, mode=eval_mode+'_ba')
+                    accs = model.evaluate(task=None, mode=eval_mode+'_ba')
                     mean_acc = np.mean(accs, axis=1)
                     print(f'{eval_mode}_ba accs: cil {accs[0]}, til {accs[1]}')
                     print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
@@ -377,13 +377,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         print('checking forgetting')
         mode = 'kbts'
-        til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
-        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        til_accs = model.evaluate(task=range(t), mode=mode)
+        cil_accs = model.evaluate(task=None, mode=mode)
         print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
         mode = 'ets'
-        til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
-        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        til_accs = model.evaluate(task=range(t), mode=mode)
+        cil_accs = model.evaluate(task=None, mode=mode)
         print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
         torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
