@@ -228,7 +228,7 @@ class DAE(ContinualModel):
                         if task is None:
                             pred = self.forward(inputs, None, mode)
                         else:
-                            pred = self.forward(k, None, mode)
+                            pred = self.forward(inputs, k, mode)
                         correct += torch.sum(pred == labels).item()
                         total += labels.shape[0]
 
