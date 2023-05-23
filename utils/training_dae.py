@@ -287,7 +287,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         dataset.train_targets = torch.cat(targets)
         print(dataset.train_data.shape)
         
-    model.dataset = dataset
     if not args.nowand:
         assert wandb is not None, "Wandb not installed, please install it or run without wandb"
         wandb.init(project=args.wandb_project, entity=args.wandb_entity, config=vars(args))
@@ -346,12 +345,12 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         cil_accs = model.evaluate(task=None, mode=eval_mode)
         til_accs = model.evaluate(task=[t], mode=eval_mode)
-        print(f'Task {t}, {mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
+        print(f'Task {t}, {eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
 
         if 'ba' in args.ablation:
             # batch augmentation
             accs = model.evaluate(task=None, mode=eval_mode+'_ba')
-            print(f'Task {t}, {mode}: cil {round(np.mean(accs), 2)} {accs}')
+            print(f'Task {t}, {eval_mode}: cil {round(np.mean(accs), 2)} {accs}')
         
         if 'cal' not in args.ablation:
             eval_mode += '_cal'

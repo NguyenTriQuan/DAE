@@ -137,7 +137,7 @@ def main(args=None):
 
     dataset.N_TASKS = args.total_tasks
     dataset.N_CLASSES_PER_TASK = dataset.N_CLASSES // args.total_tasks
-
+    model.dataset = dataset
     if args.eval:
         evaluate(model, dataset, args)
     elif args.cal:

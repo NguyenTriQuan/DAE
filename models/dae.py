@@ -133,21 +133,20 @@ class DAE(ContinualModel):
 
     def __init__(self, backbone, loss, args, transform):
         super(DAE, self).__init__(backbone, loss, args, transform)
-        self.dataset = get_dataset(args)
         if args.norm_type == 'none':
             norm_type = None
         else:
             norm_type = args.norm_type
 
         if args.debug:
-            self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
+            self.net = resnet10(0, norm_type=norm_type, args=args)
             # self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
         else:
-            self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
+            self.net = resnet18(0, norm_type=norm_type, args=args)
         self.task = -1
         self.lamb = [float(i) for i in args.lamb.split('_')]
-        if len(self.lamb) < self.dataset.N_TASKS:
-            self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.dataset.N_TASKS)]
+        if len(self.lamb) < self.args.total_tasks:
+            self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.args.total_tasks)]
         print('lambda tasks', self.lamb)
         self.soft = torch.nn.Softmax(dim=1)
         # self.device = 'cpu'
