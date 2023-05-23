@@ -290,8 +290,8 @@ class DAE(ContinualModel):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
             # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
-            labels = torch.cat([(data[2] == t) * (data[2] + 1) for t in range(self.task+1)])
-            # labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
+            # labels = torch.cat([(data[2] == t) * (data[2] + 1) for t in range(self.task+1)])
+            labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
             inputs = self.dataset.train_transform(data[0])
             if 'ets' in mode:
                 # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
