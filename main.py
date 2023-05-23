@@ -129,7 +129,7 @@ def main(args=None):
     # set job name
     setproctitle.setproctitle('{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
     if model.NAME == 'DAE':
-        from utils.training_dae import train
+        from utils.training_dae import train, evaluate, train_cal
     elif model.NAME == 'ATA':
         from utils.training_ata import train
     else:
@@ -137,8 +137,12 @@ def main(args=None):
 
     dataset.N_TASKS = args.total_tasks
     dataset.N_CLASSES_PER_TASK = dataset.N_CLASSES // args.total_tasks
-    
-    if isinstance(dataset, ContinualDataset):
+
+    if args.eval:
+        evaluate(model, dataset, args)
+    elif args.cal:
+        train_cal(model, dataset, args)
+    elif isinstance(dataset, ContinualDataset):
         train(model, dataset, args)
     else:
         assert not hasattr(model, 'end_task') or model.NAME == 'joint_gcl'

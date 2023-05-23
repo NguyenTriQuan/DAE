@@ -392,8 +392,8 @@ class ResNet(_DynamicModel):
         hidden_dim = 128
         feat_dim = 128
 
-        ets_dim = self.linear.weight_ets[-1].shape[1]
-        kbts_dim = self.linear.weight_kbts[-1].shape[1]
+        ets_dim = self.linear.weight_ets[t].shape[1]
+        kbts_dim = self.linear.weight_kbts[t].shape[1]
 
         # self.task_feature_layers = nn.Sequential(
         #     nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),

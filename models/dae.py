@@ -48,6 +48,10 @@ def get_parser() -> ArgumentParser:
                         help='Quick test.')
     parser.add_argument('--verbose', action='store_true',
                         help='compute test accuracy and number of params.')
+    parser.add_argument('--eval', action='store_true',
+                        help='evaluation only')
+    parser.add_argument('--cal', action='store_true',
+                        help='calibration training')
     parser.add_argument('--lr_score', type=float, required=False,
                         help='score learning rate.', default=0.1)
     parser.add_argument('--num_tasks', type=int, required=False,
@@ -208,42 +212,38 @@ class DAE(ContinualModel):
             # print('min - max', outputs_tasks.min(1)[0], outputs_tasks.max(1)[0])
             return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
         
-    def eval(self, task=None, mode='ets_kbts_cal'):
+    def evaluate(self, task=None, mode='ets_kbts_cal'):
         with torch.no_grad():
             self.net.eval()
-            accs, accs_mask_classes = [], []
+            accs = []
             for k, test_loader in enumerate(self.dataset.test_loaders):
                 if task is not None:
-                    if k != task:
+                    if k not in task:
                         continue
-                correct, correct_mask_classes, total = 0.0, 0.0, 0.0
+                correct, total = 0.0, 0.0
                 for data in test_loader:
                     with torch.no_grad():
                         inputs, labels = data
                         inputs, labels = inputs.to(self.device), labels.to(self.device)
-                        # inputs = dataset.test_transform(inputs)
-                        if task is not None:
-                            pred = self.forward(inputs, k, mode)
-                        else:
+                        if task is None:
                             pred = self.forward(inputs, None, mode)
-
+                        else:
+                            pred = self.forward(k, None, mode)
                         correct += torch.sum(pred == labels).item()
                         total += labels.shape[0]
 
                 acc = correct / total * 100 if 'class-il' in self.COMPATIBILITY else 0
                 accs.append(round(acc, 2))
-                acc = correct_mask_classes / total * 100
-                accs_mask_classes.append(round(acc, 2))
 
             # model.net.train(status)
-            return accs, accs_mask_classes
+            return accs
     
     def train(self, train_loader, progress_bar, mode, squeeze, epoch, verbose=False):
         total = 0
         correct = 0
         total_loss = 0
         if verbose:
-            test_acc = self.eval(self.task, mode=mode)[0][0]
+            test_acc = self.evaluate([self.task], mode=mode)[0][0]
             num_params, num_neurons = self.net.count_params()
             num_params = sum(num_params)
         else:

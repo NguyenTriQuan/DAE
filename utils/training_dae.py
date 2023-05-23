@@ -23,61 +23,61 @@ from utils.conf import base_path_memory
 
 wandb = None
 
-def mask_classes(outputs: torch.Tensor, dataset: ContinualDataset, k: int) -> None:
-    """
-    Given the output tensor, the dataset at hand and the current task,
-    masks the former by setting the responses for the other tasks at -inf.
-    It is used to obtain the results for the task-il setting.
-    :param outputs: the output tensor
-    :param dataset: the continual dataset
-    :param k: the task index
-    """
-    outputs[:, 0:k * dataset.N_CLASSES_PER_TASK] = -float('inf')
-    outputs[:, (k + 1) * dataset.N_CLASSES_PER_TASK:
-               dataset.N_TASKS * dataset.N_CLASSES_PER_TASK] = -float('inf')
+# def mask_classes(outputs: torch.Tensor, dataset: ContinualDataset, k: int) -> None:
+#     """
+#     Given the output tensor, the dataset at hand and the current task,
+#     masks the former by setting the responses for the other tasks at -inf.
+#     It is used to obtain the results for the task-il setting.
+#     :param outputs: the output tensor
+#     :param dataset: the continual dataset
+#     :param k: the task index
+#     """
+#     outputs[:, 0:k * dataset.N_CLASSES_PER_TASK] = -float('inf')
+#     outputs[:, (k + 1) * dataset.N_CLASSES_PER_TASK:
+#                dataset.N_TASKS * dataset.N_CLASSES_PER_TASK] = -float('inf')
 
 
-def evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='ets_kbts_jr') -> Tuple[list, list]:
-    """
-    Evaluates the accuracy of the model for each past task.
-    :param model: the model to be evaluated
-    :param dataset: the continual dataset at hand
-    :return: a tuple of lists, containing the class-il
-             and task-il accuracy for each task
-    """
-    # status = model.net.training
-    with torch.no_grad():
-        model.net.eval()
-        accs, accs_mask_classes = [], []
-        for k, test_loader in enumerate(dataset.test_loaders):
-            if task is not None:
-                if k != task:
-                    continue
-            correct, correct_mask_classes, total = 0.0, 0.0, 0.0
-            for data in test_loader:
-                with torch.no_grad():
-                    inputs, labels = data
-                    inputs, labels = inputs.to(model.device), labels.to(model.device)
-                    # inputs = dataset.test_transform(inputs)
-                    if task is not None:
-                        pred = model(inputs, k, mode)
-                    else:
-                        pred = model(inputs, None, mode)
+# def model.evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='ets_kbts_jr') -> Tuple[list, list]:
+#     """
+#     Evaluates the accuracy of the model for each past task.
+#     :param model: the model to be evaluated
+#     :param dataset: the continual dataset at hand
+#     :return: a tuple of lists, containing the class-il
+#              and task-il accuracy for each task
+#     """
+#     # status = model.net.training
+#     with torch.no_grad():
+#         model.net.eval()
+#         accs, accs_mask_classes = [], []
+#         for k, test_loader in enumerate(dataset.test_loaders):
+#             if task is not None:
+#                 if k != task:
+#                     continue
+#             correct, correct_mask_classes, total = 0.0, 0.0, 0.0
+#             for data in test_loader:
+#                 with torch.no_grad():
+#                     inputs, labels = data
+#                     inputs, labels = inputs.to(model.device), labels.to(model.device)
+#                     # inputs = dataset.test_transform(inputs)
+#                     if task is not None:
+#                         pred = model(inputs, k, mode)
+#                     else:
+#                         pred = model(inputs, None, mode)
 
-                    correct += torch.sum(pred == labels).item()
-                    total += labels.shape[0]
+#                     correct += torch.sum(pred == labels).item()
+#                     total += labels.shape[0]
 
-                    if dataset.SETTING == 'class-il' and task is None:
-                        pred = model(inputs, k, mode)
-                        correct_mask_classes += torch.sum(pred == labels).item()
+#                     if dataset.SETTING == 'class-il' and task is None:
+#                         pred = model(inputs, k, mode)
+#                         correct_mask_classes += torch.sum(pred == labels).item()
 
-            acc = correct / total * 100 if 'class-il' in model.COMPATIBILITY else 0
-            accs.append(round(acc, 2))
-            acc = correct_mask_classes / total * 100
-            accs_mask_classes.append(round(acc, 2))
+#             acc = correct / total * 100 if 'class-il' in model.COMPATIBILITY else 0
+#             accs.append(round(acc, 2))
+#             acc = correct_mask_classes / total * 100
+#             accs_mask_classes.append(round(acc, 2))
 
-        # model.net.train(status)
-        return accs, accs_mask_classes
+#         # model.net.train(status)
+#         return accs, accs_mask_classes
 
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     squeeze = False
@@ -118,7 +118,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         else:
             n_epochs = 130
             num_squeeze = 100
-            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [115, 125], gamma=0.1, verbose=False)
+            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [1, 125], gamma=0.1, verbose=False)
             squeeze = True
         if 'join' in args.ablation:
             n_epochs = 50
@@ -146,12 +146,114 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
 
         if epoch >= num_squeeze:
             squeeze = False
-    
-    if 'cal' not in mode and 'tc' not in mode:
-        accs = evaluate(model, dataset, task=t, mode=mode)
-        print('\n{} Accuracy for {} task(s): {} %'.format(mode, t+1, round(accs[0][0], 2)), file=sys.stderr)
-    print()
 
+def evaluate(model: ContinualModel, dataset: ContinualDataset,
+          args: Namespace) -> None:
+    args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
+                                                      args.ablation, args.lamb, args.dropout, args.sparsity)
+    print(args.title)
+    state_dict = torch.load(base_path_memory() + args.title + '.net')
+    model.net.load_state_dict(state_dict)
+    for t in range(dataset.N_TASKS):
+        if t >= args.num_tasks:
+            break
+        
+        train_loader, test_loader = dataset.get_data_loaders()   
+        model.task += 1 
+        print(f'Task {t}:')
+        mode = 'kbts'
+        til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
+        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+
+        mode = 'ets'
+        til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
+        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+
+        mode = 'ets_kbts'
+        til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
+        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+
+        mode = 'ets_kbts_ba'
+        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
+
+        if 'cal' not in args.ablation:
+            mode = 'ets_kbts_cal'
+            til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
+            cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+
+            mode = 'ets_kbts_cal_ba'
+            cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
+
+            mode = 'ets_cal'
+            cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
+
+            mode = 'kbts_cal'
+            cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
+
+        mode = 'ets_ba'
+        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
+
+        mode = 'kbts_ba'
+        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}')
+
+def train_cal(model: ContinualModel, dataset: ContinualDataset,
+          args: Namespace) -> None:
+    args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
+                                                      args.ablation, args.lamb, args.dropout, args.sparsity)
+    print(args.title)
+    state_dict = torch.load(base_path_memory() + args.title + '.net')
+    model.net.load_state_dict(state_dict)
+    progress_bar = ProgressBar(verbose=not args.non_verbose)
+    model.net.ets_cal_layers = torch.nn.ModuleList([])
+    model.net.kbts_cal_layers = torch.nn.ModuleList([])
+    for t in range(dataset.N_TASKS):
+        if t >= args.num_tasks:
+            break
+        
+        train_loader, test_loader = dataset.get_data_loaders()   
+        model.task += 1 
+
+        if 'kbts' not in args.ablation:
+            eval_mode = 'ets_kbts'
+        else:
+            eval_mode = 'ets'
+
+        eval_mode += '_cal'
+        model.net.set_jr_params(t)
+        with torch.no_grad():
+            model.get_rehearsal_logits(train_loader)
+        # jr training
+        if t > 0:
+            if 'tc' not in args.ablation:
+                train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_tc')
+                if 'kbts' not in args.ablation:
+                    train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_tc')
+
+            train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_cal')
+            if 'kbts' not in args.ablation:
+                train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
+
+            til_accs = model.evaluate(model, dataset, task=range(t), mode=eval_mode)
+            cil_accs = model.evaluate(model, dataset, task=None, mode=eval_mode)
+            print(f'{eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+
+            eval_mode += 'ba'
+            til_accs = model.evaluate(model, dataset, task=range(t), mode=eval_mode)
+            cil_accs = model.evaluate(model, dataset, task=None, mode=eval_mode)
+            print(f'{eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+
+        with torch.no_grad():
+            model.fill_buffer(train_loader)
 
 def train(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
@@ -192,15 +294,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
     progress_bar = ProgressBar(verbose=not args.non_verbose)
 
-    args.ignore_other_metrics = True
-    if not args.ignore_other_metrics:
-        dataset_copy = get_dataset(args)
-        for t in range(dataset.N_TASKS):
-            model.net.train()
-            _, _ = dataset_copy.get_data_loaders()
-        if model.NAME != 'icarl' and model.NAME != 'pnn':
-            random_results_class, random_results_task = evaluate(model, dataset_copy, ets=True, kbts=False, jr=False)
-
     print(file=sys.stderr)
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
@@ -214,23 +307,25 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             model.begin_task(dataset)
             num_params, num_neurons = model.net.count_params()
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
-
-        # if t and not args.ignore_other_metrics:
-        #     accs = evaluate(model, dataset, last=True, ets=True, kbts=False, jr=False)
-        #     results[t-1] = results[t-1] + accs[0]
-        #     if dataset.SETTING == 'class-il':
-        #         results_mask_classes[t-1] = results_mask_classes[t-1] + accs[1]
         
 
         # kbts training
         if 'kbts' not in args.ablation:
-            train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts')
+            mode = 'kbts'
+            train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
+            accs = model.evaluate(model, dataset, task=[t], mode=mode)
+            print(f'Task {t}, {mode}: til {accs[0]}')
+
         model.net.clear_memory()
 
         # ets training
         if 'ets' not in args.ablation:
-            train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets')
+            mode = 'ets'
+            train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
+            accs = model.evaluate(model, dataset, task=[t], mode=mode)
+            print(f'Task {t}, {mode}: til {accs[0]}')
             num_params, num_neurons = model.net.count_params()
+            num_neurons = '-'.join(str(int(num)) for num in num_neurons)
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
         if hasattr(model, 'end_task'):
@@ -241,17 +336,14 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         else:
             eval_mode = 'ets'
 
-        accs = evaluate(model, dataset, task=None, mode=eval_mode)
-        mean_acc = np.mean(accs, axis=1)
-        print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
-        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+        cil_accs = model.evaluate(model, dataset, task=None, mode=eval_mode)
+        til_accs = model.evaluate(model, dataset, task=[t], mode=eval_mode)
+        print(f'Task {t}, {mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
 
         if 'ba' in args.ablation:
             # batch augmentation
-            accs = evaluate(model, dataset, task=None, mode=eval_mode+'_ba')
-            mean_acc = np.mean(accs, axis=1)
-            print(f'{eval_mode}_ba accs: cil {accs[0]}, til {accs[1]}')
-            print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+            accs = model.evaluate(model, dataset, task=None, mode=eval_mode+'_ba')
+            print(f'Task {t}, {mode}: cil {round(np.mean(accs), 2)} {accs}')
         
         if 'cal' not in args.ablation:
             eval_mode += '_cal'
@@ -269,13 +361,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 if 'kbts' not in args.ablation:
                     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
 
-                accs = evaluate(model, dataset, task=None, mode=eval_mode)
+                accs = model.evaluate(model, dataset, task=None, mode=eval_mode)
                 mean_acc = np.mean(accs, axis=1)
                 print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
                 print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
                 if 'ba' in args.ablation:
                     # batch augmentation
-                    accs = evaluate(model, dataset, task=None, mode=eval_mode+'_ba')
+                    accs = model.evaluate(model, dataset, task=None, mode=eval_mode+'_ba')
                     mean_acc = np.mean(accs, axis=1)
                     print(f'{eval_mode}_ba accs: cil {accs[0]}, til {accs[1]}')
                     print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
@@ -284,37 +376,21 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 model.fill_buffer(train_loader)
 
         print('checking forgetting')
-        accs = evaluate(model, dataset, task=None, mode='kbts')
-        print(f'kbts accs: cil {np.mean(accs[0])} {accs[0]}, til {np.mean(accs[1])} {accs[1]}')
-        if 'cal' not in args.ablation:
-            accs = evaluate(model, dataset, task=None, mode='kbts_cal')
-            print(f'kbts_cal accs: cil {np.mean(accs[0])} {accs[0]}, til {np.mean(accs[1])} {accs[1]}')
+        mode = 'kbts'
+        til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
+        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
-        accs = evaluate(model, dataset, task=None, mode='ets')
-        print(f'ets accs: cil {np.mean(accs[0])} {accs[0]}, til {np.mean(accs[1])} {accs[1]}')
-        if 'cal' not in args.ablation:
-            accs = evaluate(model, dataset, task=None, mode='ets_cal')
-            print(f'ets_cal accs: cil {np.mean(accs[0])} {accs[0]}, til {np.mean(accs[1])} {accs[1]}')
+        mode = 'ets'
+        til_accs = model.evaluate(model, dataset, task=range(t), mode=mode)
+        cil_accs = model.evaluate(model, dataset, task=None, mode=mode)
+        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
-        # accs = evaluate(model, dataset, task=None, mode='jr')
-        # print(f'jr accs: cil {accs[0]}, til {accs[1]}')
-
-        # final evaluation
-        # accs = evaluate(model, dataset, task=None, mode='ets_kbts_jr')
-        # results.append(accs[0])
-        # results_mask_classes.append(accs[1])
-        # mean_acc = np.mean(accs, axis=1)
-        # print(f'ets_kbts_jr accs: cil {accs[0]}, til {accs[1]}')
-        # print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
-
-        # save model and buffer
-        # torch.save(model, base_path_memory() + args.title + '.model')
-        # torch.save(dataset, base_path_memory() + args.title + '.dataset')
         torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
-        torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
+        # torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
         # estimate memory size
         print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
-        print('Buffer size:', os.path.getsize(base_path_memory() + args.title + '.buffer'))
+        # print('Buffer size:', os.path.getsize(base_path_memory() + args.title + '.buffer'))
         # print(model.net.state_dict().keys())
         # if not args.disable_log:
         #     logger.log(mean_acc)
@@ -329,19 +405,19 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
 
 
-    if not args.disable_log and not args.ignore_other_metrics:
-        logger.add_bwt(results, results_mask_classes)
-        logger.add_forgetting(results, results_mask_classes)
-        if model.NAME != 'icarl' and model.NAME != 'pnn':
-            logger.add_fwt(results, random_results_class,
-                    results_mask_classes, random_results_task)
+    # if not args.disable_log and not args.ignore_other_metrics:
+    #     logger.add_bwt(results, results_mask_classes)
+    #     logger.add_forgetting(results, results_mask_classes)
+    #     if model.NAME != 'icarl' and model.NAME != 'pnn':
+    #         logger.add_fwt(results, random_results_class,
+    #                 results_mask_classes, random_results_task)
 
-    if not args.disable_log:
-        logger.write(vars(args))
-        if not args.nowand:
-            d = logger.dump()
-            d['wandb_url'] = wandb.run.get_url()
-            wandb.log(d)
+    # if not args.disable_log:
+    #     logger.write(vars(args))
+    #     if not args.nowand:
+    #         d = logger.dump()
+    #         d['wandb_url'] = wandb.run.get_url()
+    #         wandb.log(d)
 
-    if not args.nowand:
-        wandb.finish()
+    # if not args.nowand:
+    #     wandb.finish()

@@ -78,15 +78,19 @@ class _DynamicLayer(nn.Module):
         self.mask_out = None
 
         self.register_buffer('bias', None)
-        # self.register_buffer('shape_out', torch.IntTensor([0]).to(device))
-        # self.register_buffer('shape_in', torch.IntTensor([0]).to(device))
-        # self.register_buffer('num_out', torch.IntTensor([]).to(device))
-        # self.register_buffer('num_in', torch.IntTensor([]).to(device))
-        self.shape_out = [0]
-        self.shape_in = [0]
-        self.num_out = []
-        self.num_in = []
-        self.kbts_sparsities = []
+
+        self.register_buffer('shape_out', torch.IntTensor([0]).to(device))
+        self.register_buffer('shape_in', torch.IntTensor([0]).to(device))
+        self.register_buffer('num_out', torch.IntTensor([]).to(device))
+        self.register_buffer('num_in', torch.IntTensor([]).to(device))
+        self.register_buffer('kbts_sparsities', torch.IntTensor([]).to(device))
+
+        # self.shape_out = [0]
+        # self.shape_in = [0]
+        # self.num_out = []
+        # self.num_in = []
+        # self.kbts_sparsities = []
+
         self.jr_sparsity = 0
 
         if isinstance(self, DynamicConv2D):
@@ -139,16 +143,16 @@ class _DynamicLayer(nn.Module):
         add_in = add_in[0]
         add_out = add_out[0]
 
-        # self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(device)])
-        # self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(device)])
+        self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(device)])
+        self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(device)])
 
-        # self.shape_out = torch.cat([self.shape_out, torch.IntTensor([fan_out]).to(device)])
-        # self.shape_in = torch.cat([self.shape_in, torch.IntTensor([fan_in]).to(device)])
+        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([fan_out]).to(device)])
+        self.shape_in = torch.cat([self.shape_in, torch.IntTensor([fan_in]).to(device)])
 
-        self.num_out.append(add_out)
-        self.num_in.append(add_in)
-        self.shape_out.append(fan_out)
-        self.shape_in.append(fan_in)
+        # self.num_out.append(add_out)
+        # self.num_in.append(add_in)
+        # self.shape_out.append(fan_out)
+        # self.shape_in.append(fan_in)
         
         # bound_std = self.gain / math.sqrt(fan_in * self.ks)
         bound_std = self.gain / math.sqrt(fan_out * self.ks)
@@ -593,16 +597,15 @@ class DynamicClassifier(DynamicLinear):
         add_in = add_in[0]
         add_out = add_out[0]
 
-        # self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(device)])
-        # self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(device)])
+        self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(device)])
+        self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(device)])
+        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([self.shape_out[-1] + add_out]).to(device)])
+        self.shape_in = torch.cat([self.shape_in, torch.IntTensor([self.shape_in[-1] + add_in]).to(device)])
 
-        # self.shape_out = torch.cat([self.shape_out, torch.IntTensor([self.shape_out[-1] + add_out]).to(device)])
-        # self.shape_in = torch.cat([self.shape_in, torch.IntTensor([self.shape_in[-1] + add_in]).to(device)])
-
-        self.num_out.append(add_out)
-        self.num_in.append(add_in)
-        self.shape_out.append(fan_out)
-        self.shape_in.append(fan_in)
+        # self.num_out.append(add_out)
+        # self.num_in.append(add_in)
+        # self.shape_out.append(fan_out)
+        # self.shape_in.append(fan_in)
 
         # bound_std = self.gain / math.sqrt(self.shape_in[-1])
         bound_std = self.gain / math.sqrt(self.num_out[-1])
