@@ -153,7 +153,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
     state_dict = torch.load(base_path_memory() + args.title + '.net')
-    model.net.load_state_dict(state_dict)
+    model.net.load_state_dict(state_dict, strict=False)
     num_params, num_neurons = model.net.count_params()
     num_neurons = '-'.join(str(int(num)) for num in num_neurons)
     print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
@@ -219,7 +219,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
     state_dict = torch.load(base_path_memory() + args.title + '.net')
-    model.net.load_state_dict(state_dict)
+    model.net.load_state_dict(state_dict, strict=False)
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     model.net.ets_cal_layers = torch.nn.ModuleList([])
     model.net.kbts_cal_layers = torch.nn.ModuleList([])
@@ -397,7 +397,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
         # estimate memory size
         print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
-        print(model.net.state_dict().keys())
+        # print(model.net.state_dict().keys())
         # print('Buffer size:', os.path.getsize(base_path_memory() + args.title + '.buffer'))
         # print(model.net.state_dict().keys())
         # if not args.disable_log:
