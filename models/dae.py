@@ -355,7 +355,8 @@ class DAE(ContinualModel):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:
-            m.kbts_sparsities = torch.cat([m.kbts_sparsities, torch.IntTensor([m.sparsity]).to(device)])
+            # m.kbts_sparsities = torch.cat([m.kbts_sparsities, torch.IntTensor([m.sparsity]).to(device)])
+            m.kbts_sparsities += [m.sparsity]
         self.opt = torch.optim.SGD(self.net.parameters(), lr=self.args.lr, weight_decay=0, momentum=self.args.optim_mom)
 
     def end_task(self, dataset) -> None:

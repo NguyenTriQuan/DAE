@@ -346,7 +346,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             til_accs = model.evaluate(task=[t], mode=eval_mode)
             print(f'Task {t}, {eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
 
-            if 'ba' in args.ablation:
+            if 'ba' not in args.ablation:
                 # batch augmentation
                 accs = model.evaluate(task=None, mode=eval_mode+'_ba')
                 print(f'Task {t}, {eval_mode}_ba: cil {round(np.mean(accs), 2)} {accs}')
@@ -372,7 +372,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                     mean_acc = np.mean(accs, axis=1)
                     print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
                     print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
-                    if 'ba' in args.ablation:
+                    if 'ba' not in args.ablation:
                         # batch augmentation
                         accs = model.evaluate(task=None, mode=eval_mode+'_ba')
                         mean_acc = np.mean(accs, axis=1)
