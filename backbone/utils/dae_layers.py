@@ -537,8 +537,8 @@ class DynamicBlock(nn.Module):
             temp = torch.ones(layer.shape_out[-2], dtype=float, device=device)
             temp = torch.cat([temp, aux], dim=0)
             if norm_layer.affine:
-                norm_layer.weight.data[layer.shape_out[-2]:] *= temp
-                norm_layer.bias.data[layer.shape_out[-2]:] *= temp
+                norm_layer.weight.data *= temp
+                norm_layer.bias.data *= temp
 
     def get_optim_ets_params(self):
         params = []
