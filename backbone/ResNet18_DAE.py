@@ -168,83 +168,6 @@ class BasicBlock(nn.Module):
         out = self.conv2.kbts_forward([x, out], t)
         return out
     
-# class BasicBlock(nn.Module):
-#     """
-#     The basic block of ResNet.
-#     """
-#     expansion = 1
-
-#     def __init__(self, in_planes: int, planes: int, stride: int=1) -> None:
-#         """
-#         Instantiates the basic block of the network.
-#         :param in_planes: the number of input channels
-#         :param planes: the number of channels (to be possibly expanded)
-#         """
-#         super(BasicBlock, self).__init__()
-#         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-#         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
-#         self.shortcut = nn.Conv2d(planes, planes, kernel_size=1, stride=stride, padding=1, bias=False)
-
-#     def ets_forward(self, x: torch.Tensor, t) -> torch.Tensor:
-#         out = F.relu(self.conv1())
-#         out = self.conv2.ets_forward([x, out], t)
-#         return out
-    
-class ContrastFeatExtractor(nn.Module):
-    """
-    Calibration output using feature.
-    """
-    def __init__(self, feat_dim: int, hidden_dim: int) -> None:
-        super(ContrastFeatExtractor, self).__init__()
-
-        self.layers = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.ReLU(),
-
-            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-
-            nn.AvgPool2d(kernel_size=2),
-            nn.Flatten(),
-            nn.Linear(256, feat_dim, bias=True),
-        )
-    
-    def forward(self, inputs) -> torch.Tensor:
-        return self.layers(inputs)
-    
-class CalibrationBlock(nn.Module):
-    """
-    Calibration output using feature.
-    """
-    def __init__(self, feat_dim: int, hidden_dim: int) -> None:
-        super(CalibrationBlock, self).__init__()
-        self.layers = nn.Sequential(
-            nn.Linear(feat_dim, hidden_dim, bias=True),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim, bias=True),
-        )
-        self.last = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim, bias=True),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 2, bias=True),
-            nn.Sigmoid()
-        )
-    
-    def forward(self, features, shortcuts, outputs) -> torch.Tensor:
-        s = self.last(self.layers(features) + shortcuts)
-        # s = self.last(self.layers(features))
-        outputs = outputs * s[:, 0].view(-1, 1) + s[:, 1].view(-1, 1)
-        # outputs = outputs * s.view(-1, 1)
-        return outputs
 
 
 class ResNet(_DynamicModel):
@@ -313,7 +236,8 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         out = self.linear.ets_forward(feature, t)
         if cal:
-            hidden = self.ets_cal_layers[t](feature)
+            task_feature = self.task_feature_layers(x)
+            hidden = self.ets_cal_layers[t](feature) + task_feature
             if feat:
                 return self.ets_projector(hidden)
             else:
@@ -335,7 +259,8 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         out = self.linear.kbts_forward(feature, t)
         if cal:
-            hidden = self.kbts_cal_layers[t](feature)
+            task_feature = self.task_feature_layers(x)
+            hidden = self.kbts_cal_layers[t](feature) + task_feature
             if feat:
                 return self.kbts_projector(hidden)
             else:
@@ -395,28 +320,28 @@ class ResNet(_DynamicModel):
         ets_dim = self.linear.weight_ets[t].shape[1]
         kbts_dim = self.linear.weight_kbts[t].shape[1]
 
-        # self.task_feature_layers = nn.Sequential(
-        #     nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
-        #     nn.ReLU(),
+        self.task_feature_layers = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.ReLU(),
 
-        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
 
-        #     nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
 
-        #     nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
 
-        #     nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
 
-        #     nn.AvgPool2d(kernel_size=2),
-        #     nn.Flatten(),
-        #     nn.Dropout(0.5),
-        #     nn.Linear(256, hidden_dim, bias=True),
-        #     nn.ReLU()
-        # ).to(device)
+            nn.AvgPool2d(kernel_size=2),
+            nn.Flatten(),
+            # nn.Dropout(0.5),
+            nn.Linear(256, hidden_dim, bias=True),
+            nn.ReLU()
+        ).to(device)
 
         self.ets_cal_layers.append(
             nn.Sequential(
@@ -465,15 +390,18 @@ class ResNet(_DynamicModel):
 
         
     def get_optim_cal_params(self):
-        if 'tc' in self.args.ablation:
-            return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
-                    + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
-        else:
-            return list(self.ets_cal_head.parameters()) + list(self.kbts_cal_head.parameters())
+        return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
+                + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
+        # if 'tc' in self.args.ablation:
+        #     return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
+        #             + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
+        # else:
+        #     return list(self.ets_cal_head.parameters()) + list(self.kbts_cal_head.parameters())
     
     def get_optim_tc_params(self):
-        return list(self.ets_projector.parameters()) + list(self.ets_cal_layers.parameters()) \
-                + list(self.kbts_projector.parameters()) + list(self.kbts_cal_layers.parameters())
+        return list(self.ets_projector.parameters()) + list(self.task_feature_layers.parameters()) 
+        # return list(self.ets_projector.parameters()) + list(self.ets_cal_layers.parameters()) \
+        #         + list(self.kbts_projector.parameters()) + list(self.kbts_cal_layers.parameters())
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
