@@ -144,8 +144,10 @@ class DAE(ContinualModel):
         else:
             self.net = resnet18(0, norm_type=norm_type, args=args)
         self.task = -1
-        self.lamb = float(args.lamb)
-        # self.lamb = [float(i) for i in args.lamb.split('_')]
+        try:
+            self.lamb = float(args.lamb)
+        except:
+            self.lamb = [float(i) for i in args.lamb.split('_')][0]
         # if len(self.lamb) < self.args.total_tasks:
         #     self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.args.total_tasks)]
         # print('lambda tasks', self.lamb)
