@@ -237,7 +237,8 @@ class ResNet(_DynamicModel):
         out = self.linear.ets_forward(feature, t)
         if cal:
             task_feature = self.task_feature_layers(x)
-            hidden = self.ets_cal_layers[t](feature) + task_feature
+            # hidden = self.ets_cal_layers[t](feature) + task_feature
+            hidden = task_feature
             if feat:
                 return self.ets_projector(hidden)
             else:
@@ -260,7 +261,8 @@ class ResNet(_DynamicModel):
         out = self.linear.kbts_forward(feature, t)
         if cal:
             task_feature = self.task_feature_layers(x)
-            hidden = self.kbts_cal_layers[t](feature) + task_feature
+            # hidden = self.kbts_cal_layers[t](feature) + task_feature
+            hidden = task_feature
             if feat:
                 return self.kbts_projector(hidden)
             else:
