@@ -319,7 +319,12 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             num_params, num_neurons = model.net.count_params()
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
-        
+            if t == 0:
+                base_params = sum(num_params)
+                model.factor = 1
+            else:
+                model.factor = sum(num_params) / base_params
+            print(f'Task {t}, lamb = {model.lamb * model.factor}')
 
         # kbts training
         if 'kbts' not in args.ablation:

@@ -144,10 +144,11 @@ class DAE(ContinualModel):
         else:
             self.net = resnet18(0, norm_type=norm_type, args=args)
         self.task = -1
-        self.lamb = [float(i) for i in args.lamb.split('_')]
-        if len(self.lamb) < self.args.total_tasks:
-            self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.args.total_tasks)]
-        print('lambda tasks', self.lamb)
+        self.lamb = float(args.lamb)
+        # self.lamb = [float(i) for i in args.lamb.split('_')]
+        # if len(self.lamb) < self.args.total_tasks:
+        #     self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.args.total_tasks)]
+        # print('lambda tasks', self.lamb)
         self.soft = torch.nn.Softmax(dim=1)
         # self.device = 'cpu'
 
@@ -269,7 +270,7 @@ class DAE(ContinualModel):
             total += labels.shape[0]
             total_loss += loss.item() * labels.shape[0]
             if squeeze:
-                self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
+                self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb * self.factor)
                 num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
                 if verbose:
                     progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, num_params, num_neurons)
