@@ -31,7 +31,7 @@ class ProgressBar:
             if i == 0:
                 print('[ {} ] Task {} | epoch {}\n'.format(
                     datetime.now().strftime("%m-%d | %H:%M"),
-                    task_number + 1 if isinstance(task_number, int) else task_number,
+                    task_number if isinstance(task_number, int) else task_number,
                     epoch
                 ), file=sys.stderr, end='', flush=True)
             else:
@@ -46,7 +46,7 @@ class ProgressBar:
             progress = min(float((i + 1) / max_iter), 1)
             progress_bar = ('█' * int(30 * progress)) + ('┈' * (30 - int(30 * progress)))
             print('\rTask {} | epoch {}: |{}| {} ep/h | loss: {} | train: {}% | test: {}% | params {} | neurons {}|'.format(
-                task_number + 1 if isinstance(task_number, int) else task_number,
+                task_number if isinstance(task_number, int) else task_number,
                 epoch,
                 progress_bar,
                 round(3600 / (self.running_sum / i * max_iter + 1e-9), 2),
