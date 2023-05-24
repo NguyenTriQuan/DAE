@@ -81,7 +81,9 @@ wandb = None
 
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     squeeze = False
+    augment = True
     num_squeeze = 0
+    num_augment = 115
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     if 'cal' in mode:
         # calibration outputs
@@ -113,12 +115,14 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         if 'squeeze' in args.ablation:
             n_epochs = 120
+            num_augment = 115
             model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [100, 115], gamma=0.1, verbose=False)
             squeeze = False
         else:
-            n_epochs = 130
+            n_epochs = 150
             num_squeeze = 100
-            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [1, 125], gamma=0.1, verbose=False)
+            num_augment = 145
+            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [130, 145], gamma=0.1, verbose=False)
             squeeze = True
         if 'join' in args.ablation:
             n_epochs = 50
@@ -132,6 +136,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         n_epochs = 120
+        num_augment = 115
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [100, 115], gamma=0.1, verbose=False)
 
     if 'epoch' in args.ablation:
@@ -142,10 +147,14 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         elif 'tc' in mode:
             model.train_contrast(progress_bar, epoch, mode, args.verbose)
         else:          
-            model.train(train_loader, progress_bar, mode, squeeze, epoch, args.verbose)
+            model.train(train_loader, progress_bar, mode, squeeze, augment, epoch, args.verbose)
 
+        # do not perform squeeze and augment at a few last epochs for better convergence
         if epoch >= num_squeeze:
             squeeze = False
+
+        if epoch >= num_augment:
+            augment = False
 
     print()
 

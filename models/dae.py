@@ -237,7 +237,7 @@ class DAE(ContinualModel):
             # model.net.train(status)
             return accs
     
-    def train(self, train_loader, progress_bar, mode, squeeze, epoch, verbose=False):
+    def train(self, train_loader, progress_bar, mode, squeeze, augment, epoch, verbose=False):
         total = 0
         correct = 0
         total_loss = 0
@@ -252,7 +252,8 @@ class DAE(ContinualModel):
         for i, data in enumerate(train_loader):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
-            inputs = self.dataset.train_transform(inputs)
+            if augment:
+                inputs = self.dataset.train_transform(inputs)
             inputs = self.dataset.test_transforms[self.task](inputs)
             self.opt.zero_grad()
             if mode == 'ets':

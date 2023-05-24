@@ -529,15 +529,16 @@ class DynamicBlock(nn.Module):
             layer.weight[-1].data *= aux.view(layer.view_in)
             layer.fwt_weight[-1].data *= aux.view(layer.view_in)
         
-        # if self.norm_type is not None:
-        #     norm_layer = self.ets_norm_layers[-1]
-        #     if norm_layer.track_running_stats:
-        #         norm_layer.running_mean[layer.shape_out[-2]:] *= aux
-        #         norm_layer.running_var[layer.shape_out[-2]:] *= (aux ** 2)
-
-        #     if norm_layer.affine:
-        #         norm_layer.weight.data[layer.shape_out[-2]:] *= aux
-        #         norm_layer.bias.data[layer.shape_out[-2]:] *= aux
+        if self.norm_type is not None:
+            norm_layer = self.ets_norm_layers[-1]
+            # if norm_layer.track_running_stats:
+            #     norm_layer.running_mean[layer.shape_out[-2]:] *= aux
+            #     norm_layer.running_var[layer.shape_out[-2]:] *= (aux ** 2)
+            temp = torch.ones(layer.shape_out[-2], dtype=float, device=device)
+            temp = torch.cat([temp, aux], dim=0)
+            if norm_layer.affine:
+                norm_layer.weight.data[layer.shape_out[-2]:] *= temp
+                norm_layer.bias.data[layer.shape_out[-2]:] *= temp
 
     def get_optim_ets_params(self):
         params = []
