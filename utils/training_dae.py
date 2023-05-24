@@ -83,7 +83,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     squeeze = False
     augment = True
     num_squeeze = 0
-    num_augment = 115
+    num_augment = 100
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     if 'cal' in mode:
         # calibration outputs
@@ -115,13 +115,13 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         if 'squeeze' in args.ablation:
             n_epochs = 120
-            num_augment = 115
+            num_augment = 100
             model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [100, 115], gamma=0.1, verbose=False)
             squeeze = False
         else:
             n_epochs = 150
             num_squeeze = 100
-            num_augment = 145
+            num_augment = 130
             model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [130, 145], gamma=0.1, verbose=False)
             squeeze = True
         if 'join' in args.ablation:
@@ -136,7 +136,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         n_epochs = 120
-        num_augment = 115
+        num_augment = 100
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [100, 115], gamma=0.1, verbose=False)
 
     if 'epoch' in args.ablation:
