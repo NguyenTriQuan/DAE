@@ -88,9 +88,9 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     if 'cal' in mode:
         # calibration outputs
         n_epochs = 100
-        # params = model.net.get_optim_cal_params()
-        params = list(model.net.ets_cal_head.parameters()) + list(model.net.ets_cal_layers.parameters()) \
-                    + list(model.net.kbts_cal_head.parameters()) + list(model.net.kbts_cal_layers.parameters())
+        params = model.net.get_optim_cal_params()
+        # params = list(model.net.ets_cal_head.parameters()) + list(model.net.ets_cal_layers.parameters()) \
+        #             + list(model.net.kbts_cal_head.parameters()) + list(model.net.kbts_cal_layers.parameters())
         count = 0
         for param in params:
             count += param.numel()
@@ -159,6 +159,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             augment = False
 
     print()
+
 
 def evaluate(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:

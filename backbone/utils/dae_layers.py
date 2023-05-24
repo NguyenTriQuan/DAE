@@ -640,9 +640,6 @@ class DynamicClassifier(DynamicLinear):
 
     def get_optim_kbts_params(self):
         return [self.weight_kbts[-1], self.bias_kbts[-1]]
-    
-    def get_optim_jr_params(self):
-        return [self.cal_weight_ets[-1], self.cal_bias_ets[-1], self.cal_weight_kbts[-1], self.cal_bias_kbts[-1]]
 
     def count_params(self, t):
         count = 0
