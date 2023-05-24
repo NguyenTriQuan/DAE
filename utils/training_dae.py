@@ -147,6 +147,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         if epoch >= num_squeeze:
             squeeze = False
 
+    print()
+
 def evaluate(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
