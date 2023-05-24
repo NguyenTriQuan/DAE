@@ -242,7 +242,7 @@ class DAE(ContinualModel):
         correct = 0
         total_loss = 0
         if verbose:
-            test_acc = self.evaluate([self.task], mode=mode)[0][0]
+            test_acc = self.evaluate([self.task], mode=mode)[0]
             num_params, num_neurons = self.net.count_params()
             num_params = sum(num_params)
         else:
