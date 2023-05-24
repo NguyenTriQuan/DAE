@@ -152,8 +152,9 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
-    state_dict = torch.load(base_path_memory() + args.title + '.net')
-    model.net.load_state_dict(state_dict, strict=False)
+    # state_dict = torch.load(base_path_memory() + args.title + '.net')
+    # model.net.load_state_dict(state_dict, strict=False)
+    model.net = torch.load(base_path_memory() + args.title + '.net')
     num_params, num_neurons = model.net.count_params()
     num_neurons = '-'.join(str(int(num)) for num in num_neurons)
     print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
@@ -218,8 +219,9 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
                                                       args.ablation, args.lamb, args.dropout, args.sparsity)
     print(args.title)
-    state_dict = torch.load(base_path_memory() + args.title + '.net')
-    model.net.load_state_dict(state_dict, strict=False)
+    # state_dict = torch.load(base_path_memory() + args.title + '.net')
+    # model.net.load_state_dict(state_dict, strict=False)
+    model.net = torch.load(base_path_memory() + args.title + '.net')
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     model.net.ets_cal_layers = torch.nn.ModuleList([])
     model.net.kbts_cal_layers = torch.nn.ModuleList([])
@@ -393,10 +395,11 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         cil_accs = model.evaluate(task=None, mode=mode)
         print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
-        torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
+        # torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
+        torch.save(model.net, base_path_memory() + args.title + '.net')
         # torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
         # estimate memory size
-        print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
+        # print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
         # print(model.net.state_dict().keys())
         # print('Buffer size:', os.path.getsize(base_path_memory() + args.title + '.buffer'))
         # print(model.net.state_dict().keys())
