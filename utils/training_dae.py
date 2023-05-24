@@ -149,9 +149,6 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
 
 def evaluate(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
-    args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
-                                                      args.ablation, args.lamb, args.dropout, args.sparsity)
-    print(args.title)
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
     # model.net.load_state_dict(state_dict, strict=False)
     model.net = torch.load(base_path_memory() + args.title + '.net')
@@ -216,9 +213,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
 
 def train_cal(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
-    args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
-                                                      args.ablation, args.lamb, args.dropout, args.sparsity)
-    print(args.title)
+    
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
     # model.net.load_state_dict(state_dict, strict=False)
     model.net = torch.load(base_path_memory() + args.title + '.net')
@@ -273,9 +268,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     :param args: the arguments of the current execution
     """
     print(args)
-    args.title = '{}_{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
-                                                      args.ablation, args.lamb, args.dropout, args.sparsity)
-    print(args.title)
     if 'sub' in args.ablation:
         ratio = 0.2
         data = []

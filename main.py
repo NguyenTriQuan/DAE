@@ -130,6 +130,9 @@ def main(args=None):
     setproctitle.setproctitle('{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
     if model.NAME == 'DAE':
         from utils.training_dae import train, evaluate, train_cal
+        args.title = '{}_{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset, 
+                                                                args.lamb, args.dropout, args.sparsity)
+        print(args.title)
     elif model.NAME == 'ATA':
         from utils.training_ata import train
     else:
