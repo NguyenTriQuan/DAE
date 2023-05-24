@@ -289,8 +289,8 @@ class DAE(ContinualModel):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
             # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
-            # labels = torch.cat([(data[2] == t) * (data[2] + 1) for t in range(self.task+1)])
-            labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
+            labels = torch.cat([(data[2] == t) * (data[2] + 1) for t in range(self.task+1)])
+            # labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
             inputs = self.dataset.train_transform(data[0])
             if 'ets' in mode:
                 # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
@@ -335,9 +335,9 @@ class DAE(ContinualModel):
 
             outputs = ensemble_outputs([outputs])
             join_entropy = entropy(outputs.exp())
-            join_entropy = join_entropy.view(self.task+1, data[0].shape[0]).permute(1, 0)
+            join_entropy = join_entropy.view(self.task+1, data[0].shape[0]).permute(1, 0) # shape [batch size, num tasks]
             labels = torch.stack([(data[2] == t).float() for t in range(self.task+1)], dim=1)
-            loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
+            loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
             loss = torch.mean(loss)
 
             loss.backward()
@@ -405,7 +405,7 @@ class DAE(ContinualModel):
                 else:
                     join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
                     labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
-                    loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
+                    loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
 
                 values, stt = loss.sort(dim=0, descending=False)
                 indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_class]])
@@ -476,7 +476,7 @@ class DAE(ContinualModel):
                 else:
                     join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
                     labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
-                    loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy * (1-labels), dim=1)
+                    loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
 
                 values, stt = loss.sort(dim=0, descending=False)
                 indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_class]])
