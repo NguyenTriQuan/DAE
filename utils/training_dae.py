@@ -235,7 +235,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     model.net.ets_cal_layers = torch.nn.ModuleList([])
     model.net.kbts_cal_layers = torch.nn.ModuleList([])
-    model.net.set_jr_params(dataset.N_TASKS)
+    model.net.set_jr_params(dataset.N_TASKS-1)
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
             break
