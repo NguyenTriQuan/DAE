@@ -379,8 +379,8 @@ class ResNet(_DynamicModel):
 
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
-        
-        for i in range(t+1):
+
+        for i in range(len(self.linear.weight_ets)):
             ets_dim = self.linear.weight_ets[i].shape[1]
             kbts_dim = self.linear.weight_kbts[i].shape[1]
             self.ets_cal_layers.append(
