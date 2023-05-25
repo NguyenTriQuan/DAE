@@ -9,7 +9,23 @@ from torch.nn.functional import avg_pool2d, relu
 
 # from backbone import MammothBackbone, _DynamicModel
 from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
-from models.dae import ensemble_outputs
+
+def logmeanexp(x, dim=None, keepdim=False):
+    """Stable computation of log(mean(exp(x))"""
+    if dim is None:
+        x, dim = x.view(-1), 0
+    x_max, _ = torch.max(x, dim, keepdim=True)
+    x = x_max + torch.log(torch.mean(torch.exp(x - x_max), dim, keepdim=True))
+    return x if keepdim else x.squeeze(dim)
+
+def ensemble_outputs(outputs):
+    ## a list of outputs with length [num_member], each with shape [bs, num_cls]
+    outputs = torch.stack(outputs, dim=-1) #[bs, num_cls, num_member]
+    outputs = F.log_softmax(outputs, dim=-2)
+    ## with shape [bs, num_cls]
+    log_outputs = logmeanexp(outputs, dim=-1)
+    return log_outputs
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class _DynamicModel(nn.Module):
