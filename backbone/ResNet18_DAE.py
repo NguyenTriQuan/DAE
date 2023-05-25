@@ -374,7 +374,7 @@ class ResNet(_DynamicModel):
 
         self.cal_head = nn.Sequential(
             nn.Linear(hidden_dim, self.args.total_tasks*2),
-            nn.Softplus()
+            nn.Sigmoid()
         ).to(device)
 
         self.ets_cal_layers = nn.ModuleList([])
