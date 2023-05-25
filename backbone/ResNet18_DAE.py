@@ -239,9 +239,9 @@ class ResNet(_DynamicModel):
     def cal_forward(self, x, t, feat=False):
         hidden = self.task_feature_layers(x)
         feat, out_ets = self.ets_forward(x, t, feat=True)
-        hidden += self.ets_cal_layers(feat)
+        hidden += self.ets_cal_layers[t](feat)
         feat, out_kbts = self.kbts_forward(x, t, feat=True)
-        hidden += self.kbts_cal_layers(feat)
+        hidden += self.kbts_cal_layers[t](feat)
         if feat:
             return hidden
         else:
@@ -349,9 +349,6 @@ class ResNet(_DynamicModel):
         hidden_dim = 128
         feat_dim = 128
 
-        ets_dim = self.linear.weight_ets[t].shape[1]
-        kbts_dim = self.linear.weight_kbts[t].shape[1]
-
         self.task_feature_layers = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
             nn.ReLU(),
@@ -375,37 +372,43 @@ class ResNet(_DynamicModel):
             # nn.ReLU()
         ).to(device)
 
-        self.ets_cal_layers.append(
-            nn.Sequential(
-                nn.Linear(ets_dim, hidden_dim),
-                nn.ReLU(),
-                # nn.Dropout(0.5),
-                nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(),
-                # nn.Dropout(0.5),
-                nn.Linear(hidden_dim, hidden_dim),
-                # nn.ReLU(),
-                # nn.Dropout(0.5),
-            ).to(device)
-        )
-        self.kbts_cal_layers.append(
-            nn.Sequential(
-                nn.Linear(kbts_dim, hidden_dim),
-                nn.ReLU(),
-                # nn.Dropout(0.5),
-                nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(),
-                # nn.Dropout(0.5),
-                nn.Linear(hidden_dim, hidden_dim),
-                # nn.ReLU(),
-                # nn.Dropout(0.5),
-            ).to(device)
-        )
-
         self.cal_head = nn.Sequential(
             nn.Linear(hidden_dim, self.args.total_tasks*2),
             nn.Softplus()
         ).to(device)
+
+        self.ets_cal_layers = nn.ModuleList([])
+        self.kbts_cal_layers = nn.ModuleList([])
+        
+        for i in range(t+1):
+            ets_dim = self.linear.weight_ets[i].shape[1]
+            kbts_dim = self.linear.weight_kbts[i].shape[1]
+            self.ets_cal_layers.append(
+                nn.Sequential(
+                    nn.Linear(ets_dim, hidden_dim),
+                    nn.ReLU(),
+                    # nn.Dropout(0.5),
+                    nn.Linear(hidden_dim, hidden_dim),
+                    nn.ReLU(),
+                    # nn.Dropout(0.5),
+                    nn.Linear(hidden_dim, hidden_dim),
+                    # nn.ReLU(),
+                    # nn.Dropout(0.5),
+                ).to(device)
+            )
+            self.kbts_cal_layers.append(
+                nn.Sequential(
+                    nn.Linear(kbts_dim, hidden_dim),
+                    nn.ReLU(),
+                    # nn.Dropout(0.5),
+                    nn.Linear(hidden_dim, hidden_dim),
+                    nn.ReLU(),
+                    # nn.Dropout(0.5),
+                    nn.Linear(hidden_dim, hidden_dim),
+                    # nn.ReLU(),
+                    # nn.Dropout(0.5),
+                ).to(device)
+            )
         
         # self.ets_projector = nn.Sequential(
         #     nn.Linear(hidden_dim, feat_dim)

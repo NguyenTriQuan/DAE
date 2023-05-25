@@ -235,6 +235,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     model.net.ets_cal_layers = torch.nn.ModuleList([])
     model.net.kbts_cal_layers = torch.nn.ModuleList([])
+    model.net.set_jr_params(dataset.N_TASKS)
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
             break
@@ -248,7 +249,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             eval_mode = 'ets'
 
         eval_mode += '_cal'
-        model.net.set_jr_params(t)
+        # model.net.set_jr_params(t)
         with torch.no_grad():
             model.get_rehearsal_logits(train_loader)
         # jr training
@@ -259,8 +260,8 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
                 #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_tc')
 
             train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_cal')
-            if 'kbts' not in args.ablation:
-                train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
+            # if 'kbts' not in args.ablation:
+            #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
 
             til_accs = model.evaluate(task=range(t+1), mode=eval_mode)
             cil_accs = model.evaluate(task=None, mode=eval_mode)
