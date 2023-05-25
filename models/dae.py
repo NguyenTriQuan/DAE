@@ -162,10 +162,10 @@ class DAE(ContinualModel):
             x = self.dataset.test_transforms[t](inputs)
             outputs = []
             if 'ets' in mode:
-                out = self.net.ets_forward(x, t, cal=cal)
+                out = self.net.ets_forward(x, t)
                 outputs.append(out)
             if 'kbts' in mode:
-                out = self.net.kbts_forward(x, t, cal=cal)
+                out = self.net.kbts_forward(x, t)
                 outputs.append(out)
 
             outputs = ensemble_outputs(outputs)
@@ -188,10 +188,10 @@ class DAE(ContinualModel):
                 if not cal:
                     outputs = []
                     if 'ets' in mode:
-                        out = self.net.ets_forward(x, i, cal=cal)
+                        out = self.net.ets_forward(x, i)
                         outputs.append(out)
                     if 'kbts' in mode:
-                        out = self.net.kbts_forward(x, i, cal=cal)
+                        out = self.net.kbts_forward(x, i)
                         outputs.append(out)
 
                     outputs = ensemble_outputs(outputs)
