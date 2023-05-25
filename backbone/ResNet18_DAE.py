@@ -9,6 +9,7 @@ from torch.nn.functional import avg_pool2d, relu
 
 # from backbone import MammothBackbone, _DynamicModel
 from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
+from models.dae import ensemble_outputs
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class _DynamicModel(nn.Module):
@@ -228,7 +229,12 @@ class ResNet(_DynamicModel):
         if feat:
             return hidden
         else:
-            return
+            scales = self.cal_head(hidden)
+            alpha = scales[:, 2*t].view(-1, 1)
+            beta = scales[:, 2*t+1].view(-1, 1)
+            out_ets = out_ets * alpha + beta
+            out_kbts = out_kbts * alpha + beta
+            return ensemble_outputs([out_ets, out_kbts])
 
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
@@ -379,6 +385,11 @@ class ResNet(_DynamicModel):
                 # nn.Dropout(0.5),
             ).to(device)
         )
+
+        self.cal_head = nn.Sequential(
+            nn.Linear(hidden_dim, self.args.total_tasks*2),
+            nn.Softplus()
+        ).to(device)
         
         # self.ets_projector = nn.Sequential(
         #     nn.Linear(hidden_dim, feat_dim)
@@ -401,8 +412,7 @@ class ResNet(_DynamicModel):
         
     def get_optim_cal_params(self):
         # return list(self.ets_cal_head.parameters()) + list(self.kbts_cal_head.parameters())
-        return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
-                    + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
+        return list(self.cal_head.parameters())
         # if 'tc' in self.args.ablation:
         #     return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
         #             + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
