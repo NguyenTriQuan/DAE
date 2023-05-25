@@ -239,9 +239,9 @@ class ResNet(_DynamicModel):
     def cal_forward(self, x, t, feat=False):
         hidden = self.task_feature_layers(x)
         feat, out_ets = self.ets_forward(x, t, feat=True)
-        hidden += feat
+        hidden += self.ets_cal_layers(feat)
         feat, out_kbts = self.kbts_forward(x, t, feat=True)
-        hidden += feat
+        hidden += self.kbts_cal_layers(feat)
         if feat:
             return hidden
         else:
