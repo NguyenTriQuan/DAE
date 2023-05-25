@@ -254,14 +254,14 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             model.get_rehearsal_logits(train_loader)
         # jr training
         if t > 0:
-            if 'tc' not in args.ablation:
-                train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_tc')
-                # if 'kbts' not in args.ablation:
-                #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_tc')
+            # if 'tc' not in args.ablation:
+            #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_tc')
+            #     # if 'kbts' not in args.ablation:
+            #     #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_tc')
 
-            train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_cal')
-            # if 'kbts' not in args.ablation:
-            #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
+            # train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_cal')
+            # # if 'kbts' not in args.ablation:
+            # #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
 
             til_accs = model.evaluate(task=range(t+1), mode=eval_mode)
             cil_accs = model.evaluate(task=None, mode=eval_mode)
