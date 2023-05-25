@@ -292,26 +292,26 @@ class DAE(ContinualModel):
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
             data = [tmp.to(self.device) for tmp in data]
-            tasks = torch.cat([data[2], data[2]])
+            # tasks = torch.cat([data[2], data[2]])
             # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
             # labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
-            labels = torch.cat([(tasks == t) * (tasks + 1) for t in range(self.task+1)])
-            inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
-            if 'ets' in mode:
-                # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
-                features = torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=True, cal=True) 
-                                      for t in range(self.task+1)])
-            elif 'kbts' in mode:
-                # features = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=False) for t in range(self.task+1)])
-                features = torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=True, cal=True)
-                                      for t in range(self.task+1)])
+            # labels = torch.cat([(tasks == t) * (tasks + 1) for t in range(self.task+1)])
+            # inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
+            # if 'ets' in mode:
+            #     # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
+            #     features = torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=True, cal=True) 
+            #                           for t in range(self.task+1)])
+            # elif 'kbts' in mode:
+            #     # features = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=False) for t in range(self.task+1)])
+            #     features = torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=True, cal=True)
+            #                           for t in range(self.task+1)])
             # labels = torch.cat([labels, labels])
             # features = torch.cat([features, features])
 
-            # inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
-            # features = self.net.task_feature_layers(inputs)
+            inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
+            features = self.net.task_feature_layers(inputs)
             # features = self.net.ets_projector(features)
-            # labels = torch.cat([data[2], data[2]])
+            labels = torch.cat([data[2], data[2]])
 
             loss = sup_con_loss(features, labels, self.args.temperature)
                 

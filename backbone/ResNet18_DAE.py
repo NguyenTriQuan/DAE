@@ -231,9 +231,9 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         out = self.linear.ets_forward(feature, t)
         if cal:
-            # task_feature = self.task_feature_layers(x)
-            # hidden = self.ets_cal_layers[t](feature) + task_feature
-            hidden = self.ets_cal_layers[t](feature)
+            task_feature = self.task_feature_layers(x)
+            hidden = self.ets_cal_layers[t](feature) + task_feature
+            # hidden = self.ets_cal_layers[t](feature)
             if feat:
                 # return self.ets_projector(hidden)
                 return hidden
@@ -256,9 +256,9 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         out = self.linear.kbts_forward(feature, t)
         if cal:
-            # task_feature = self.task_feature_layers(x)
-            # hidden = self.kbts_cal_layers[t](feature) + task_feature
-            hidden = self.kbts_cal_layers[t](feature)
+            task_feature = self.task_feature_layers(x)
+            hidden = self.kbts_cal_layers[t](feature) + task_feature
+            # hidden = self.kbts_cal_layers[t](feature)
             if feat:
                 # return self.kbts_projector(hidden)
                 return hidden
@@ -389,7 +389,9 @@ class ResNet(_DynamicModel):
 
         
     def get_optim_cal_params(self):
-        return list(self.ets_cal_head.parameters()) + list(self.kbts_cal_head.parameters())
+        # return list(self.ets_cal_head.parameters()) + list(self.kbts_cal_head.parameters())
+        return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
+                    + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
         # if 'tc' in self.args.ablation:
         #     return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
         #             + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
