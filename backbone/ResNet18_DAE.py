@@ -201,34 +201,6 @@ class ResNet(_DynamicModel):
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
-
-        self.task_feature_layers = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.ReLU(),
-
-            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
-
-            nn.AvgPool2d(kernel_size=2),
-            nn.Flatten(),
-            # nn.Dropout(0.5),
-            nn.Linear(256, 128, bias=True),
-            # nn.ReLU()
-        ).to(device)
-        # self.contrast_feat_extractor = ContrastFeatExtractor(256, 32).to(device)
-        # for n, m in self.named_modules():
-        #     if isinstance(m, _DynamicLayer):
-        #         print(n)
-        #         m.name = n
         
     def _make_layer(self, block: BasicBlock, planes: int,
                     num_blocks: int, stride: int, norm_type, args) -> nn.Module:
@@ -345,28 +317,28 @@ class ResNet(_DynamicModel):
         ets_dim = self.linear.weight_ets[t].shape[1]
         kbts_dim = self.linear.weight_kbts[t].shape[1]
 
-        # self.task_feature_layers = nn.Sequential(
-        #     nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
-        #     nn.ReLU(),
+        self.task_feature_layers = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.ReLU(),
 
-        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
 
-        #     nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
 
-        #     nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
 
-        #     nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
-        #     nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
 
-        #     nn.AvgPool2d(kernel_size=2),
-        #     nn.Flatten(),
-        #     # nn.Dropout(0.5),
-        #     nn.Linear(256, hidden_dim, bias=True),
-        #     nn.ReLU()
-        # ).to(device)
+            nn.AvgPool2d(kernel_size=2),
+            nn.Flatten(),
+            # nn.Dropout(0.5),
+            nn.Linear(256, hidden_dim, bias=True),
+            # nn.ReLU()
+        ).to(device)
 
         self.ets_cal_layers.append(
             nn.Sequential(
