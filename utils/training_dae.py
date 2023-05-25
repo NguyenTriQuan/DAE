@@ -106,7 +106,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
         from utils.lars_optimizer import LARC
-        model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9), trust_coefficient=0.001)
+        # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9), trust_coefficient=0.001)
+        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9)
         model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
     elif 'ets' in mode:
         params = model.net.get_optim_ets_params()

@@ -201,6 +201,29 @@ class ResNet(_DynamicModel):
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
+
+        self.task_feature_layers = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.ReLU(),
+
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.ReLU(),
+
+            nn.AvgPool2d(kernel_size=2),
+            nn.Flatten(),
+            # nn.Dropout(0.5),
+            nn.Linear(256, 128, bias=True),
+            # nn.ReLU()
+        ).to(device)
         # self.contrast_feat_extractor = ContrastFeatExtractor(256, 32).to(device)
         # for n, m in self.named_modules():
         #     if isinstance(m, _DynamicLayer):
@@ -237,10 +260,10 @@ class ResNet(_DynamicModel):
         out = self.linear.ets_forward(feature, t)
         if cal:
             task_feature = self.task_feature_layers(x)
-            # hidden = self.ets_cal_layers[t](feature) + task_feature
-            hidden = task_feature
+            hidden = self.ets_cal_layers[t](feature) + task_feature
             if feat:
-                return self.ets_projector(hidden)
+                # return self.ets_projector(hidden)
+                return hidden
             else:
                 return out * self.ets_cal_head(hidden)[:, t].view(-1, 1)
         else:
@@ -261,10 +284,10 @@ class ResNet(_DynamicModel):
         out = self.linear.kbts_forward(feature, t)
         if cal:
             task_feature = self.task_feature_layers(x)
-            # hidden = self.kbts_cal_layers[t](feature) + task_feature
-            hidden = task_feature
+            hidden = self.kbts_cal_layers[t](feature) + task_feature
             if feat:
-                return self.kbts_projector(hidden)
+                # return self.kbts_projector(hidden)
+                return hidden
             else:
                 return out * self.kbts_cal_head(hidden)[:, t].view(-1, 1)
         else:
@@ -322,28 +345,28 @@ class ResNet(_DynamicModel):
         ets_dim = self.linear.weight_ets[t].shape[1]
         kbts_dim = self.linear.weight_kbts[t].shape[1]
 
-        self.task_feature_layers = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.ReLU(),
+        # self.task_feature_layers = nn.Sequential(
+        #     nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
+        #     nn.ReLU(),
 
-            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
 
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
+        #     nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
 
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
+        #     nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
 
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.ReLU(),
+        #     nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.ReLU(),
 
-            nn.AvgPool2d(kernel_size=2),
-            nn.Flatten(),
-            # nn.Dropout(0.5),
-            nn.Linear(256, hidden_dim, bias=True),
-            nn.ReLU()
-        ).to(device)
+        #     nn.AvgPool2d(kernel_size=2),
+        #     nn.Flatten(),
+        #     # nn.Dropout(0.5),
+        #     nn.Linear(256, hidden_dim, bias=True),
+        #     nn.ReLU()
+        # ).to(device)
 
         self.ets_cal_layers.append(
             nn.Sequential(
@@ -354,7 +377,7 @@ class ResNet(_DynamicModel):
                 nn.ReLU(),
                 # nn.Dropout(0.5),
                 nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(),
+                # nn.ReLU(),
                 # nn.Dropout(0.5),
             ).to(device)
         )
@@ -367,7 +390,7 @@ class ResNet(_DynamicModel):
                 nn.ReLU(),
                 # nn.Dropout(0.5),
                 nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(),
+                # nn.ReLU(),
                 # nn.Dropout(0.5),
             ).to(device)
         )
@@ -392,8 +415,7 @@ class ResNet(_DynamicModel):
 
         
     def get_optim_cal_params(self):
-        return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
-                + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
+        return list(self.ets_cal_head.parameters()) + list(self.kbts_cal_head.parameters())
         # if 'tc' in self.args.ablation:
         #     return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
         #             + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
@@ -401,7 +423,7 @@ class ResNet(_DynamicModel):
         #     return list(self.ets_cal_head.parameters()) + list(self.kbts_cal_head.parameters())
     
     def get_optim_tc_params(self):
-        return list(self.ets_projector.parameters()) + list(self.task_feature_layers.parameters()) 
+        return list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.task_feature_layers.parameters()) 
         # return list(self.ets_projector.parameters()) + list(self.ets_cal_layers.parameters()) \
         #         + list(self.kbts_projector.parameters()) + list(self.kbts_cal_layers.parameters())
 
