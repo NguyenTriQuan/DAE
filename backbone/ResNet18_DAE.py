@@ -218,7 +218,18 @@ class ResNet(_DynamicModel):
             layers.append(block(self.in_planes, planes, stride, norm_type, args))
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
-        
+    
+    def cal_forward(self, x, t, feat=False):
+        hidden = self.task_feature_layers(x)
+        feat, out_ets = self.ets_forward(x, t, feat=True)
+        hidden += feat
+        feat, out_kbts = self.kbts_forward(x, t, feat=True)
+        hidden += feat
+        if feat:
+            return hidden
+        else:
+            return
+
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
         self.get_kb_params(t)
@@ -369,23 +380,23 @@ class ResNet(_DynamicModel):
             ).to(device)
         )
         
-        self.ets_projector = nn.Sequential(
-            nn.Linear(hidden_dim, feat_dim)
-        ).to(device)
+        # self.ets_projector = nn.Sequential(
+        #     nn.Linear(hidden_dim, feat_dim)
+        # ).to(device)
 
-        self.ets_cal_head = nn.Sequential(
-            nn.Linear(hidden_dim, self.args.total_tasks),
-            nn.Sigmoid()
-        ).to(device)
+        # self.ets_cal_head = nn.Sequential(
+        #     nn.Linear(hidden_dim, self.args.total_tasks),
+        #     nn.Sigmoid()
+        # ).to(device)
 
-        self.kbts_projector = nn.Sequential(
-            nn.Linear(hidden_dim, feat_dim)
-        ).to(device)
+        # self.kbts_projector = nn.Sequential(
+        #     nn.Linear(hidden_dim, feat_dim)
+        # ).to(device)
 
-        self.kbts_cal_head = nn.Sequential(
-            nn.Linear(hidden_dim, self.args.total_tasks),
-            nn.Sigmoid()
-        ).to(device)
+        # self.kbts_cal_head = nn.Sequential(
+        #     nn.Linear(hidden_dim, self.args.total_tasks),
+        #     nn.Sigmoid()
+        # ).to(device)
 
         
     def get_optim_cal_params(self):
