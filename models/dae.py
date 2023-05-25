@@ -196,7 +196,7 @@ class DAE(ContinualModel):
 
                     outputs = ensemble_outputs(outputs)
                 else:
-                    outputs = self.net.cal_forward(x, i)
+                    outputs = self.net.cal_forward(x, i, cal=True)
                 joint_entropy = entropy(outputs.exp())
 
                 if 'ba' in mode:
@@ -303,7 +303,7 @@ class DAE(ContinualModel):
             tasks = torch.cat([data[2], data[2]])
             labels = torch.cat([(tasks == t) * (tasks + 1) for t in range(self.task+1)])
             inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
-            features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, feat=True) 
+            features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=False) 
                                       for t in range(self.task+1)])
             # if 'ets' in mode:
             #     # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
@@ -349,7 +349,7 @@ class DAE(ContinualModel):
             #     outputs = torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) 
             #                           for t in range(self.task+1)])
 
-            outputs = torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) 
+            outputs = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=True) 
                                       for t in range(self.task+1)])
             
             # outputs = ensemble_outputs([outputs])

@@ -236,7 +236,7 @@ class ResNet(_DynamicModel):
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
     
-    def cal_forward(self, x, t, cal=False):
+    def cal_forward(self, x, t, cal=True):
         hidden = self.task_feature_layers(x)
         feat, out_ets = self.ets_forward(x, t, feat=True)
         hidden += self.ets_cal_layers[t](feat)
