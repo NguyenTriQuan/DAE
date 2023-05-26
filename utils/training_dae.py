@@ -255,11 +255,11 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
         # jr training
         if t > 0:
             if 'tc' not in args.ablation:
-                train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_tc')
+                train_loop(t, model, dataset, args, progress_bar, train_loader, mode='tc')
                 # if 'kbts' not in args.ablation:
                 #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_tc')
 
-            train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_cal')
+            train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_kbts_cal')
             # if 'kbts' not in args.ablation:
             #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
 
