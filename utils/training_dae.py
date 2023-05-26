@@ -370,37 +370,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 # batch augmentation
                 accs = model.evaluate(task=None, mode=eval_mode+'_ba')
                 print(f'Task {t}, {eval_mode}_ba: cil {round(np.mean(accs), 2)} {accs}')
-        
-        if 'cal' not in args.ablation:
-            eval_mode += '_cal'
-            model.net.set_jr_params(t)
-            with torch.no_grad():
-                model.get_rehearsal_logits(train_loader)
-            # jr training
-            if t > 0:
-                if 'tc' not in args.ablation:
-                    train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_tc')
-                    if 'kbts' not in args.ablation:
-                        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_tc')
-
-                train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_cal')
-                if 'kbts' not in args.ablation:
-                    train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
-
-                if args.verbose:
-                    accs = model.evaluate(task=None, mode=eval_mode)
-                    mean_acc = np.mean(accs, axis=1)
-                    print(f'{eval_mode} accs: cil {accs[0]}, til {accs[1]}')
-                    print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
-                    if 'ba' not in args.ablation:
-                        # batch augmentation
-                        accs = model.evaluate(task=None, mode=eval_mode+'_ba')
-                        mean_acc = np.mean(accs, axis=1)
-                        print(f'{eval_mode}_ba accs: cil {accs[0]}, til {accs[1]}')
-                        print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
-
-            with torch.no_grad():
-                model.fill_buffer(train_loader)
 
         if args.verbose:
             print('checking forgetting')
