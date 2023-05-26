@@ -314,7 +314,9 @@ class DAE(ContinualModel):
             #                           for t in range(self.task+1)])
 
 
-            inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
+            # inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
+            inputs = torch.cat([self.dataset.test_transform(self.dataset.train_transform(data[0])), 
+                                self.dataset.test_transform(self.dataset.train_transform(data[0]))])
             features = self.net.task_feature_layers(inputs)
             labels = torch.cat([data[2], data[2]])
 
