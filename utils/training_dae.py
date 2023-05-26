@@ -83,7 +83,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     squeeze = False
     augment = True
     num_squeeze = 0
-    num_augment = 100
+    num_augment = 1000
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     if 'cal' in mode:
         # calibration outputs

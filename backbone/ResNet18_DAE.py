@@ -237,14 +237,14 @@ class ResNet(_DynamicModel):
         return nn.ModuleList(layers)
     
     def cal_forward(self, x, t, cal=True):
-        # hidde_tasks = self.task_feature_layers(x)
+        hidde_tasks = self.task_feature_layers(x)
         with torch.no_grad():
             feat, out_ets = self.ets_forward(x, t, feat=True)
         hidden_ets = self.ets_cal_layers[t](feat)
         with torch.no_grad():
             feat, out_kbts = self.kbts_forward(x, t, feat=True)
         hidden_kbts = self.kbts_cal_layers[t](feat)
-        hidden = hidden_ets + hidden_kbts
+        hidden = hidden_ets + hidden_kbts + hidde_tasks
         hidden = self.projector(hidden)
         if not cal:
             return hidden
@@ -437,7 +437,7 @@ class ResNet(_DynamicModel):
         
     
     def get_optim_tc_params(self):
-        return list(self.projector.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
+        return list(self.task_feature_layers.parameters()) + list(self.projector.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
         # return list(self.task_feature_layers.parameters()) 
 
 
