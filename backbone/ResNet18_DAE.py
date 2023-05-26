@@ -237,12 +237,13 @@ class ResNet(_DynamicModel):
         return nn.ModuleList(layers)
     
     def cal_forward(self, x, t, cal=True):
-        hidden = self.task_feature_layers(x)
+        hidde_tasks = self.task_feature_layers(x)
         feat, out_ets = self.ets_forward(x, t, feat=True)
-        hidden += self.ets_cal_layers[t](feat)
+        hidden_ets = self.ets_cal_layers[t](feat)
         feat, out_kbts = self.kbts_forward(x, t, feat=True)
-        hidden += self.kbts_cal_layers[t](feat)
-        # hidden = self.projector(hidden)
+        hidden_kbts = self.kbts_cal_layers[t](feat)
+        hidden = hidde_tasks + hidden_ets + hidden_kbts
+        hidden = self.projector(hidden)
         if not cal:
             return hidden
         else:
@@ -370,7 +371,7 @@ class ResNet(_DynamicModel):
             nn.Flatten(),
             # nn.Dropout(0.5),
             nn.Linear(256, hidden_dim, bias=True),
-            # nn.ReLU(),
+            nn.ReLU(),
         ).to(device)
 
         self.projector = nn.Sequential(
@@ -399,7 +400,7 @@ class ResNet(_DynamicModel):
                     nn.ReLU(),
                     # nn.Dropout(0.5),
                     nn.Linear(hidden_dim, hidden_dim),
-                    # nn.ReLU(),
+                    nn.ReLU(),
                     # nn.Dropout(0.5),
                 ).to(device)
             )
@@ -412,7 +413,7 @@ class ResNet(_DynamicModel):
                     nn.ReLU(),
                     # nn.Dropout(0.5),
                     nn.Linear(hidden_dim, hidden_dim),
-                    # nn.ReLU(),
+                    nn.ReLU(),
                     # nn.Dropout(0.5),
                 ).to(device)
             )
