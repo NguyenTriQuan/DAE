@@ -728,7 +728,7 @@ class DynamicNorm(nn.Module):
             mean = self.running_mean
             var = self.running_var
 
-        var = var.sum() / (2*3)
+        # var = var.sum() / (2*3)
         # var = var.mean()
         output = (input - mean.view(shape)) / (torch.sqrt(var + self.eps))
     
