@@ -314,9 +314,9 @@ class DAE(ContinualModel):
             #                           for t in range(self.task+1)])
 
 
-            inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
-            # inputs = torch.cat([self.dataset.test_transform(self.dataset.train_transform(data[0])), 
-            #                     self.dataset.test_transform(self.dataset.train_transform(data[0]))])
+            # inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
+            inputs = torch.cat([self.dataset.test_transform(self.dataset.train_transform(data[0])), 
+                                self.dataset.test_transform(self.dataset.train_transform(data[0]))])
             features = self.net.task_feature_layers(inputs)
             labels = torch.cat([data[2], data[2]])
 
@@ -359,7 +359,7 @@ class DAE(ContinualModel):
             join_entropy = join_entropy.view(self.task+1, data[0].shape[0]).permute(1, 0) # shape [batch size, num tasks]
             labels = torch.stack([(data[2] == t).float() for t in range(self.task+1)], dim=1)
             loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
-            loss = torch.mean(loss)
+            loss = torch.sum(loss)
 
             loss.backward()
             self.opt.step()
