@@ -438,20 +438,18 @@ class DynamicBlock(nn.Module):
         self.last = False
 
     def ets_forward(self, inputs, t):
-        out = []
+        out = 0
         for x, layer in zip(inputs, self.layers):
-            out += [layer.ets_forward(x, t)]
-        
-        out = torch.stack(out, dim=0).sum(0)
+            out = out + layer.ets_forward(x, t)
+            
         out = self.activation(self.ets_norm_layers[t](out))
         return out
     
     def kbts_forward(self, inputs, t):
-        out = []
+        out = 0
         for x, layer in zip(inputs, self.layers):
-            out+= [layer.kbts_forward(x, t)]
-            
-        out = torch.stack(out, dim=0).sum(0)
+            out = out + layer.kbts_forward(x, t)
+
         out = self.activation(self.kbts_norm_layers[t](out))
         return out
     
@@ -546,8 +544,8 @@ class DynamicBlock(nn.Module):
         params = []
         for layer in self.layers:
             params += [layer.weight[-1], layer.fwt_weight[-1], layer.bwt_weight[-1]]
-        if self.norm_type is not None and 'affine' in self.norm_type:
-            params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
+        # if self.norm_type is not None and 'affine' in self.norm_type:
+        #     params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
         return params
     
     def get_optim_kbts_params(self):
