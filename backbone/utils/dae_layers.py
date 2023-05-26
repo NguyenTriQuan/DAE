@@ -438,18 +438,20 @@ class DynamicBlock(nn.Module):
         self.last = False
 
     def ets_forward(self, inputs, t):
-        out = 0
+        out = []
         for x, layer in zip(inputs, self.layers):
-            out = out + layer.ets_forward(x, t)
-            
+            out += [layer.ets_forward(x, t)]
+        
+        out = torch.stack(out, dim=0).sum(0)
         out = self.activation(self.ets_norm_layers[t](out))
         return out
     
     def kbts_forward(self, inputs, t):
-        out = 0
+        out = []
         for x, layer in zip(inputs, self.layers):
-            out = out + layer.kbts_forward(x, t)
-
+            out+= [layer.kbts_forward(x, t)]
+            
+        out = torch.stack(out, dim=0).sum(0)
         out = self.activation(self.kbts_norm_layers[t](out))
         return out
     

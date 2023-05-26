@@ -196,7 +196,7 @@ class DAE(ContinualModel):
 
                     outputs = ensemble_outputs(outputs)
                 else:
-                    outputs = self.net.cal_forward(x, t, cal=True)
+                    outputs = self.net.cal_forward(x, i, cal=True)
                 
                 joint_entropy = entropy(outputs.exp())
 
