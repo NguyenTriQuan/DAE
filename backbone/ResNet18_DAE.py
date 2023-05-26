@@ -236,23 +236,23 @@ class ResNet(_DynamicModel):
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
     
-    # def cal_forward(self, x, t, cal=True):
-    #     hidde_tasks = self.task_feature_layers(x)
-    #     feat, out_ets = self.ets_forward(x, t, feat=True)
-    #     hidden_ets = self.ets_cal_layers[t](feat)
-    #     feat, out_kbts = self.kbts_forward(x, t, feat=True)
-    #     hidden_kbts = self.kbts_cal_layers[t](feat)
-    #     hidden = hidde_tasks + hidden_ets + hidden_kbts
-    #     hidden = self.projector(hidden)
-    #     if not cal:
-    #         return hidden
-    #     else:
-    #         scales = self.cal_head(hidden)
-    #         alpha = scales[:, 2*t].view(-1, 1)
-    #         beta = scales[:, 2*t+1].view(-1, 1)
-    #         out_ets = out_ets * alpha + beta
-    #         out_kbts = out_kbts * alpha + beta
-    #         return ensemble_outputs([out_ets, out_kbts])
+    def cal_forward(self, x, t, cal=True):
+        hidde_tasks = self.task_feature_layers(x)
+        feat, out_ets = self.ets_forward(x, t, feat=True)
+        hidden_ets = self.ets_cal_layers[t](feat)
+        feat, out_kbts = self.kbts_forward(x, t, feat=True)
+        hidden_kbts = self.kbts_cal_layers[t](feat)
+        hidden = hidde_tasks + hidden_ets + hidden_kbts
+        hidden = self.projector(hidden)
+        if not cal:
+            return hidden
+        else:
+            scales = self.cal_head(hidden)
+            alpha = scales[:, 2*t].view(-1, 1)
+            beta = scales[:, 2*t+1].view(-1, 1)
+            out_ets = out_ets * alpha + beta
+            out_kbts = out_kbts * alpha + beta
+            return ensemble_outputs([out_ets, out_kbts])
 
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
@@ -372,19 +372,29 @@ class ResNet(_DynamicModel):
             nn.AvgPool2d(kernel_size=2),
             nn.Flatten(),
             nn.Linear(256, hidden_dim, bias=True),
-            # nn.ReLU(),
-            # nn.Linear(hidden_dim, hidden_dim, bias=True),
+            nn.ReLU(),
         ).to(device)
 
-        self.ets_cal_head = nn.Sequential(
+        self.projector = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+        ).to(device)
+
+        self.cal_head = nn.Sequential(
             nn.Linear(hidden_dim, num_tasks*2),
             nn.Sigmoid()
         ).to(device)
 
-        self.kbts_cal_head = nn.Sequential(
-            nn.Linear(hidden_dim, num_tasks*2),
-            nn.Sigmoid()
-        ).to(device)
+        # self.ets_cal_head = nn.Sequential(
+        #     nn.Linear(hidden_dim, num_tasks*2),
+        #     nn.Sigmoid()
+        # ).to(device)
+
+        # self.kbts_cal_head = nn.Sequential(
+        #     nn.Linear(hidden_dim, num_tasks*2),
+        #     nn.Sigmoid()
+        # ).to(device)
 
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
@@ -416,12 +426,14 @@ class ResNet(_DynamicModel):
 
         
     def get_optim_cal_params(self):
-        return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
-                    + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
+        list(self.cal_head.parameters())
+        # return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
+        #             + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
         
     
     def get_optim_tc_params(self):
-        return list(self.task_feature_layers.parameters()) 
+        return list(self.task_feature_layers.parameters()) + list(self.projector.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
+        # return list(self.task_feature_layers.parameters()) 
 
 
 def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
