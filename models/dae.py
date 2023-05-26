@@ -319,7 +319,6 @@ class DAE(ContinualModel):
             #                     self.dataset.test_transform(self.dataset.train_transform(data[0]))])
             features = self.net.task_feature_layers(inputs)
             labels = torch.cat([data[2], data[2]])
-            print(labels)
 
             loss = sup_con_loss(features, labels, self.args.temperature)
                 
