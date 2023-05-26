@@ -372,6 +372,8 @@ class ResNet(_DynamicModel):
             nn.AvgPool2d(kernel_size=2),
             nn.Flatten(),
             nn.Linear(256, hidden_dim, bias=True),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim, bias=True),
         ).to(device)
 
         self.ets_cal_head = nn.Sequential(
