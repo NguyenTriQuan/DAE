@@ -95,8 +95,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         for param in params:
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9)
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [75, 90], gamma=0.1, verbose=False)
+        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
     elif 'tc' in mode:
         # tasks contrast:
         n_epochs = 100
@@ -107,8 +107,9 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         print(f'Training mode: {mode}, Number of optim params: {count}')
         from utils.lars_optimizer import LARC
         # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9), trust_coefficient=0.001)
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9)
-        model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
+        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
+        # model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
     elif 'ets' in mode:
         params = model.net.get_optim_ets_params()
         count = 0
