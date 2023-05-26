@@ -426,7 +426,7 @@ class ResNet(_DynamicModel):
 
         
     def get_optim_cal_params(self):
-        list(self.cal_head.parameters())
+        return list(self.cal_head.parameters())
         # return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
         #             + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
         
