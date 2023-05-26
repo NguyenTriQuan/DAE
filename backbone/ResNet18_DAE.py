@@ -370,7 +370,7 @@ class ResNet(_DynamicModel):
             nn.Flatten(),
             # nn.Dropout(0.5),
             nn.Linear(256, hidden_dim, bias=True),
-            nn.ReLU(),
+            # nn.ReLU(),
         ).to(device)
 
         self.projector = nn.Sequential(
@@ -399,7 +399,7 @@ class ResNet(_DynamicModel):
                     nn.ReLU(),
                     # nn.Dropout(0.5),
                     nn.Linear(hidden_dim, hidden_dim),
-                    nn.ReLU(),
+                    # nn.ReLU(),
                     # nn.Dropout(0.5),
                 ).to(device)
             )
@@ -412,7 +412,7 @@ class ResNet(_DynamicModel):
                     nn.ReLU(),
                     # nn.Dropout(0.5),
                     nn.Linear(hidden_dim, hidden_dim),
-                    nn.ReLU(),
+                    # nn.ReLU(),
                     # nn.Dropout(0.5),
                 ).to(device)
             )
