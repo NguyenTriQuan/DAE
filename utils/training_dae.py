@@ -87,7 +87,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     if 'cal' in mode:
         # calibration outputs
-        n_epochs = 100
+        n_epochs = 50
         params = model.net.get_optim_cal_params()
         # params = list(model.net.ets_cal_head.parameters()) + list(model.net.ets_cal_layers.parameters()) \
         #             + list(model.net.kbts_cal_head.parameters()) + list(model.net.kbts_cal_layers.parameters())
@@ -96,10 +96,10 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
     elif 'tc' in mode:
         # tasks contrast:
-        n_epochs = 200
+        n_epochs = 100
         params = model.net.get_optim_tc_params()
         count = 0
         for param in params:
@@ -108,7 +108,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         from utils.lars_optimizer import LARC
         # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9), trust_coefficient=0.001)
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [180, 195], gamma=0.1, verbose=False)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
         # model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
     elif 'ets' in mode:
         params = model.net.get_optim_ets_params()
