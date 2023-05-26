@@ -89,6 +89,7 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         # calibration outputs
         n_epochs = 50
         tc = 'tc' in args.ablation
+        print(args.ablation, tc)
         params = model.net.get_optim_cal_params(tc)
         count = 0
         for param in params:
