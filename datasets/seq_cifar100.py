@@ -30,17 +30,17 @@ class SequentialCIFAR100(ContinualDataset):
     N_TASKS = 5
     INPUT_SHAPE = (3, 32, 32)
     
+    train_transform = torch.nn.Sequential(
+                # K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), same_on_batch=False),
+                K.augmentation.RandomCrop((32, 32), padding=4, same_on_batch=False),
+                K.augmentation.RandomHorizontalFlip(same_on_batch=False)
+            )
     # train_transform = torch.nn.Sequential(
     #             K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), same_on_batch=False),
-    #             # K.augmentation.RandomCrop((32, 32), padding=4, same_on_batch=False),
-    #             K.augmentation.RandomHorizontalFlip(same_on_batch=False)
-            # )
-    train_transform = torch.nn.Sequential(
-                K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), same_on_batch=False),
-                K.augmentation.RandomHorizontalFlip(same_on_batch=False),
-                K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
-                # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
-            )
+    #             K.augmentation.RandomHorizontalFlip(same_on_batch=False),
+    #             K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
+    #             # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
+    #         )
     test_transform = torch.nn.Sequential(
                 K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
                                         (0.2675, 0.2565, 0.2761)),
