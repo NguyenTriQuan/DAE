@@ -349,7 +349,7 @@ class ResNet(_DynamicModel):
             add_in_1 = block.conv1.get_masked_kb_params(t, [add_in], [None])
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
-    def set_jr_params(self, t):
+    def set_jr_params(self, num_tasks):
         hidden_dim = 256
         feat_dim = 128
 
@@ -377,19 +377,19 @@ class ResNet(_DynamicModel):
         ).to(device)
 
         self.ets_cal_head = nn.Sequential(
-            nn.Linear(hidden_dim, self.args.total_tasks*2),
+            nn.Linear(hidden_dim, num_tasks*2),
             nn.Sigmoid()
         ).to(device)
 
         self.kbts_cal_head = nn.Sequential(
-            nn.Linear(hidden_dim, self.args.total_tasks*2),
+            nn.Linear(hidden_dim, num_tasks*2),
             nn.Sigmoid()
         ).to(device)
 
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
 
-        for i in range(len(self.linear.weight_ets)):
+        for i in range(num_tasks):
             ets_dim = self.linear.weight_ets[i].shape[1]
             kbts_dim = self.linear.weight_kbts[i].shape[1]
             self.ets_cal_layers.append(
