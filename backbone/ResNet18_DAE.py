@@ -242,6 +242,7 @@ class ResNet(_DynamicModel):
         hidden += self.ets_cal_layers[t](feat)
         feat, out_kbts = self.kbts_forward(x, t, feat=True)
         hidden += self.kbts_cal_layers[t](feat)
+        hidden = self.projector(hidden)
         if not cal:
             return hidden
         else:
@@ -369,7 +370,13 @@ class ResNet(_DynamicModel):
             nn.Flatten(),
             # nn.Dropout(0.5),
             nn.Linear(256, hidden_dim, bias=True),
-            # nn.ReLU()
+            nn.ReLU()
+        ).to(device)
+
+        self.projector = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
         ).to(device)
 
         self.cal_head = nn.Sequential(
@@ -392,7 +399,7 @@ class ResNet(_DynamicModel):
                     nn.ReLU(),
                     # nn.Dropout(0.5),
                     nn.Linear(hidden_dim, hidden_dim),
-                    # nn.ReLU(),
+                    nn.ReLU(),
                     # nn.Dropout(0.5),
                 ).to(device)
             )
@@ -405,7 +412,7 @@ class ResNet(_DynamicModel):
                     nn.ReLU(),
                     # nn.Dropout(0.5),
                     nn.Linear(hidden_dim, hidden_dim),
-                    # nn.ReLU(),
+                    nn.ReLU(),
                     # nn.Dropout(0.5),
                 ).to(device)
             )
@@ -439,7 +446,7 @@ class ResNet(_DynamicModel):
         #     return list(self.ets_cal_head.parameters()) + list(self.kbts_cal_head.parameters())
     
     def get_optim_tc_params(self):
-        return list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.task_feature_layers.parameters()) 
+        return list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters()) + list(self.task_feature_layers.parameters()) + list(self.projector.parameters())
         # return list(self.ets_projector.parameters()) + list(self.ets_cal_layers.parameters()) \
         #         + list(self.kbts_projector.parameters()) + list(self.kbts_cal_layers.parameters())
 
