@@ -238,9 +238,11 @@ class ResNet(_DynamicModel):
     
     def cal_forward(self, x, t, cal=True):
         # hidde_tasks = self.task_feature_layers(x)
-        feat, out_ets = self.ets_forward(x, t, feat=True)
+        with torch.no_grad():
+            feat, out_ets = self.ets_forward(x, t, feat=True)
         hidden_ets = self.ets_cal_layers[t](feat)
-        feat, out_kbts = self.kbts_forward(x, t, feat=True)
+        with torch.no_grad():
+            feat, out_kbts = self.kbts_forward(x, t, feat=True)
         hidden_kbts = self.kbts_cal_layers[t](feat)
         hidden = hidden_ets + hidden_kbts
         hidden = self.projector(hidden)
