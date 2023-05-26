@@ -242,7 +242,7 @@ class ResNet(_DynamicModel):
         hidden += self.ets_cal_layers[t](feat)
         feat, out_kbts = self.kbts_forward(x, t, feat=True)
         hidden += self.kbts_cal_layers[t](feat)
-        hidden = self.projector(hidden)
+        # hidden = self.projector(hidden)
         if not cal:
             return hidden
         else:
@@ -370,7 +370,7 @@ class ResNet(_DynamicModel):
             nn.Flatten(),
             # nn.Dropout(0.5),
             nn.Linear(256, hidden_dim, bias=True),
-            nn.ReLU()
+            nn.ReLU(),
         ).to(device)
 
         self.projector = nn.Sequential(
