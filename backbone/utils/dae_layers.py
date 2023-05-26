@@ -154,8 +154,8 @@ class _DynamicLayer(nn.Module):
         # self.shape_out.append(fan_out)
         # self.shape_in.append(fan_in)
         
-        # bound_std = self.gain / math.sqrt(fan_in * self.ks)
-        bound_std = self.gain / math.sqrt(fan_out * self.ks)
+        bound_std = self.gain / math.sqrt(fan_in * self.ks)
+        # bound_std = self.gain / math.sqrt(fan_out * self.ks)
         if isinstance(self, DynamicConv2D):
             self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
             self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2] // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
@@ -230,15 +230,15 @@ class _DynamicLayer(nn.Module):
             dummy_weight_1 = self.dummy_weight[n_0:n_0+n_1].view(fan_out, add_in)
         self.masked_kb_weight = torch.cat([torch.cat([self.kb_weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
         
-        # bound_std = self.gain / math.sqrt(fan_in * self.ks)
-        bound_std = self.gain / math.sqrt(fan_out * self.ks)
+        bound_std = self.gain / math.sqrt(fan_in * self.ks)
+        # bound_std = self.gain / math.sqrt(fan_out * self.ks)
         self.masked_kb_weight = self.masked_kb_weight * bound_std
         return add_out * self.s * self.s
 
     def ets_forward(self, x, t):
         # get expanded task specific model
-        # bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
-        bound_std = self.gain / math.sqrt(self.shape_out[t+1] * self.ks)
+        bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
+        # bound_std = self.gain / math.sqrt(self.shape_out[t+1] * self.ks)
         weight = self.kb_weight
         weight = weight * bound_std
         weight = F.dropout(weight, self.dropout, self.training)
@@ -608,13 +608,13 @@ class DynamicClassifier(DynamicLinear):
         # self.shape_out.append(fan_out)
         # self.shape_in.append(fan_in)
 
-        # bound_std = self.gain / math.sqrt(self.shape_in[-1])
-        bound_std = self.gain / math.sqrt(self.num_out[-1])
+        bound_std = self.gain / math.sqrt(self.shape_in[-1])
+        # bound_std = self.gain / math.sqrt(self.num_out[-1])
         self.weight_ets.append(nn.Parameter(torch.Tensor(self.num_out[-1], self.shape_in[-1]).normal_(0, bound_std).to(device)))
         self.bias_ets.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device))) 
 
-        # bound_std = self.gain / math.sqrt(fan_in_kbts)
-        bound_std = self.gain / math.sqrt(self.num_out[-1])
+        bound_std = self.gain / math.sqrt(fan_in_kbts)
+        # bound_std = self.gain / math.sqrt(self.num_out[-1])
         self.weight_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_kbts).normal_(0, bound_std).to(device)))
         self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device)))
         
@@ -719,7 +719,7 @@ class DynamicNorm(nn.Module):
             mean = self.running_mean
             var = self.running_var
 
-        var = var.sum() / (2*3)
+        # var = var.sum() / (2*3)
         # var = var.mean()
         output = (input - mean.view(shape)) / (torch.sqrt(var.view(shape) + self.eps))
     
