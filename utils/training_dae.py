@@ -332,7 +332,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 base_params = new_params
                 model.factor = 1
             else:
-                model.factor = 1 + new_params / base_params
+                model.factor = new_params / base_params
             print(f'Task {t}, lamb = {model.lamb * model.factor}')
 
         # kbts training
