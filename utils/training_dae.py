@@ -324,11 +324,14 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             num_params, num_neurons = model.net.count_params()
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+            new_params = 0
+            for m in model.net.DM:
+                new_params = (m.shape_in[-1] * m.num_out[-1] * m.ks)
             if t == 0:
-                base_params = sum(num_params)
+                base_params = new_params
                 model.factor = 1
             else:
-                model.factor = sum(num_params) / base_params
+                model.factor = new_params / base_params
             print(f'Task {t}, lamb = {model.lamb * model.factor}')
 
         # kbts training
