@@ -227,7 +227,7 @@ class _DynamicLayer(nn.Module):
 
         # if t == self.t:
         #     return add_out * self.s * self.s
-        self.get_kb_params(t)
+        # self.get_kb_params(t)
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
 
