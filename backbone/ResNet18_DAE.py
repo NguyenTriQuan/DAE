@@ -34,6 +34,8 @@ class _DynamicModel(nn.Module):
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
         self.total_strength = 1
+        self.ets_temp = -1
+        self.kbts_temp = -1
 
     def get_optim_ets_params(self):
         params = []
@@ -258,7 +260,9 @@ class ResNet(_DynamicModel):
 
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
-        self.get_kb_params(t)
+        if t != self.ets_temp:
+            self.get_kb_params(t)
+            self.ets_temp = t
         out = self.conv1.ets_forward([x], t)
         
         for layer in self.layers:
@@ -284,7 +288,9 @@ class ResNet(_DynamicModel):
                 return out
     
     def kbts_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
-        self.get_masked_kb_params(t)
+        if t != self.kbts_temp:
+            self.get_masked_kb_params(t)
+            self.kbts_temp = t
         out = self.conv1.kbts_forward([x], t)
         
         for layer in self.layers:
