@@ -326,7 +326,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
             new_params = 0
             for m in model.net.DM:
-                new_params = (m.shape_in[-1] * m.num_out[-1] * m.ks)
+                new_params += (m.shape_in[-1] * m.num_out[-1] * m.ks)
             if t == 0:
                 base_params = new_params
                 model.factor = 1
