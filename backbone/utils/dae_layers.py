@@ -523,7 +523,15 @@ class DynamicBlock(nn.Module):
         if self.norm_type is not None and self.mask_out is not None:
             mask = torch.ones(self.layers[0].shape_out[-2], dtype=bool, device=device)
             mask = torch.cat([mask, self.mask_out])
-            self.ets_norm_layers[-1].squeeze(mask, optim_state)
+            if self.ets_norm_layers[-1].affine:
+                apply_mask_out(self.ets_norm_layers[-1].weight, mask, optim_state)
+                apply_mask_out(self.ets_norm_layers[-1].bias, mask, optim_state)
+                self.ets_norm_layers[-1].num_features = self.ets_norm_layers[-1].weight.shape[0]
+            
+            if self.ets_norm_layers[-1].track_running_stats:
+                self.ets_norm_layers[-1].running_mean = self.ets_norm_layers[-1].running_mean[mask]
+                self.ets_norm_layers[-1].running_var = self.ets_norm_layers[-1].running_var[mask]
+                self.ets_norm_layers[-1].num_features = self.ets_norm_layers[-1].running_mean.shape[0]
 
     def proximal_gradient_descent(self, lr=0, lamb=0, total_strength=1):
         strength = self.strength / total_strength
@@ -556,8 +564,8 @@ class DynamicBlock(nn.Module):
         params = []
         for layer in self.layers:
             params += [layer.weight[-1], layer.fwt_weight[-1], layer.bwt_weight[-1]]
-        if self.norm_type is not None and 'affine' in self.norm_type:
-            params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
+        # if self.norm_type is not None and 'affine' in self.norm_type:
+        #     params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
         return params
     
     def get_optim_kbts_params(self):
