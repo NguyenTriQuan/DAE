@@ -156,8 +156,8 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         if epoch >= num_squeeze:
             squeeze = False
 
-        if epoch >= num_augment:
-            augment = False
+        # if epoch >= num_augment:
+        #     augment = False
 
     print()
 
