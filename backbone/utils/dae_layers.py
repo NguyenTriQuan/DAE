@@ -346,12 +346,7 @@ class _DynamicLayer(nn.Module):
         return norm
     
     def set_reg_strength(self):
-        fan_in = self.shape_in[-1]
-        fan_out = self.num_out[-1]
-        # self.strength = 1 - ((fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1]) / 
-        #                         (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1]))  
-        # self.strength = (fan_in * fan_out * self.kernel_size[0] * self.kernel_size[1]) / (fan_in + fan_out + self.kernel_size[0] + self.kernel_size[1])
-        self.strength = (fan_in * fan_out * self.ks)
+        self.strength = (self.shape_in[-1] * self.num_out[-1] * self.ks)
 
     def squeeze(self, optim_state, mask_in=None, mask_out=None):
         prune_out = mask_out is not None and mask_out.sum() != self.num_out[-1]
