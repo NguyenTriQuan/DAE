@@ -438,7 +438,7 @@ class ResNet(_DynamicModel):
         
     def get_optim_cal_params(self, tc=False):
         if not tc:
-            return list(self.cal_head.parameters()) + list(self.projector.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
+            return list(self.cal_head.parameters()) + list(self.task_feature_layers.parameters()) + list(self.projector.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
         else:
             return list(self.cal_head.parameters())
         # return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
