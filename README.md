@@ -12,7 +12,7 @@
 + BA: using Batch Augmentation when evaluation
 + Run experiments on CIFAR100 - 5 tasks: python main.py --model dae --dataset seq-cifar100 --ablation op_cal_ba --total_tasks 5 --num_aug 16 --norm_type bn_track_affine --temperature 0.1 --lr 0.1 --lr_score 0.5 --lamb 0.035_0.07 --buffer_size 2000 --alpha 1 --dropout 0.0 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 256 --verbose
 
-# Step 2: Evaluate models:
+## Step 2: Evaluate models:
 + python main.py --model dae --eval --dataset seq-cifar100 --ablation cal --total_tasks 5 --num_aug 32 --norm_type bn_track_affine --temperature 0.1 --lr 0.1 --lr_score 0.5 --lamb 0.035_0.07 --buffer_size 2000 --alpha 1 --dropout 0.0 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 256
 + Displayed results: mode (kbts, ets, kbts_ets, kbts_ets_ba), setting (cil, til), avg acc, acc each tasks
 
