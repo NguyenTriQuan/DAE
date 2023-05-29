@@ -252,11 +252,9 @@ class ResNet(_DynamicModel):
         if not cal:
             return hidden
         else:
-            scales = self.cal_head(hidden)
-            alpha = scales[:, 2*t].view(-1, 1)
-            beta = scales[:, 2*t+1].view(-1, 1)
-            out_ets = out_ets * alpha + beta
-            out_kbts = out_kbts * alpha + beta
+            scales = self.cal_head(hidden).view(-1, 1)
+            out_ets = out_ets * scales
+            out_kbts = out_kbts * scales
             return ensemble_outputs([out_ets, out_kbts])
 
 
@@ -362,7 +360,7 @@ class ResNet(_DynamicModel):
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
     def set_jr_params(self, num_tasks):
-        hidden_dim = 128
+        hidden_dim = 256
         feat_dim = 128
 
         self.task_feature_layers = nn.Sequential(
@@ -390,11 +388,11 @@ class ResNet(_DynamicModel):
         self.projector = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(hidden_dim, feat_dim),
         ).to(device)
 
         self.cal_head = nn.Sequential(
-            nn.Linear(hidden_dim, num_tasks*2),
+            nn.Linear(feat_dim, num_tasks),
             nn.Sigmoid()
         ).to(device)
 
@@ -418,20 +416,20 @@ class ResNet(_DynamicModel):
                 nn.Sequential(
                     nn.Linear(ets_dim, hidden_dim),
                     nn.ReLU(),
-                    # nn.Dropout(0.5),
+                    nn.Dropout(0.5),
                     nn.Linear(hidden_dim, hidden_dim),
                     nn.ReLU(),
-                    # nn.Dropout(0.5),
+                    nn.Dropout(0.5),
                 ).to(device)
             )
             self.kbts_cal_layers.append(
                 nn.Sequential(
                     nn.Linear(kbts_dim, hidden_dim),
                     nn.ReLU(),
-                    # nn.Dropout(0.5),
+                    nn.Dropout(0.5),
                     nn.Linear(hidden_dim, hidden_dim),
                     nn.ReLU(),
-                    # nn.Dropout(0.5),
+                    nn.Dropout(0.5),
                 ).to(device)
             )
         
