@@ -148,7 +148,7 @@ class DAE(ContinualModel):
         #     self.lamb = float(args.lamb)
         # except:
         #     self.lamb = [float(i) for i in args.lamb.split('_')][0]
-        self.lamb = [float(i) for i in args.lamb.split('_')][0]
+        self.lamb = [float(i) for i in args.lamb.split('_')]
         if len(self.lamb) < self.args.total_tasks:
             self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.args.total_tasks)]
         print('lambda tasks', self.lamb)
