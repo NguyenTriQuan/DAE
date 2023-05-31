@@ -302,11 +302,11 @@ class DAE(ContinualModel):
             # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
             # labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
 
-            tasks = torch.cat([data[2], data[2]])
-            labels = torch.cat([(tasks == t) * (tasks + 1) for t in range(self.task+1)])
-            inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
-            features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=False) 
-                                      for t in range(self.task+1)])
+            # tasks = torch.cat([data[2], data[2]])
+            # labels = torch.cat([(tasks == t) * (tasks + 1) for t in range(self.task+1)])
+            # inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
+            # features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=False) 
+            #                           for t in range(self.task+1)])
             
             # if 'ets' in mode:
             #     # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
@@ -318,9 +318,9 @@ class DAE(ContinualModel):
             #                           for t in range(self.task+1)])
 
 
-            # inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
-            # features = self.net.task_feature_layers(inputs)
-            # labels = torch.cat([data[2], data[2]])
+            inputs = torch.cat([data[0], self.dataset.train_transform(data[0])])
+            features = self.net.task_feature_layers(inputs)
+            labels = torch.cat([data[2], data[2]])
 
             loss = sup_con_loss(features, labels, self.args.temperature)
                 

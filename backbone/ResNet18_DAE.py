@@ -239,20 +239,20 @@ class ResNet(_DynamicModel):
         return nn.ModuleList(layers)
     
     def cal_forward(self, x, t, cal=True):
-        # hidde_tasks = self.task_feature_layers(x)
+        hidden_tasks = self.task_feature_layers(x)
         with torch.no_grad():
             feat, out_ets = self.ets_forward(x, t, feat=True)
-        hidden_ets = self.ets_cal_layers[t](feat)
+        # hidden_ets = self.ets_cal_layers[t](feat)
         with torch.no_grad():
             feat, out_kbts = self.kbts_forward(x, t, feat=True)
-        hidden_kbts = self.kbts_cal_layers[t](feat)
-        # hidden = hidden_ets + hidden_kbts + hidde_tasks
-        hidden = hidden_ets + hidden_kbts
-        hidden = self.projector(hidden)
+        # hidden_kbts = self.kbts_cal_layers[t](feat)
+        # hidden = hidden_ets + hidden_kbts + hidden_tasks
+        # hidden = hidden_tasks
+        # hidden = self.projector(hidden)
         if not cal:
-            return hidden
+            return hidden_tasks
         else:
-            scales = self.cal_head(hidden).view(-1, 1)
+            scales = self.cal_head(hidden_tasks)[:, t].view(-1, 1)
             out_ets = out_ets * scales
             out_kbts = out_kbts * scales
             return ensemble_outputs([out_ets, out_kbts])
@@ -365,24 +365,29 @@ class ResNet(_DynamicModel):
 
         self.task_feature_layers = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
 
             nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
 
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
 
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(128),
             nn.ReLU(),
 
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
 
             nn.AvgPool2d(kernel_size=2),
             nn.Flatten(),
             nn.Linear(256, hidden_dim, bias=True),
-            nn.ReLU(),
+            # nn.ReLU(),
         ).to(device)
 
         self.projector = nn.Sequential(
