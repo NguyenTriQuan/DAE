@@ -360,7 +360,7 @@ class ResNet(_DynamicModel):
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
     def set_jr_params(self, num_tasks):
-        hidden_dim = 256
+        hidden_dim = 128
         feat_dim = 128
 
         self.task_feature_layers = nn.Sequential(
