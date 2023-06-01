@@ -344,19 +344,20 @@ class DAE(ContinualModel):
             data = [tmp.to(self.device) for tmp in data]
             inputs = self.dataset.train_transform(data[0])
 
-            # outputs = []
+            scales = self.net.cal_head(self.net.task_feature_layers(inputs))
+            outputs = []
             # if 'ets' in mode:
-            #     outputs += [torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) 
-            #                           for t in range(self.task+1)])]
+            outputs += [torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) * scales[:, t].view(-1, 1)
+                                    for t in range(self.task+1)])]
 
             # if 'kbts' in mode:
-            #     outputs += [torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) 
-            #                           for t in range(self.task+1)])]
+            outputs += [torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) * scales[:, t].view(-1, 1)
+                                    for t in range(self.task+1)])]
 
-            outputs = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=True) 
-                                      for t in range(self.task+1)])
+            # outputs = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=True) 
+            #                           for t in range(self.task+1)])
             
-            # outputs = ensemble_outputs(outputs)
+            outputs = ensemble_outputs(outputs)
             join_entropy = entropy(outputs.exp())
             join_entropy = join_entropy.view(self.task+1, data[0].shape[0]).permute(1, 0) # shape [batch size, num tasks]
             labels = torch.stack([(data[2] == t).float() for t in range(self.task+1)], dim=1)
