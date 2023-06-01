@@ -347,11 +347,11 @@ class DAE(ContinualModel):
             scales = self.net.cal_head(self.net.task_feature_layers(inputs))
             outputs = []
             # if 'ets' in mode:
-            outputs += [torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) * scales[:, t].view(-1, 1)
+            outputs += [torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=False) * scales[:, t].view(-1, 1)
                                     for t in range(self.task+1)])]
 
             # if 'kbts' in mode:
-            outputs += [torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) * scales[:, t].view(-1, 1)
+            outputs += [torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=False) * scales[:, t].view(-1, 1)
                                     for t in range(self.task+1)])]
 
             # outputs = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=True) 
