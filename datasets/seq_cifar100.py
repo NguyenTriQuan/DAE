@@ -42,6 +42,35 @@ class SequentialCIFAR100(ContinualDataset):
                 K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
                 # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
             )
+    
+    contrast_transform = [
+                torch.nn.Sequential(
+                    K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
+                    K.augmentation.RandomHorizontalFlip(p=1, same_on_batch=False),
+                    K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=1, same_on_batch=False),
+                ),
+                torch.nn.Sequential(
+                    K.augmentation.RandomHorizontalFlip(p=1, same_on_batch=False),
+                    K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=1, same_on_batch=False),
+                ),
+                torch.nn.Sequential(
+                    K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
+                    K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=1, same_on_batch=False),
+                ),
+                torch.nn.Sequential(
+                    K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
+                    K.augmentation.RandomHorizontalFlip(p=1, same_on_batch=False),
+                ),
+                torch.nn.Sequential(
+                    K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
+                ),
+                torch.nn.Sequential(
+                    K.augmentation.RandomHorizontalFlip(p=1, same_on_batch=False),
+                ),
+                torch.nn.Sequential(
+                    K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=1, same_on_batch=False),
+                )
+            ]
     test_transform = torch.nn.Sequential(
                 K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
                                         (0.2675, 0.2565, 0.2761)),

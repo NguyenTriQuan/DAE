@@ -160,10 +160,15 @@ class DAE(ContinualModel):
             cal = True
         if 'ba' in mode:
             # batch augmentation
-            N = self.args.num_aug
-            aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
-            x = self.dataset.train_transform(aug_inputs)
+            # N = self.args.num_aug
+            # aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
+            # x = self.dataset.train_transform(aug_inputs)
             # x = torch.cat([inputs, x])
+            N = 8
+            x = [inputs]
+            for trans in self.dataset.contrast_transform:
+                x += [trans(inputs)]
+            x = torch.cat(x, dim=0)
         else:
             x = inputs
 
