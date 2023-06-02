@@ -163,7 +163,7 @@ class DAE(ContinualModel):
             N = self.args.num_aug
             aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
             x = self.dataset.train_transform(aug_inputs)
-            x = torch.cat([inputs, x])
+            # x = torch.cat([inputs, x])
         else:
             x = inputs
 
@@ -182,7 +182,7 @@ class DAE(ContinualModel):
                 outputs = ensemble_outputs(outputs)
             else:
                 outputs = ensemble_outputs(torch.stack(outputs, dim=0))
-                
+
             _, predicts = outputs.max(1)
             return predicts + t * (self.dataset.N_CLASSES_PER_TASK)
         else:
