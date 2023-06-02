@@ -271,14 +271,12 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         out = self.linear.ets_forward(feature, t)
         if cal:
-            task_feature = self.task_feature_layers(x)
-            hidden = self.ets_cal_layers[t](feature) + task_feature
+            scales = self.ets_cal_layers[t](feature)
             if feat:
-                return hidden
+                return scales
             else:
-                scales = self.ets_cal_head(hidden)
-                alpha = scales[:, 2*t].view(-1, 1)
-                beta = scales[:, 2*t+1].view(-1, 1)
+                alpha = scales[:, 0].view(-1, 1)
+                beta = scales[:, 1].view(-1, 1)
                 return out * alpha + beta
         else:
             if feat:
@@ -302,14 +300,12 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         out = self.linear.kbts_forward(feature, t)
         if cal:
-            task_feature = self.task_feature_layers(x)
-            hidden = self.kbts_cal_layers[t](feature) + task_feature
+            scales = self.kbts_cal_layers[t](feature)
             if feat:
-                return hidden
+                return scales
             else:
-                scales = self.kbts_cal_head(hidden)
-                alpha = scales[:, 2*t].view(-1, 1)
-                beta = scales[:, 2*t+1].view(-1, 1)
+                alpha = scales[:, 0].view(-1, 1)
+                beta = scales[:, 1].view(-1, 1)
                 return out * alpha + beta
         else:
             if feat:
@@ -363,43 +359,43 @@ class ResNet(_DynamicModel):
         hidden_dim = 128
         feat_dim = 128
 
-        self.task_feature_layers = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
+        # self.task_feature_layers = nn.Sequential(
+        #     nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False),
+        #     nn.BatchNorm2d(32),
+        #     nn.ReLU(),
 
-            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
+        #     nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.BatchNorm2d(32),
+        #     nn.ReLU(),
 
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
+        #     nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.BatchNorm2d(64),
+        #     nn.ReLU(),
 
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
+        #     nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.BatchNorm2d(128),
+        #     nn.ReLU(),
 
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
+        #     nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
+        #     nn.BatchNorm2d(256),
+        #     nn.ReLU(),
 
-            nn.AvgPool2d(kernel_size=2),
-            nn.Flatten(),
-            nn.Linear(256, hidden_dim, bias=True),
-            # nn.ReLU(),
-        ).to(device)
+        #     nn.AvgPool2d(kernel_size=2),
+        #     nn.Flatten(),
+        #     nn.Linear(256, hidden_dim, bias=True),
+        #     # nn.ReLU(),
+        # ).to(device)
 
-        self.projector = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, feat_dim),
-        ).to(device)
+        # self.projector = nn.Sequential(
+        #     nn.Linear(hidden_dim, hidden_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, feat_dim),
+        # ).to(device)
 
-        self.cal_head = nn.Sequential(
-            nn.Linear(feat_dim, num_tasks),
-            nn.Sigmoid()
-        ).to(device)
+        # self.cal_head = nn.Sequential(
+        #     nn.Linear(feat_dim, num_tasks),
+        #     nn.Sigmoid()
+        # ).to(device)
 
         # self.ets_cal_head = nn.Sequential(
         #     nn.Linear(hidden_dim, num_tasks*2),
@@ -425,6 +421,8 @@ class ResNet(_DynamicModel):
                     nn.Linear(hidden_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.5),
+                    nn.Linear(hidden_dim, 2),
+                    nn.Sigmoid()
                 ).to(device)
             )
             self.kbts_cal_layers.append(
@@ -435,16 +433,19 @@ class ResNet(_DynamicModel):
                     nn.Linear(hidden_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.5),
+                    nn.Linear(hidden_dim, 2),
+                    nn.Sigmoid()
                 ).to(device)
             )
         
 
         
     def get_optim_cal_params(self, tc=False):
-        if not tc:
-            return list(self.cal_head.parameters()) + list(self.task_feature_layers.parameters()) + list(self.projector.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
-        else:
-            return list(self.cal_head.parameters())
+        return list(self.kbts_cal_layers.parameters()) + list(self.ets_cal_layers.parameters())
+        # if not tc:
+        #     return list(self.cal_head.parameters()) + list(self.task_feature_layers.parameters()) + list(self.projector.parameters()) + list(self.ets_cal_layers.parameters()) + list(self.kbts_cal_layers.parameters())
+        # else:
+        #     return list(self.cal_head.parameters())
         # return list(self.ets_cal_head.parameters()) + list(self.ets_cal_layers.parameters()) \
         #             + list(self.kbts_cal_head.parameters()) + list(self.kbts_cal_layers.parameters())
         

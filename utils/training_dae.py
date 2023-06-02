@@ -274,6 +274,8 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
 
         with torch.no_grad():
             model.fill_buffer(train_loader)
+    
+        torch.save(model.net, base_path_memory() + args.title + '.net')
 
 def train(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:

@@ -83,11 +83,10 @@ def logmeanexp(x, dim=None, keepdim=False):
     return x if keepdim else x.squeeze(dim)
 
 def ensemble_outputs(outputs):
-    ## a list of outputs with length [num_member], each with shape [bs, num_cls]
-    outputs = torch.stack(outputs, dim=-1) #[bs, num_cls, num_member]
-    outputs = F.log_softmax(outputs, dim=-2)
+    # outputs shape [num_member, bs, num_cls]
+    outputs = F.log_softmax(outputs, dim=-1)
     ## with shape [bs, num_cls]
-    log_outputs = logmeanexp(outputs, dim=-1)
+    log_outputs = logmeanexp(outputs, dim=0)
     return log_outputs
 
 def weighted_ensemble(outputs, weights, temperature):
@@ -169,9 +168,9 @@ class DAE(ContinualModel):
                 out = self.net.kbts_forward(x, t)
                 outputs.append(out)
 
-            outputs = ensemble_outputs(outputs)
+            outputs = ensemble_outputs(torch.stack(outputs, dim=0))
             _, predicts = outputs.max(1)
-            return predicts + t * self.dataset.N_CLASSES_PER_TASK
+            return predicts + t * (self.dataset.N_CLASSES_PER_TASK)
         else:
             joint_entropy_tasks = []
             outputs_tasks = []
@@ -186,25 +185,26 @@ class DAE(ContinualModel):
                 else:
                     x = self.dataset.test_transforms[i](inputs)
 
-                if not cal:
-                    outputs = []
-                    if 'ets' in mode:
-                        out = self.net.ets_forward(x, i, cal=cal)
-                        outputs.append(out)
-                    if 'kbts' in mode:
-                        out = self.net.kbts_forward(x, i, cal=cal)
-                        outputs.append(out)
-
-                    outputs = ensemble_outputs(outputs)
-                else:
-                    outputs = self.net.cal_forward(x, i, cal=True)
-                
-                joint_entropy = entropy(outputs.exp())
+                outputs = []
+                if 'ets' in mode:
+                    out = self.net.ets_forward(x, i, cal=cal)
+                    outputs.append(out)
+                if 'kbts' in mode:
+                    out = self.net.kbts_forward(x, i, cal=cal)
+                    outputs.append(out)
 
                 if 'ba' in mode:
-                    outputs_tasks.append(outputs.view(N+1, inputs.shape[0], -1)[0])
-                    joint_entropy_tasks.append(joint_entropy.view(N+1, inputs.shape[0]).mean(0))
+                    outputs = [out.view(N+1, inputs.shape[0], -1) for out in outputs]
+                    outputs = torch.cat(outputs, dim=0)
+                    outputs = ensemble_outputs(outputs)
+                    joint_entropy = entropy(outputs.exp())
+                    outputs_tasks.append(outputs)
+                    joint_entropy_tasks.append(joint_entropy)
+                    # outputs_tasks.append(outputs.view(N+1, inputs.shape[0], -1)[0])
+                    # joint_entropy_tasks.append(joint_entropy.view(N+1, inputs.shape[0]).mean(0))
                 else:
+                    outputs = ensemble_outputs(torch.stack(outputs, dim=0))
+                    joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
             
@@ -218,7 +218,7 @@ class DAE(ContinualModel):
             # print('mean', outputs_tasks.mean((0)).mean(-1), 'std', outputs_tasks.std((0)).mean(-1))
             # outputs_tasks = outputs_tasks.permute((1, 0, 2)).reshape((self.task+1, -1))
             # print('min - max', outputs_tasks.min(1)[0], outputs_tasks.max(1)[0])
-            return predicts + predicted_task * self.dataset.N_CLASSES_PER_TASK
+            return predicts + predicted_task * (self.dataset.N_CLASSES_PER_TASK)
         
     def evaluate(self, task=None, mode='ets_kbts_cal'):
         with torch.no_grad():
@@ -357,7 +357,7 @@ class DAE(ContinualModel):
             # outputs = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=True) 
             #                           for t in range(self.task+1)])
             
-            outputs = ensemble_outputs(outputs)
+            outputs = ensemble_outputs(torch.stack(outputs, dim=0))
             join_entropy = entropy(outputs.exp())
             join_entropy = join_entropy.view(self.task+1, data[0].shape[0]).permute(1, 0) # shape [batch size, num tasks]
             labels = torch.stack([(data[2] == t).float() for t in range(self.task+1)], dim=1)
@@ -414,7 +414,7 @@ class DAE(ContinualModel):
                 feat, out = self.net.kbts_forward(x, i, feat=True)
                 data[3*i+1+3].append(feat.detach().clone().cpu())
                 outputs.append(out)
-                outputs = ensemble_outputs(outputs)
+                outputs = ensemble_outputs(torch.stack(outputs, dim=0))
                 data[3*i+2+3].append(entropy(outputs.exp()).detach().clone().cpu())
 
         
@@ -459,7 +459,7 @@ class DAE(ContinualModel):
                 feat, out = self.net.kbts_forward(x, self.task, feat=True)
                 buf_kbts_feat.append(feat.detach().clone().cpu())
                 outputs.append(out)
-                outputs = ensemble_outputs(outputs)
+                outputs = ensemble_outputs(torch.stack(outputs, dim=0))
                 buf_ent.append(entropy(outputs.exp()).detach().clone().cpu())
 
             buf_data = list(self.buffer.dataset.tensors) + [torch.cat(buf_ets_feat), torch.cat(buf_kbts_feat), torch.cat(buf_ent)] 
