@@ -158,8 +158,16 @@ class DAE(ContinualModel):
         cal = False
         if 'cal' in mode:
             cal = True
+        if 'ba' in mode:
+            # batch augmentation
+            N = self.args.num_aug
+            aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
+            x = self.dataset.train_transform(aug_inputs)
+            x = torch.cat([inputs, x])
+        else:
+            x = inputs
+
         if t is not None:
-            x = self.dataset.test_transforms[t](inputs)
             outputs = []
             if 'ets' in mode:
                 out = self.net.ets_forward(x, t)
@@ -168,23 +176,19 @@ class DAE(ContinualModel):
                 out = self.net.kbts_forward(x, t)
                 outputs.append(out)
 
-            outputs = ensemble_outputs(torch.stack(outputs, dim=0))
+            if 'ba' in mode:
+                outputs = [out.view(N+1, inputs.shape[0], -1) for out in outputs]
+                outputs = torch.cat(outputs, dim=0)
+                outputs = ensemble_outputs(outputs)
+            else:
+                outputs = ensemble_outputs(torch.stack(outputs, dim=0))
+                
             _, predicts = outputs.max(1)
             return predicts + t * (self.dataset.N_CLASSES_PER_TASK)
         else:
             joint_entropy_tasks = []
             outputs_tasks = []
             for i in range(self.task+1):
-                if 'ba' in mode:
-                    # batch augmentation
-                    N = self.args.num_aug
-                    aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
-                    x = self.dataset.train_transform(aug_inputs)
-                    x = self.dataset.test_transforms[i](x)
-                    x = torch.cat([self.dataset.test_transforms[i](inputs), x])
-                else:
-                    x = self.dataset.test_transforms[i](inputs)
-
                 outputs = []
                 if 'ets' in mode:
                     out = self.net.ets_forward(x, i, cal=cal)
