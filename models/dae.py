@@ -164,10 +164,10 @@ class DAE(ContinualModel):
             # aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
             # x = self.dataset.train_transform(aug_inputs)
             # x = torch.cat([inputs, x])
-            N = 8
             x = [inputs]
             for trans in self.dataset.contrast_transform:
                 x += [trans(inputs)]
+            N = len(x)
             x = torch.cat(x, dim=0)
         else:
             x = inputs
