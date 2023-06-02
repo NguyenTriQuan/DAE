@@ -160,7 +160,7 @@ class DAE(ContinualModel):
             cal = True
         if 'ba' in mode:
             # batch augmentation
-            # N = self.args.num_aug
+            # N = self.args.num_aug + 1
             # aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
             # x = self.dataset.train_transform(aug_inputs)
             # x = torch.cat([inputs, x])
@@ -182,7 +182,7 @@ class DAE(ContinualModel):
                 outputs.append(out)
 
             if 'ba' in mode:
-                outputs = [out.view(N+1, inputs.shape[0], -1) for out in outputs]
+                outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=0)
                 outputs = ensemble_outputs(outputs)
             else:
@@ -203,7 +203,7 @@ class DAE(ContinualModel):
                     outputs.append(out)
 
                 if 'ba' in mode:
-                    outputs = [out.view(N+1, inputs.shape[0], -1) for out in outputs]
+                    outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
                     outputs = torch.cat(outputs, dim=0)
                     outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
