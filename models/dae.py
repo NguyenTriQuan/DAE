@@ -156,6 +156,8 @@ class DAE(ContinualModel):
 
     def forward(self, inputs, t=None, mode='ets_kbts_cal_ba'):
         cal = False
+        self.net.ets_cal_layers.train()
+        self.net.kbts_cal_layers.train()
         if 'cal' in mode:
             cal = True
         if 'ba' in mode:
