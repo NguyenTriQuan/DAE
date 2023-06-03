@@ -291,6 +291,27 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             cil_accs = model.evaluate(task=None, mode=eval_mode)
             print(f'{eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
+            mode = 'ets_cal'
+            til_accs = model.evaluate(task=range(t+1), mode=mode)
+            cil_accs = model.evaluate(task=None, mode=mode)
+            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+
+            mode = 'ets_cal_ba'
+            til_accs = model.evaluate(task=range(t+1), mode=mode)
+            cil_accs = model.evaluate(task=None, mode=mode)
+            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+
+
+            mode = 'kbts_cal'
+            til_accs = model.evaluate(task=range(t+1), mode=mode)
+            cil_accs = model.evaluate(task=None, mode=mode)
+            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+
+            mode = 'kbts_cal_ba'
+            til_accs = model.evaluate(task=range(t+1), mode=mode)
+            cil_accs = model.evaluate(task=None, mode=mode)
+            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+
         with torch.no_grad():
             model.fill_buffer(train_loader)
     
