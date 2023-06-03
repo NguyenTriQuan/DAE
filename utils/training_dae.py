@@ -328,6 +328,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         else:
             train_loader, test_loader = dataset.get_data_loaders()
         if hasattr(model, 'begin_task'):
+            print(f'Start training task {t}')
             model.begin_task(dataset)
             num_params, num_neurons = model.net.count_params()
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
@@ -360,9 +361,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             if args.verbose:
                 accs = model.evaluate(task=[t], mode=mode)
                 print(f'Task {t}, {mode}: til {accs[0]}')
-                num_params, num_neurons = model.net.count_params()
-                num_neurons = '-'.join(str(int(num)) for num in num_neurons)
-                print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+            num_params, num_neurons = model.net.count_params()
+            num_neurons = '-'.join(str(int(num)) for num in num_neurons)
+            print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
