@@ -274,12 +274,27 @@ class DAE(ContinualModel):
             test_acc = 0
             num_params = 0
         self.net.train()
+        if self.buffer is not None:
+            buffer = iter(self.buffer)
         for i, data in enumerate(train_loader):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
-            inputs = torch.cat([inputs, torch.rot90(inputs, 2, dims=(2,3))], dim=0)
-            labels = torch.cat([labels, torch.zeros_like(labels)], dim=0)
+            ood_inputs = torch.rot90(inputs, 2, dims=(2,3))
+            ood_labels = torch.zeros_like(labels)
+            if self.buffer is not None:
+                try:
+                    buffer_data = next(buffer)
+                except StopIteration:
+                    # restart the generator if the previous generator is exhausted.
+                    buffer = iter(self.buffer)
+                    buffer_data = next(buffer)
+                buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+                ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
+                ood_labels = torch.cat([ood_labels, torch.zeros_like(buffer_data[1])], dim=0)
+
+            inputs = torch.cat([inputs, ood_inputs], dim=0)
+            labels = torch.cat([labels, ood_labels], dim=0)
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             inputs = self.dataset.test_transforms[self.task](inputs)

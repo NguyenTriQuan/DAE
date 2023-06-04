@@ -283,7 +283,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
                 train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
 
             torch.save(model.net, base_path_memory() + args.title + '.net')
-            
+
             til_accs = model.evaluate(task=range(t+1), mode=eval_mode)
             cil_accs = model.evaluate(task=None, mode=eval_mode)
             print(f'{eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
@@ -401,6 +401,10 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             model.end_task(dataset)
 
         torch.save(model.net, base_path_memory() + args.title + '.net')
+
+        with torch.no_grad():
+            model.get_rehearsal_logits(train_loader)
+            model.fill_buffer(train_loader)
 
         if args.verbose:
             if 'kbts' not in args.ablation:
