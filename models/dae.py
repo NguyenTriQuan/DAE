@@ -185,9 +185,12 @@ class DAE(ContinualModel):
             if 'ba' in mode:
                 outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=0)
+                outputs = outputs[:, :, 1:] # ignore ood class
                 outputs = ensemble_outputs(outputs)
             else:
-                outputs = ensemble_outputs(torch.stack(outputs, dim=0))
+                outputs = torch.stack(outputs, dim=0)
+                outputs = outputs[:, :, 1:] # ignore ood class
+                outputs = ensemble_outputs(outputs)
 
             _, predicts = outputs.max(1)
             return predicts + t * (self.dataset.N_CLASSES_PER_TASK)
@@ -206,6 +209,7 @@ class DAE(ContinualModel):
                 if 'ba' in mode:
                     outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
                     outputs = torch.cat(outputs, dim=0)
+                    outputs = outputs[:, :, 1:] # ignore ood class
                     outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
@@ -213,7 +217,9 @@ class DAE(ContinualModel):
                     # outputs_tasks.append(outputs.view(N+1, inputs.shape[0], -1)[0])
                     # joint_entropy_tasks.append(joint_entropy.view(N+1, inputs.shape[0]).mean(0))
                 else:
-                    outputs = ensemble_outputs(torch.stack(outputs, dim=0))
+                    outputs = torch.stack(outputs, dim=0)
+                    outputs = outputs[:, :, 1:] # ignore ood class
+                    outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
@@ -271,6 +277,9 @@ class DAE(ContinualModel):
         for i, data in enumerate(train_loader):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
+            labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
+            inputs = torch.cat([inputs, torch.rot90(inputs, 2, dims=(2,3))], dim=0)
+            labels = torch.cat([labels, torch.zeros_like(labels)], dim=0)
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             inputs = self.dataset.test_transforms[self.task](inputs)
@@ -280,11 +289,11 @@ class DAE(ContinualModel):
             elif mode == 'kbts':
                 outputs = self.net.kbts_forward(inputs, self.task)
 
-            loss = self.loss(outputs, labels - self.task * self.dataset.N_CLASSES_PER_TASK)
+            loss = self.loss(outputs, labels)
             loss.backward()
             self.opt.step()
             _, predicts = outputs.max(1)
-            correct += torch.sum(predicts == (labels - self.task * self.dataset.N_CLASSES_PER_TASK)).item()
+            correct += torch.sum(predicts == labels).item()
             total += labels.shape[0]
             total_loss += loss.item() * labels.shape[0]
             if squeeze:

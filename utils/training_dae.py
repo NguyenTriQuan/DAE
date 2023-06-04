@@ -282,6 +282,8 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             if 'kbts' not in args.ablation:
                 train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
 
+            torch.save(model.net, base_path_memory() + args.title + '.net')
+            
             til_accs = model.evaluate(task=range(t+1), mode=eval_mode)
             cil_accs = model.evaluate(task=None, mode=eval_mode)
             print(f'{eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
@@ -314,8 +316,6 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
 
         with torch.no_grad():
             model.fill_buffer(train_loader)
-    
-        torch.save(model.net, base_path_memory() + args.title + '.net')
 
 def train(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
@@ -382,9 +382,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if 'kbts' not in args.ablation:
             mode = 'kbts'
             train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
-            if args.verbose:
-                accs = model.evaluate(task=[t], mode=mode)
-                print(f'Task {t}, {mode}: til {accs[0]}')
+            accs = model.evaluate(task=[t], mode=mode)
+            print(f'Task {t}, {mode}: til {accs[0]}')
 
         model.net.clear_memory()
 
@@ -392,9 +391,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if 'ets' not in args.ablation:
             mode = 'ets'
             train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
-            if args.verbose:
-                accs = model.evaluate(task=[t], mode=mode)
-                print(f'Task {t}, {mode}: til {accs[0]}')
+            accs = model.evaluate(task=[t], mode=mode)
+            print(f'Task {t}, {mode}: til {accs[0]}')
             num_params, num_neurons = model.net.count_params()
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
@@ -402,12 +400,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
 
-        if 'kbts' not in args.ablation:
-            eval_mode = 'ets_kbts'
-        else:
-            eval_mode = 'ets'
+        torch.save(model.net, base_path_memory() + args.title + '.net')
 
         if args.verbose:
+            if 'kbts' not in args.ablation:
+                eval_mode = 'ets_kbts'
+            else:
+                eval_mode = 'ets'
             cil_accs = model.evaluate(task=None, mode=eval_mode)
             til_accs = model.evaluate(task=[t], mode=eval_mode)
             print(f'Task {t}, {eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
@@ -417,7 +416,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 accs = model.evaluate(task=None, mode=eval_mode+'_ba')
                 print(f'Task {t}, {eval_mode}_ba: cil {round(np.mean(accs), 2)} {accs}')
 
-        if args.verbose:
             print('checking forgetting')
             mode = 'kbts'
             til_accs = model.evaluate(task=range(t+1), mode=mode)
@@ -430,7 +428,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
         # torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
-        torch.save(model.net, base_path_memory() + args.title + '.net')
         # torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
         # estimate memory size
         # print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))

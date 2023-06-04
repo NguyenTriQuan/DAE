@@ -323,7 +323,7 @@ class ResNet(_DynamicModel):
             add_in_1 = block.conv1.expand([add_in], [(None, None)])
             add_in = block.conv2.expand([add_in, add_in_1], [(None, None), (None, None)])
 
-        self.linear.expand(add_in, (new_classes, new_classes))
+        self.linear.expand(add_in, (new_classes+1, new_classes+1))
         self.total_strength = 1
         for m in self.DB:
             self.total_strength += m.strength
