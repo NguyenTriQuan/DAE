@@ -153,6 +153,7 @@ class DAE(ContinualModel):
         print('lambda tasks', self.lamb)
         self.soft = torch.nn.Softmax(dim=1)
         # self.device = 'cpu'
+        self.buffer = None
 
     def forward(self, inputs, t=None, mode='ets_kbts_cal_ba'):
         cal = False
