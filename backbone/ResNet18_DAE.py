@@ -410,7 +410,7 @@ class ResNet(_DynamicModel):
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
 
-        for i in range(num_tasks):
+        for i in range(len(self.linear.weight_ets)):
             ets_dim = self.linear.weight_ets[i].shape[1]
             kbts_dim = self.linear.weight_kbts[i].shape[1]
             self.ets_cal_layers.append(
@@ -465,10 +465,4 @@ def resnet18(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) 
     return ResNet(BasicBlock, [2, 2, 2, 2], nclasses, 64, norm_type, args)
 
 def resnet10(nclasses: int, nf: int=64, norm_type='bn_track_affine', args=None) -> ResNet:
-    """
-    Instantiates a ResNet18 network.
-    :param nclasses: number of output classes
-    :param nf: number of filters
-    :return: ResNet network
-    """
     return ResNet(BasicBlock, [1, 1, 1, 1], nclasses, 32, norm_type, args)
