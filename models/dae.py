@@ -500,13 +500,13 @@ class DAE(ContinualModel):
             data = [torch.cat([buf_temp, temp]) for buf_temp, temp in zip(buf_data, data)]
             
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
-        print(data[2].unique())
-        print(data[0].shape)
-        print(data[1].unique())
-        for c in data[1].unique():
-            idx = (data[1] == c)
-            print(f'{c}: {idx.sum()}', end=', ')
-        print()
+        # print(data[2].unique())
+        # print(data[0].shape)
+        # print(data[1].unique())
+        # for c in data[1].unique():
+        #     idx = (data[1] == c)
+        #     print(f'{c}: {idx.sum()}', end=', ')
+        # print()
         
 
 
@@ -552,11 +552,11 @@ class DAE(ContinualModel):
 
         # data = [torch.cat(temp) for temp in data]
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
-        print(data[2].unique())
-        print(data[1].unique())
-        print(data[0].shape)
-        for c in data[1].unique():
-            idx = (data[1] == c)
-            print(f'{c}: {idx.sum()}', end=', ')
-        print()
+        # print(data[2].unique())
+        # print(data[1].unique())
+        # print(data[0].shape)
+        # for c in data[1].unique():
+        #     idx = (data[1] == c)
+        #     print(f'{c}: {idx.sum()}', end=', ')
+        # print()
 
