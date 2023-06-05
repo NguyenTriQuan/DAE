@@ -126,12 +126,12 @@ def sup_con_loss(features, labels, temperature):
 
     return loss
 
-class DAE(ContinualModel):
-    NAME = 'DAE'
+class NPBCL(ContinualModel):
+    NAME = 'NPBCL'
     COMPATIBILITY = ['class-il', 'task-il']
 
     def __init__(self, backbone, loss, args, transform):
-        super(DAE, self).__init__(backbone, loss, args, transform)
+        super(NPBCL, self).__init__(backbone, loss, args, transform)
         if args.norm_type == 'none':
             norm_type = None
         else:
