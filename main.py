@@ -141,7 +141,7 @@ def main(args=None):
                                                                 args.lamb, args.dropout, args.sparsity)
         print(args.title)
     elif model.NAME == 'NPBCL':
-        from utils.training_npbcl import train
+        from utils.training_npbcl import train, evaluate, train_cal
         args.title = '{}_{}_lamb_{}_alpha_{}_beta_{}_sparsity_{}'.format(args.model, args.dataset, 
                                                                 args.lamb, args.alpha, args.beta, args.sparsity)
         print(args.title)
