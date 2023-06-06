@@ -136,8 +136,11 @@ class ResNet(MammothBackbone):
                 m.mode = mode
 
     def update_unused_weights(self, t):
+        used_params = 0
         for m in self.DM:
             m.update_unused_weights(t)
+            used_params = m.unused_weight.numel() - m.unused_weight.sum()
+        print(f'Used params: {int(used_params)}')
 
     def freeze_used_weights(self):
         for m in self.DM:

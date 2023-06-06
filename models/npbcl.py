@@ -208,7 +208,13 @@ class NPBCL(ContinualModel):
         self.beta = self.args.beta
         self.lamb = self.args.lamb
 
-    def forward(self, inputs, t=None, mode='ets_kbts_cal_ba'):
+    def forward(self, inputs, t=None, mode='ensemble'):
+        if 'ensemble' in mode:
+            self.net.set_mode('ensemble')
+        elif 'stable' in mode:
+            self.net.set_mode('stable')
+        elif 'plastic' in mode:
+            self.net.set_mode('plastic')
         cal = False
         if 'cal' in mode:
             cal = True
@@ -216,16 +222,23 @@ class NPBCL(ContinualModel):
             # batch augmentation
             N = self.args.num_aug 
             x = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
-            bs = x.shape[0]
-            x = torch.cat([x, x], dim=0)
+            if 'ensemble' in mode:
+                bs = x.shape[0]
+                x = torch.cat([x, x], dim=0)
             x = self.dataset.train_transform(x)
         else:
-            bs = inputs.shape[0]
-            x = torch.cat([inputs, inputs], dim=0)
+            if 'ensemble' in mode:
+                bs = inputs.shape[0]
+                x = torch.cat([inputs, inputs], dim=0)
+            else:
+                x = inputs
 
         if t is not None:
             outputs = self.net(x, t)
-            outputs = outputs.split(bs)
+            if 'ensemble' in mode:
+                outputs = outputs.split(bs)
+            else:
+                outputs = [outputs]
             if 'ba' in mode:
                 outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=0)
@@ -243,7 +256,10 @@ class NPBCL(ContinualModel):
             outputs_tasks = []
             for i in range(self.task+1):
                 outputs = self.net(x, i)
-                outputs = outputs.split(bs)
+                if 'ensemble' in mode:
+                    outputs = outputs.split(bs)
+                else:
+                    outputs = [outputs]
 
                 if 'ba' in mode:
                     outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
