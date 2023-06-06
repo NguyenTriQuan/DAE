@@ -212,17 +212,20 @@ class NPBCL(ContinualModel):
         cal = False
         if 'cal' in mode:
             cal = True
-        x = torch.cat([inputs, inputs], dim=0)
         if 'ba' in mode:
             # batch augmentation
             N = self.args.num_aug 
-            x = inputs.unsqueeze(0).expand(N, *x.shape).reshape(N*x.shape[0], *x.shape[1:])
+            x = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
+            bs = x.shape[0]
+            x = torch.cat([x, x], dim=0)
             x = self.dataset.train_transform(x)
+        else:
+            bs = inputs.shape[0]
+            x = torch.cat([inputs, inputs], dim=0)
 
         if t is not None:
             outputs = self.net(x, t)
-            outputs = outputs.split(inputs.shape[0])
-
+            outputs = outputs.split(bs)
             if 'ba' in mode:
                 outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=0)
@@ -240,7 +243,7 @@ class NPBCL(ContinualModel):
             outputs_tasks = []
             for i in range(self.task+1):
                 outputs = self.net(x, i)
-                outputs = outputs.split(inputs.shape[0])
+                outputs = outputs.split(bs)
 
                 if 'ba' in mode:
                     outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
@@ -342,9 +345,10 @@ class NPBCL(ContinualModel):
             outputs = self.net(inputs, self.task)
             outputs = outputs.split(bs)
             loss = self.loss(outputs[0], labels) + self.loss(outputs[1], labels)
-            npb_reg = NPB_model_count(self.net, 'stable', self.task, self.alpha, self.beta) 
-            npb_reg += NPB_model_count(self.net, 'plastic', self.task, self.alpha, self.beta)
-            loss = loss - self.lamb * npb_reg
+            if 'npb' in self.args.ablation:
+                npb_reg = NPB_model_count(self.net, 'stable', self.task, self.alpha, self.beta) 
+                npb_reg += NPB_model_count(self.net, 'plastic', self.task, self.alpha, self.beta)
+                loss = loss - self.lamb * npb_reg
             loss.backward()
             if self.task > 0:
                 self.net.freeze_used_weights()
