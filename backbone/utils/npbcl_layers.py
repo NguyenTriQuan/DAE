@@ -46,11 +46,12 @@ class MaksedLinear(nn.Linear):
         self.view_in = (1, -1)
         self.view_out = (-1, 1)
 
-    def update_unused_weights(self):
+    def update_unused_weights(self, t): 
         # zero if used, one if unused
         self.unused_weight = torch.ones_like(self.weight).to(device)
-        for mask in self.stable_masks + self.plastic_masks:
-            self.unused_weight *= (1-mask)
+        for mask in self.stable_masks[:t+1] + self.plastic_masks[:t+1]:
+            self.unused_weight *= (~mask.bool())
+        # print(self.unused_weight.sum(), self.unused_weight.numel())
 
     def freeze_used_weights(self):
         self.weight.grad *= self.unused_weight
@@ -111,7 +112,7 @@ class MaskedConv2d(nn.Conv2d):
         self.unused_weight = torch.ones_like(self.weight).to(device)
         for mask in self.stable_masks[:t+1] + self.plastic_masks[:t+1]:
             self.unused_weight *= (~mask.bool())
-        print(self.unused_weight.sum(), self.unused_weight.numel())
+        # print(self.unused_weight.sum(), self.unused_weight.numel())
 
     def freeze_used_weights(self):
         self.weight.grad *= self.unused_weight
