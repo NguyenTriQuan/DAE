@@ -130,8 +130,8 @@ class DAE(ContinualModel):
     NAME = 'DAE'
     COMPATIBILITY = ['class-il', 'task-il']
 
-    def __init__(self, backbone, loss, args, transform):
-        super(DAE, self).__init__(backbone, loss, args, transform)
+    def __init__(self, backbone, loss, args, dataset):
+        super(DAE, self).__init__(backbone, loss, args, dataset)
         if args.norm_type == 'none':
             norm_type = None
         else:

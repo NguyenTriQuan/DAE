@@ -13,10 +13,9 @@ from models.utils.continual_model import ContinualModel
 from utils.args import add_management_args, add_experiment_args, add_rehearsal_args, ArgumentParser
 from utils.batch_norm import bn_track_stats
 from utils.buffer import Buffer, icarl_replay
-from backbone.ResNet18_DAE import resnet18, resnet10
+from backbone.ResNet18_NPBCL import resnet18, resnet10
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from itertools import cycle
-from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm
 import numpy as np
 import random
 import math
@@ -28,10 +27,12 @@ def get_parser() -> ArgumentParser:
     add_management_args(parser)
     add_experiment_args(parser)
     add_rehearsal_args(parser)
-    parser.add_argument('--lamb', type=str, required=True,
-                        help='capacity control.')
+    parser.add_argument('--lamb', type=float, required=False,
+                        help='regularization factor', default=0)
     parser.add_argument('--alpha', type=float, required=False,
-                        help='Join Rehearsal Distillation penalty weight.', default=0)
+                        help='node-path balance', default=0)
+    parser.add_argument('--beta', type=float, required=False,
+                        help='kernel induce', default=0)
     parser.add_argument('--dropout', type=float, required=False,
                         help='Dropout probability.', default=0.0)
     parser.add_argument('--sparsity', type=float, required=True,
@@ -126,71 +127,105 @@ def sup_con_loss(features, labels, temperature):
 
     return loss
 
+def NPB_layer_count(m, mode, t):
+    if mode == 'stable':
+        mask = m.stable_masks[t]
+        heuristic = 1 - m.unused_weight + 1
+    elif mode == 'plastic':
+        mask = m.plastic_masks[t]
+        heuristic = m.unused_weight + 1
+
+    if len(m.prev_layers) > 0:
+        P_in = 0
+        eff_nodes_in = torch.tensor(0).float().cuda()
+        for n in m.prev_layers:
+            P_in += n.P_out
+            eff_nodes_in = torch.maximum(eff_nodes_in, n.eff_nodes_out)
+    else:
+        P_in = torch.tensor(1).float().cuda()
+        eff_nodes_in = torch.tensor(1).float().cuda()
+
+    m.P_out = torch.sum(mask * heuristic * P_in.view(m.view_in), dim=m.dim_out)
+    m.eff_nodes_in = torch.minimum(torch.sum(mask, dim=m.dim_in) * eff_nodes_in, torch.tensor(1).float().cuda())
+    m.eff_nodes_out = torch.minimum(torch.sum(mask * eff_nodes_in.view(m.view_in), dim=m.dim_out), torch.tensor(1).float().cuda())
+    if len(m.weight.shape) == 4:
+        m.eff_kernels = torch.minimum(mask.sum(dim=(2,3)), torch.tensor(1).float().cuda()).sum()
+
+def NPB_model_count(net, mode, t, alpha, beta):
+    eff_nodes = 0
+    eff_kernels = 0
+    eff_paths = 0    
+    for m in net.DM:
+        NPB_layer_count(m, mode, t)
+    for m in net.DM:
+        if len(m.next_layers) > 0:
+            eff_nodes_out = torch.tensor(0).float().cuda()
+            for n in m.next_layers:
+                eff_nodes_out = torch.maximum(eff_nodes_out, m.eff_nodes_out * n.eff_nodes_in)
+        else:
+            eff_nodes_out = m.eff_nodes_out
+        
+        if len(m.weight.shape) == 4:
+            # tmp = m.eff_nodes_in.view(m.view_in) * torch.minimum(m.weight_mask.sum(dim=(2,3)), torch.tensor(1).float().cuda()) * eff_nodes_out.view(m.view_out)
+            eff_kernels += m.eff_kernels
+        # else:
+        #     tmp = m.eff_nodes_in.view(m.view_in) * m.weight_mask * eff_nodes_out.view(m.view_out)
+        #     eff_kernels += torch.sum(tmp)
+
+        eff_nodes += eff_nodes_out.sum()
+
+    eff_paths = net.DM[-1].P_out.sum().log()
+    eff_nodes = eff_nodes.log()
+    eff_kernels = eff_kernels.log()
+    for m in net.DM:
+        m.P_out = 0
+        m.eff_nodes_in = 0
+        m.eff_nodes_out = 0
+        m.eff_kernels = 0
+    return eff_nodes * alpha + eff_paths * (1-alpha) + eff_kernels * beta
+
 class NPBCL(ContinualModel):
     NAME = 'NPBCL'
     COMPATIBILITY = ['class-il', 'task-il']
 
-    def __init__(self, backbone, loss, args, transform):
-        super(NPBCL, self).__init__(backbone, loss, args, transform)
-        if args.norm_type == 'none':
-            norm_type = None
-        else:
-            norm_type = args.norm_type
+    def __init__(self, backbone, loss, args, dataset):
+        super(NPBCL, self).__init__(backbone, loss, args, dataset)
 
         if args.debug:
-            self.net = resnet10(0, norm_type=norm_type, args=args)
-            # self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
+            self.net = resnet10(self.dataset.N_CLASSES_PER_TASK, nf=32, args=args).to(device)
         else:
-            self.net = resnet18(0, norm_type=norm_type, args=args)
+            self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, nf=64, args=args).to(device)
         self.task = -1
-        # try:
-        #     self.lamb = float(args.lamb)
-        # except:
-        #     self.lamb = [float(i) for i in args.lamb.split('_')][0]
-        self.lamb = [float(i) for i in args.lamb.split('_')]
-        if len(self.lamb) < self.args.total_tasks:
-            self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.args.total_tasks)]
-        print('lambda tasks', self.lamb)
-        self.soft = torch.nn.Softmax(dim=1)
-        # self.device = 'cpu'
         self.buffer = None
+        get_related_layers(self.net, self.dataset.INPUT_SHAPE)
+        self.net.ERK_sparsify(sparsity=self.args.sparsity)
+        self.alpha = self.args.alpha
+        self.beta = self.args.beta
+        self.lamb = self.args.lamb
 
     def forward(self, inputs, t=None, mode='ets_kbts_cal_ba'):
         cal = False
         if 'cal' in mode:
             cal = True
+        x = torch.cat([inputs, inputs], dim=0)
         if 'ba' in mode:
             # batch augmentation
             N = self.args.num_aug 
-            aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
-            x = self.dataset.train_transform(aug_inputs)
-            # x = torch.cat([inputs, x])
-
-            # x = [inputs]
-            # for trans in self.dataset.contrast_transform:
-            #     x += [trans(inputs)]
-            # N = len(x)
-            # x = torch.cat(x, dim=0)
-        else:
-            x = inputs
+            x = inputs.unsqueeze(0).expand(N, *x.shape).reshape(N*x.shape[0], *x.shape[1:])
+            x = self.dataset.train_transform(x)
 
         if t is not None:
-            outputs = []
-            if 'ets' in mode:
-                out = self.net.ets_forward(x, t)
-                outputs.append(out)
-            if 'kbts' in mode:
-                out = self.net.kbts_forward(x, t)
-                outputs.append(out)
+            outputs = self.net(x, t)
+            outputs = outputs.split(inputs.shape[0])
 
             if 'ba' in mode:
                 outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=0)
-                outputs = outputs[:, :, 1:] # ignore ood class
+                # outputs = outputs[:, :, 1:] # ignore ood class
                 outputs = ensemble_outputs(outputs)
             else:
                 outputs = torch.stack(outputs, dim=0)
-                outputs = outputs[:, :, 1:] # ignore ood class
+                # outputs = outputs[:, :, 1:] # ignore ood class
                 outputs = ensemble_outputs(outputs)
 
             _, predicts = outputs.max(1)
@@ -199,18 +234,13 @@ class NPBCL(ContinualModel):
             joint_entropy_tasks = []
             outputs_tasks = []
             for i in range(self.task+1):
-                outputs = []
-                if 'ets' in mode:
-                    out = self.net.ets_forward(x, i, cal=cal)
-                    outputs.append(out)
-                if 'kbts' in mode:
-                    out = self.net.kbts_forward(x, i, cal=cal)
-                    outputs.append(out)
+                outputs = self.net(x, i)
+                outputs = outputs.split(inputs.shape[0])
 
                 if 'ba' in mode:
                     outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
                     outputs = torch.cat(outputs, dim=0)
-                    outputs = outputs[:, :, 1:] # ignore ood class
+                    # outputs = outputs[:, :, 1:] # ignore ood class
                     outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
@@ -219,7 +249,7 @@ class NPBCL(ContinualModel):
                     # joint_entropy_tasks.append(joint_entropy.view(N+1, inputs.shape[0]).mean(0))
                 else:
                     outputs = torch.stack(outputs, dim=0)
-                    outputs = outputs[:, :, 1:] # ignore ood class
+                    # outputs = outputs[:, :, 1:] # ignore ood class
                     outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
@@ -269,59 +299,59 @@ class NPBCL(ContinualModel):
         total_loss = 0
         if verbose:
             test_acc = self.evaluate([self.task], mode=mode)[0]
-            num_params, num_neurons = self.net.count_params()
-            num_params = sum(num_params)
+            dif = 0
+            for m in self.net.DM:
+                dif += (m.stable_masks[self.task] - m.plastic_masks[self.task]).abs().sum().int().item()
         else:
             test_acc = 0
-            num_params = 0
+            dif = 0
         self.net.train()
         if self.buffer is not None:
             buffer = iter(self.buffer)
         for i, data in enumerate(train_loader):
             inputs, labels = data
+            bs = labels.shape[0]
             inputs, labels = inputs.to(self.device), labels.to(self.device)
-            labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
-            ood_inputs = torch.rot90(inputs, 2, dims=(2,3))
-            ood_labels = torch.zeros_like(labels)
-            if self.buffer is not None:
-                try:
-                    buffer_data = next(buffer)
-                except StopIteration:
-                    # restart the generator if the previous generator is exhausted.
-                    buffer = iter(self.buffer)
-                    buffer_data = next(buffer)
-                buffer_data = [tmp.to(self.device) for tmp in buffer_data]
-                ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
-                ood_labels = torch.cat([ood_labels, torch.zeros_like(buffer_data[1])], dim=0)
+            labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
 
-            inputs = torch.cat([inputs, ood_inputs], dim=0)
-            labels = torch.cat([labels, ood_labels], dim=0)
+            # ood_inputs = torch.rot90(inputs, 2, dims=(2,3))
+            # ood_labels = torch.zeros_like(labels)
+            # if self.buffer is not None:
+            #     try:
+            #         buffer_data = next(buffer)
+            #     except StopIteration:
+            #         # restart the generator if the previous generator is exhausted.
+            #         buffer = iter(self.buffer)
+            #         buffer_data = next(buffer)
+            #     buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+            #     ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
+            #     ood_labels = torch.cat([ood_labels, torch.zeros_like(buffer_data[1])], dim=0)
+
+            # inputs = torch.cat([inputs, ood_inputs], dim=0)
+            # labels = torch.cat([labels, ood_labels], dim=0)
+            inputs = torch.cat([inputs, inputs], dim=0)
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             inputs = self.dataset.test_transforms[self.task](inputs)
             self.opt.zero_grad()
-            if mode == 'ets':
-                outputs = self.net.ets_forward(inputs, self.task)
-            elif mode == 'kbts':
-                outputs = self.net.kbts_forward(inputs, self.task)
-
-            loss = self.loss(outputs, labels)
+            outputs = self.net(inputs, self.task)
+            outputs = outputs.split(bs)
+            loss = self.loss(outputs[0], labels) + self.loss(outputs[1], labels)
+            npb_reg = NPB_model_count(self.net, 'stable', self.task, self.alpha, self.beta) 
+            npb_reg += NPB_model_count(self.net, 'plastic', self.task, self.alpha, self.beta)
+            loss = loss + self.lamb * npb_reg
             loss.backward()
+            if self.task > 0:
+                self.net.freeze_used_weights()
             self.opt.step()
+            outputs = ensemble_outputs(torch.stack(outputs, dim=0))
             _, predicts = outputs.max(1)
             correct += torch.sum(predicts == labels).item()
             total += labels.shape[0]
             total_loss += loss.item() * labels.shape[0]
-            if squeeze:
-                self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
-                if verbose:
-                    num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
-                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, num_params, num_neurons)
-            else:
-                if verbose:
-                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, num_params)
-        if squeeze:
-            self.net.squeeze(self.opt.state)
+            if verbose:
+                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, dif)
+
         self.scheduler.step()
 
     
@@ -367,15 +397,9 @@ class NPBCL(ContinualModel):
 
     def begin_task(self, dataset):
         self.task += 1
-        self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
-        self.net.ERK_sparsify(sparsity=self.args.sparsity)
-        for m in self.net.DM:
-            # m.kbts_sparsities = torch.cat([m.kbts_sparsities, torch.IntTensor([m.sparsity]).to(device)])
-            m.kbts_sparsities += [m.sparsity]
-        self.opt = torch.optim.SGD(self.net.parameters(), lr=self.args.lr, weight_decay=0, momentum=self.args.optim_mom)
 
     def end_task(self, dataset) -> None:
-        self.net.freeze()
+        self.net.update_unused_weights()
 
     def get_rehearsal_logits(self, train_loader):
         if self.task == 0:
@@ -517,3 +541,101 @@ class NPBCL(ContinualModel):
         #     print(f'{c}: {idx.sum()}', end=', ')
         # print()
 
+def get_related_layers(net, input_shape):
+    def stable_check(x1, x2):
+        eps = x1 * 1e-4
+        return abs(x1 - x2) < eps
+
+    def forward_hook(m, i, o):
+        m.output_idx = random.random() * m.input_idx
+        o[0] += m.output_idx
+        return
+    
+    def forward_pre_hook(m, i):
+        if len(i[0].shape) == 4:
+            m.input_idx = i[0][0,0,0,0].item()
+        else:
+            m.input_idx = i[0][0,0].item()
+        return (torch.zeros_like(i[0]), i[1])
+
+    handes = []
+    for m in net.DM:
+        h1 = m.register_forward_pre_hook(forward_pre_hook)
+        h2 = m.register_forward_hook(forward_hook)
+        handes += [h1, h2]
+    c, h, w = input_shape
+    data = torch.ones((1, c, h, w), dtype=torch.float, device='cuda')
+    net.eval()
+    net.set_mode('stable')
+    out = net(data, 0)  
+    for h in handes:
+        h.remove()
+    
+    for n, m in net.named_modules():
+        if m in net.DM:
+            # print(n, m.weight.shape, m.input_idx, m.output_idx)
+            m.name = n
+            m.prev_layers = []
+            m.next_layers = []
+    eps = 1e-3
+    for i in range(len(net.DM)):
+        for j in range(i):
+            # if abs(scores[i].input_idx - scores[j].output_idx) < eps:
+            if stable_check(net.DM[i].input_idx, net.DM[j].output_idx):
+                net.DM[i].prev_layers.append(net.DM[j])
+                net.DM[j].next_layers.append(net.DM[i])
+            else:
+                for k in range(j):
+                    # if abs(scores[i].input_idx - scores[j].output_idx - scores[k].output_idx) < eps:
+                    if stable_check(net.DM[i].input_idx, net.DM[j].output_idx + net.DM[k].output_idx):
+                        net.DM[i].prev_layers += [net.DM[j], net.DM[k]]
+                        net.DM[j].next_layers += [net.DM[i]]
+                        net.DM[k].next_layers += [net.DM[i]]
+
+                    # if abs(scores[i].input_idx - scores[j].output_idx - scores[k].input_idx) < eps:
+                    if stable_check(net.DM[i].input_idx, net.DM[j].output_idx + net.DM[k].input_idx):
+                        net.DM[i].prev_layers += [net.DM[j]] + net.DM[k].prev_layers
+                        net.DM[j].next_layers += [net.DM[i]]
+                        for g in net.DM[k].prev_layers:
+                            g.next_layers += [net.DM[i]]
+
+                    # if abs(scores[i].input_idx - scores[k].output_idx - scores[j].input_idx) < eps:
+                    if stable_check(net.DM[i].input_idx, net.DM[k].output_idx + net.DM[j].input_idx):
+                        net.DM[i].prev_layers += [net.DM[k]] + net.DM[j].prev_layers
+                        net.DM[k].next_layers += [net.DM[i]]
+                        for g in net.DM[j].prev_layers:
+                            g.next_layers += [net.DM[i]]
+
+                    # if abs(scores[i].input_idx - scores[j].input_idx - scores[k].input_idx) < eps:
+                    if stable_check(net.DM[i].input_idx, net.DM[j].input_idx + net.DM[k].input_idx):
+                        net.DM[i].prev_layers += net.DM[j].prev_layers + net.DM[k].prev_layers
+                        for g in net.DM[j].prev_layers:
+                            g.next_layers += [net.DM[i]]
+                        for g in net.DM[k].prev_layers:
+                            g.next_layers += [net.DM[i]]
+
+    net.prev_layers = []
+    for m in net.DM:
+        m.prev_layers = tuple(set(m.prev_layers))
+        m.next_layers = tuple(set(m.next_layers))
+        if len(m.prev_layers) != 0:
+            net.prev_layers.append(m.prev_layers)
+        print(m.name, m.weight.shape, m.input_idx, m.output_idx)
+        for j, n in enumerate(m.prev_layers):
+            print('prev', j, n.name, n.weight.shape, n.input_idx, n.output_idx)
+        for j, n in enumerate(m.next_layers):
+            print('next', j, n.name, n.weight.shape, n.input_idx, n.output_idx)
+        print()
+    
+    net.prev_layers = list(set(net.prev_layers))
+    for i, layers in enumerate(net.prev_layers):
+        if len(layers) == 0:
+            print(i, layers)
+        for m in layers:
+            print(i, m.name)
+
+    all_layers = []
+    for layers in net.prev_layers:
+        all_layers += list(layers)
+    # for m in net.DM[:-1]:
+    #     assert m in all_layers

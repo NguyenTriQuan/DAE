@@ -101,6 +101,8 @@ def main(args=None):
     args.conf_timestamp = str(datetime.datetime.now())
     args.conf_host = socket.gethostname()
     dataset = get_dataset(args)
+    dataset.N_TASKS = args.total_tasks
+    dataset.N_CLASSES_PER_TASK = dataset.N_CLASSES // args.total_tasks
 
     if args.n_epochs is None and isinstance(dataset, ContinualDataset):
         args.n_epochs = dataset.get_epochs()
@@ -111,7 +113,7 @@ def main(args=None):
 
     backbone = dataset.get_backbone()
     loss = dataset.get_loss()
-    model = get_model(args, backbone, loss, dataset.get_transform())
+    model = get_model(args, backbone, loss, dataset)
 
     if args.distributed == 'dp':
         model.net = make_dp(model.net)
@@ -135,12 +137,17 @@ def main(args=None):
         print(args.title)
     elif model.NAME == 'ATA':
         from utils.training_ata import train
+        args.title = '{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.dataset, 
+                                                                args.lamb, args.dropout, args.sparsity)
+        print(args.title)
+    elif model.NAME == 'NPBCL':
+        from utils.training_npbcl import train
+        args.title = '{}_{}_lamb_{}_alpha_{}_beta_{}_sparsity_{}'.format(args.model, args.dataset, 
+                                                                args.lamb, args.alpha, args.beta, args.sparsity)
+        print(args.title)
     else:
         from utils.training import train
 
-    dataset.N_TASKS = args.total_tasks
-    dataset.N_CLASSES_PER_TASK = dataset.N_CLASSES // args.total_tasks
-    model.dataset = dataset
     if args.eval:
         evaluate(model, dataset, args)
     elif args.cal:

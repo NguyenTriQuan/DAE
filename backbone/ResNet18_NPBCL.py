@@ -93,7 +93,7 @@ class ResNet(MammothBackbone):
         self.layers += self._make_layer(block, nf * 2, num_blocks[1], stride=2)
         self.layers += self._make_layer(block, nf * 4, num_blocks[2], stride=2)
         self.layers += self._make_layer(block, nf * 8, num_blocks[3], stride=2)
-        self.linear = EsmLinear(nf * 8 * block.expansion, num_classes)
+        self.linear = EsmLinear(nf * 8 * block.expansion, num_classes, args=args)
         self.DM = [m for m in self.modules() if hasattr(m, 'stable_score')]
 
     def _make_layer(self, block: BasicBlock, planes: int,
@@ -128,10 +128,20 @@ class ResNet(MammothBackbone):
         feature = out.view(out.size(0), -1)  # 512
 
         out = self.linear(feature, t)
+        return out
 
-    def freeze(self):
+    def set_mode(self, mode):
+        for m in self.modules():
+            if hasattr(m, 'mode'):
+                m.mode = mode
+
+    def update_unused_weights(self):
         for m in self.DM:
-            m.freeze()
+            m.update_unused_weights()
+
+    def freeze_used_weights(self):
+        for m in self.DM:
+            m.freeze_used_weights()
 
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')
@@ -139,8 +149,8 @@ class ResNet(MammothBackbone):
         erk_power_scale = 1
 
         total_params = 0
-        for m in self.DM[:-1]:
-            total_params += m.score.numel()
+        for m in self.DM:
+            total_params += m.weight.numel()
         is_epsilon_valid = False
 
         dense_layers = set()
@@ -149,7 +159,7 @@ class ResNet(MammothBackbone):
             rhs = 0
             for m in self.DM:
                 m.raw_probability = 0
-                n_param = np.prod(m.score.shape)
+                n_param = np.prod(m.weight.shape)
                 n_zeros = n_param * (1 - density)
                 n_ones = n_param * density
 
@@ -157,7 +167,7 @@ class ResNet(MammothBackbone):
                     rhs -= n_zeros
                 else:
                     rhs += n_ones
-                    m.raw_probability = (np.sum(m.score.shape) / np.prod(m.score.shape)) ** erk_power_scale
+                    m.raw_probability = (np.sum(m.weight.shape) / np.prod(m.weight.shape)) ** erk_power_scale
                     divisor += m.raw_probability * n_param
 
             epsilon = rhs / divisor
@@ -165,7 +175,7 @@ class ResNet(MammothBackbone):
             max_prob_one = max_prob * epsilon
             if max_prob_one > 1:
                 is_epsilon_valid = False
-                for m in self.DM[:-1]:
+                for m in self.DM:
                     if m.raw_probability == max_prob:
                         # print(f"Sparsity of var:{mask_name} had to be set to 0.")
                         dense_layers.add(m)
@@ -176,16 +186,16 @@ class ResNet(MammothBackbone):
         # With the valid epsilon, we can set sparsities of the remaning layers.
         min_sparsity = 0.5
         for i, m in enumerate(self.DM):
-            n_param = np.prod(m.score.shape)
+            n_param = np.prod(m.weight.shape)
             if m in dense_layers:
                 m.sparsity = min_sparsity
             else:
                 probability_one = epsilon * m.raw_probability
                 m.sparsity = max(1 - probability_one, min_sparsity)
-            # print(
-            #     f"layer: {i}, shape: {m.score.shape}, sparsity: {m.sparsity}"
-            # )
-            total_nonzero += (1-m.sparsity) * m.score.numel()
+            print(
+                f"layer: {i}, shape: {m.weight.shape}, sparsity: {m.sparsity}"
+            )
+            total_nonzero += (1-m.sparsity) * m.weight.numel()
         print(f"Overall sparsity {1-total_nonzero / total_params}")
 
 

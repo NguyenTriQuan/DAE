@@ -14,6 +14,7 @@ from torch.optim import SGD
 
 from utils.conf import get_device
 from utils.magic import persistent_locals
+from datasets.utils.continual_dataset import ContinualDataset
 
 with suppress(ImportError):
     import wandb
@@ -27,13 +28,13 @@ class ContinualModel(nn.Module):
     COMPATIBILITY: List[str]
 
     def __init__(self, backbone: nn.Module, loss: nn.Module,
-                 args: Namespace, transform: nn.Module) -> None:
+                 args: Namespace, dataset: ContinualDataset) -> None:
         super(ContinualModel, self).__init__()
 
         self.net = backbone
         self.loss = loss
         self.args = args
-        self.transform = transform
+        self.dataset = dataset
         self.opt = SGD(self.net.parameters(), lr=self.args.lr)
         self.device = get_device()
 

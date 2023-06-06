@@ -28,24 +28,6 @@ class TopK(torch.autograd.Function):
         # send the gradient g straight-through on the backward pass.
         return g, None
     
-def NPB_layer_count(m):
-    if len(m.prev_layers) > 0:
-        P_in = 0
-        eff_nodes_in = torch.tensor(0).float().cuda()
-        for n in m.prev_layers:
-            P_in += n.P_out
-            eff_nodes_in = torch.maximum(eff_nodes_in, n.eff_nodes_out)
-    else:
-        P_in = torch.tensor(1).float().cuda()
-        eff_nodes_in = torch.tensor(1).float().cuda()
-
-    m.weight_mask = TopK.apply(m.score.abs(), 1-m.sparsity)
-    sum_in = torch.sum(m.weight_mask, dim=m.dim_in) * eff_nodes_in
-    sum_out = torch.sum(m.weight_mask * eff_nodes_in.view(m.view_in), dim=m.dim_out)
-    m.P_out = torch.sum(m.weight_mask * m.heuristic * P_in.view(m.view_in), dim=m.dim_out)
-    m.eff_nodes_in = torch.minimum(sum_in, torch.tensor(1).float().cuda())
-    m.eff_nodes_out = torch.minimum(sum_out, torch.tensor(1).float().cuda())
-    
 class MaksedLinear(nn.Linear):
     def __init__(self, in_features, out_features, bias=True, args=None):
         super(MaksedLinear, self).__init__(in_features, out_features, bias)  
@@ -53,8 +35,9 @@ class MaksedLinear(nn.Linear):
         self.plastic_score = nn.Parameter(torch.empty_like(self.weight), requires_grad=True)
         nn.init.kaiming_normal_(self.stable_score)   
         nn.init.kaiming_normal_(self.plastic_score)
-        self.stable_masks = [torch.ones_like(self.weight).to(device) for _ in range(args.total_tasks)]
-        self.plastic_masks = [torch.ones_like(self.weight).to(device) for _ in range(args.total_tasks)]
+        self.stable_masks = [torch.zeros_like(self.weight).to(device) for _ in range(args.total_tasks)]
+        self.plastic_masks = [torch.zeros_like(self.weight).to(device) for _ in range(args.total_tasks)]
+        self.unused_weight = torch.ones_like(self.weight).to(device)
         self.args = args
         self.sparsity = 0.5
         self.mode = 'ensemble'
@@ -62,6 +45,15 @@ class MaksedLinear(nn.Linear):
         self.dim_out = (1)
         self.view_in = (1, -1)
         self.view_out = (-1, 1)
+
+    def update_unused_weights(self):
+        # zero if used, one if unused
+        self.unused_weight = torch.ones_like(self.weight).to(device)
+        for mask in self.stable_masks + self.plastic_masks:
+            self.unused_weight *= (1-mask)
+
+    def freeze_used_weights(self):
+        self.weight.grad *= self.unused_weight
 
     def forward(self, inputs, t): 
         if self.mode == 'ensemble':
@@ -71,8 +63,6 @@ class MaksedLinear(nn.Linear):
             if self.training:
                 self.stable_masks[t] = TopK.apply(self.stable_score, 1-self.sparsity) / (1-self.sparsity)
                 self.plastic_masks[t] = TopK.apply(self.plastic_score, 1-self.sparsity) / (1-self.sparsity)
-                NPB_layer_count(self.stable_masks[t])
-                NPB_layer_count(self.plastic_masks[t])
 
             stable_out = F.linear(inputs[0], self.stable_masks[t] * self.weight, self.bias)
             plastic_out = F.linear(inputs[1], self.plastic_masks[t] * self.weight, self.bias)
@@ -90,7 +80,6 @@ class MaksedLinear(nn.Linear):
             return plastic_out
 
 
-
 class MaskedConv2d(nn.Conv2d):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,
                  padding=0, dilation=1, groups=1,
@@ -102,8 +91,8 @@ class MaskedConv2d(nn.Conv2d):
         self.plastic_score = nn.Parameter(torch.empty_like(self.weight), requires_grad=True)
         nn.init.kaiming_normal_(self.stable_score)   
         nn.init.kaiming_normal_(self.plastic_score)
-        self.stable_masks = [torch.ones_like(self.weight).to(device) for _ in range(args.total_tasks)]
-        self.plastic_masks = [torch.ones_like(self.weight).to(device) for _ in range(args.total_tasks)]
+        self.stable_masks = [torch.zeros_like(self.weight).to(device) for _ in range(args.total_tasks)]
+        self.plastic_masks = [torch.zeros_like(self.weight).to(device) for _ in range(args.total_tasks)]
         self.unused_weight = torch.ones_like(self.weight).to(device)
         self.args = args
         self.sparsity = 0.5
@@ -117,9 +106,11 @@ class MaskedConv2d(nn.Conv2d):
         return F.conv2d(inputs, weight, bias, self.stride,
                         self.padding, self.dilation, groups)
     
-    def update_unused_weights(self):
+    def update_unused_weights(self): 
+        # zero if used, one if unused
+        self.unused_weight = torch.ones_like(self.weight).to(device)
         for mask in self.stable_masks + self.plastic_masks:
-            self.unused_weight *= mask
+            self.unused_weight *= (1-mask)
 
     def freeze_used_weights(self):
         self.weight.grad *= self.unused_weight
@@ -138,8 +129,6 @@ class MaskedConv2d(nn.Conv2d):
             if self.training:
                 self.stable_masks[t] = TopK.apply(self.stable_score, 1-self.sparsity) / (1-self.sparsity)
                 self.plastic_masks[t] = TopK.apply(self.plastic_score, 1-self.sparsity) / (1-self.sparsity)
-                NPB_layer_count(self.stable_masks[t])
-                NPB_layer_count(self.plastic_masks[t])
 
             ## filters with shape [num_member*chn_out, chn_in, k, k]
             weight = torch.cat([self.stable_masks[t] * self.weight, self.plastic_masks[t] * self.weight], dim=0)

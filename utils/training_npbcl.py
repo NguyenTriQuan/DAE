@@ -23,139 +23,24 @@ from utils.conf import base_path_memory
 
 wandb = None
 
-# def mask_classes(outputs: torch.Tensor, dataset: ContinualDataset, k: int) -> None:
-#     """
-#     Given the output tensor, the dataset at hand and the current task,
-#     masks the former by setting the responses for the other tasks at -inf.
-#     It is used to obtain the results for the task-il setting.
-#     :param outputs: the output tensor
-#     :param dataset: the continual dataset
-#     :param k: the task index
-#     """
-#     outputs[:, 0:k * dataset.N_CLASSES_PER_TASK] = -float('inf')
-#     outputs[:, (k + 1) * dataset.N_CLASSES_PER_TASK:
-#                dataset.N_TASKS * dataset.N_CLASSES_PER_TASK] = -float('inf')
-
-
-# def model.evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='ets_kbts_jr') -> Tuple[list, list]:
-#     """
-#     Evaluates the accuracy of the model for each past task.
-#     :param model: the model to be evaluated
-#     :param dataset: the continual dataset at hand
-#     :return: a tuple of lists, containing the class-il
-#              and task-il accuracy for each task
-#     """
-#     # status = model.net.training
-#     with torch.no_grad():
-#         model.net.eval()
-#         accs, accs_mask_classes = [], []
-#         for k, test_loader in enumerate(dataset.test_loaders):
-#             if task is not None:
-#                 if k != task:
-#                     continue
-#             correct, correct_mask_classes, total = 0.0, 0.0, 0.0
-#             for data in test_loader:
-#                 with torch.no_grad():
-#                     inputs, labels = data
-#                     inputs, labels = inputs.to(model.device), labels.to(model.device)
-#                     # inputs = dataset.test_transform(inputs)
-#                     if task is not None:
-#                         pred = model(inputs, k, mode)
-#                     else:
-#                         pred = model(inputs, None, mode)
-
-#                     correct += torch.sum(pred == labels).item()
-#                     total += labels.shape[0]
-
-#                     if dataset.SETTING == 'class-il' and task is None:
-#                         pred = model(inputs, k, mode)
-#                         correct_mask_classes += torch.sum(pred == labels).item()
-
-#             acc = correct / total * 100 if 'class-il' in model.COMPATIBILITY else 0
-#             accs.append(round(acc, 2))
-#             acc = correct_mask_classes / total * 100
-#             accs_mask_classes.append(round(acc, 2))
-
-#         # model.net.train(status)
-#         return accs, accs_mask_classes
-
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     squeeze = False
     augment = True
     num_squeeze = 0
     num_augment = 1000
     progress_bar = ProgressBar(verbose=not args.non_verbose)
-    if 'cal' in mode:
-        # calibration outputs
-        n_epochs = 100
-        tc = 'tc' not in args.ablation
-        params = model.net.get_optim_cal_params(tc)
-        count = 0
-        for param in params:
-            count += param.numel()
-        print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
-    elif 'tc' in mode:
-        # tasks contrast:
-        n_epochs = 100
-        params = model.net.get_optim_tc_params()
-        count = 0
-        for param in params:
-            count += param.numel()
-        print(f'Training mode: {mode}, Number of optim params: {count}')
-        from utils.lars_optimizer import LARC
-        # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9), trust_coefficient=0.001)
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
-        # model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
-    elif 'ets' in mode:
-        params = model.net.get_optim_ets_params()
-        count = 0
-        for param in params:
-            count += param.numel()
-        print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        if 'squeeze' in args.ablation:
-            n_epochs = 120
-            num_augment = 117
-            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [100, 115], gamma=0.1, verbose=False)
-            squeeze = False
-        else:
-            n_epochs = 150
-            num_squeeze = 100
-            num_augment = 147
-            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [130, 145], gamma=0.1, verbose=False)
-            squeeze = True
-        if 'join' in args.ablation:
-            n_epochs = 50
-            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
-            squeeze = False
-    elif 'kbts' in mode:
-        params, scores = model.net.get_optim_kbts_params()
-        count = 0
-        for param in params + scores:
-            count += param.numel()
-        print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        n_epochs = 120
-        num_augment = 117
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [100, 115], gamma=0.1, verbose=False)
+    
+    model.opt = torch.optim.SGD(model.net.parameters(), lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+    n_epochs = 120
+    num_augment = 117
+    model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [100, 115], gamma=0.1, verbose=False)
 
     if 'epoch' in args.ablation:
         n_epochs = 10
-    for epoch in range(n_epochs):
-        if 'cal' in mode:
-            model.train_calibration(progress_bar, epoch, mode, args.verbose)
-        elif 'tc' in mode:
-            model.train_contrast(progress_bar, epoch, mode, args.verbose)
-        else:          
-            model.train(train_loader, progress_bar, mode, squeeze, augment, epoch, args.verbose)
+    for epoch in range(n_epochs):     
+        model.train(train_loader, progress_bar, mode, squeeze, augment, epoch, args.verbose)
 
         # do not perform squeeze and augment at a few last epochs for better convergence
-        if epoch >= num_squeeze:
-            squeeze = False
-
         # if epoch >= num_augment:
         #     augment = False
 
@@ -364,72 +249,26 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'begin_task'):
             print(f'Start training task {t}')
             model.begin_task(dataset)
-            num_params, num_neurons = model.net.count_params()
-            num_neurons = '-'.join(str(int(num)) for num in num_neurons)
-            print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
-            # new_params = sum(num_params)
-            # new_params = 0
-            # for m in model.net.DM:
-            #     new_params += (m.shape_in[-1] * m.num_out[-1] * m.ks)
-            # if t == 0:
-            #     base_params = new_params
-            #     model.factor = 1
-            # else:
-            #     model.factor = new_params / base_params
-            # print(f'Task {t}, lamb = {model.lamb * model.factor}')
-
-        # kbts training
-        if 'kbts' not in args.ablation:
-            mode = 'kbts'
-            train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
-            accs = model.evaluate(task=[t], mode=mode)
-            print(f'Task {t}, {mode}: til {accs[0]}')
-
-        model.net.clear_memory()
-
-        # ets training
-        if 'ets' not in args.ablation:
-            mode = 'ets'
-            train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
-            accs = model.evaluate(task=[t], mode=mode)
-            print(f'Task {t}, {mode}: til {accs[0]}')
-            num_params, num_neurons = model.net.count_params()
-            num_neurons = '-'.join(str(int(num)) for num in num_neurons)
-            print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+        
+        model.net.set_mode('ensemble')
+        train_loop(t, model, dataset, args, progress_bar, train_loader, mode='')
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
 
         torch.save(model.net, base_path_memory() + args.title + '.net')
 
-        with torch.no_grad():
-            model.get_rehearsal_logits(train_loader)
-            model.fill_buffer(train_loader)
 
         if args.verbose:
-            if 'kbts' not in args.ablation:
-                eval_mode = 'ets_kbts'
-            else:
-                eval_mode = 'ets'
-            cil_accs = model.evaluate(task=None, mode=eval_mode)
-            til_accs = model.evaluate(task=[t], mode=eval_mode)
-            print(f'Task {t}, {eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
+            cil_accs = model.evaluate(task=None, mode='')
+            til_accs = model.evaluate(task=[t], mode='')
+            print(f'Task {t}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
 
             if 'ba' not in args.ablation:
                 # batch augmentation
-                accs = model.evaluate(task=None, mode=eval_mode+'_ba')
-                print(f'Task {t}, {eval_mode}_ba: cil {round(np.mean(accs), 2)} {accs}')
-
-            print('checking forgetting')
-            mode = 'kbts'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
-
-            mode = 'ets'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+                cil_accs = model.evaluate(task=None, mode='ba')
+                til_accs = model.evaluate(task=[t], mode='ba')
+                print(f'Task {t}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
 
         # if not args.disable_log:
         #     logger.log(mean_acc)
