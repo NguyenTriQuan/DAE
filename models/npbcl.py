@@ -339,7 +339,7 @@ class NPBCL(ContinualModel):
             loss = self.loss(outputs[0], labels) + self.loss(outputs[1], labels)
             npb_reg = NPB_model_count(self.net, 'stable', self.task, self.alpha, self.beta) 
             npb_reg += NPB_model_count(self.net, 'plastic', self.task, self.alpha, self.beta)
-            loss = loss + self.lamb * npb_reg
+            loss = loss - self.lamb * npb_reg
             loss.backward()
             if self.task > 0:
                 self.net.freeze_used_weights()
