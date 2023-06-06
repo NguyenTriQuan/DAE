@@ -135,9 +135,9 @@ class ResNet(MammothBackbone):
             if hasattr(m, 'mode'):
                 m.mode = mode
 
-    def update_unused_weights(self):
+    def update_unused_weights(self, t):
         for m in self.DM:
-            m.update_unused_weights()
+            m.update_unused_weights(t)
 
     def freeze_used_weights(self):
         for m in self.DM:

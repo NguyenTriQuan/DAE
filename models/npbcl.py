@@ -408,7 +408,7 @@ class NPBCL(ContinualModel):
         self.task += 1
 
     def end_task(self, dataset) -> None:
-        self.net.update_unused_weights()
+        self.net.update_unused_weights(self.task)
 
     def get_rehearsal_logits(self, train_loader):
         if self.task == 0:

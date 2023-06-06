@@ -258,17 +258,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         torch.save(model.net, base_path_memory() + args.title + '.net')
 
-
         if args.verbose:
+            til_accs = model.evaluate(task=range(t+1), mode='')
             cil_accs = model.evaluate(task=None, mode='')
-            til_accs = model.evaluate(task=[t], mode='')
-            print(f'Task {t}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
+            print(f'Task {t}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
             if 'ba' not in args.ablation:
                 # batch augmentation
+                til_accs = model.evaluate(task=range(t+1), mode='ba')
                 cil_accs = model.evaluate(task=None, mode='ba')
-                til_accs = model.evaluate(task=[t], mode='ba')
-                print(f'Task {t}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
+                print(f'Task {t}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
 
         # if not args.disable_log:
         #     logger.log(mean_acc)
