@@ -345,7 +345,7 @@ class NPBCL(ContinualModel):
             outputs = self.net(inputs, self.task)
             outputs = outputs.split(bs)
             loss = self.loss(outputs[0], labels) + self.loss(outputs[1], labels)
-            if 'npb' in self.args.ablation:
+            if 'npb' not in self.args.ablation:
                 npb_reg = NPB_model_count(self.net, 'stable', self.task, self.alpha, self.beta) 
                 npb_reg += NPB_model_count(self.net, 'plastic', self.task, self.alpha, self.beta)
                 loss = loss - self.lamb * npb_reg
