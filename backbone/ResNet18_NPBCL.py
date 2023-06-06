@@ -196,7 +196,7 @@ class ResNet(MammothBackbone):
                 f"layer: {i}, shape: {m.weight.shape}, sparsity: {m.sparsity}"
             )
             total_nonzero += (1-m.sparsity) * m.weight.numel()
-        print(f"Overall sparsity {1-total_nonzero / total_params}")
+        print(f"Overall sparsity {1-total_nonzero / total_params}, Total params {total_params}")
 
 
 def resnet18(nclasses: int, nf: int=64, args=None) -> ResNet:
