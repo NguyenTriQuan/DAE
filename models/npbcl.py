@@ -128,12 +128,15 @@ def sup_con_loss(features, labels, temperature):
     return loss
 
 def NPB_layer_count(m, mode, t):
+    heuristic = 1
     if mode == 'stable':
         mask = m.stable_masks[t]
-        heuristic = 1 - m.unused_weight + 1
+        if t > 0:
+            heuristic = 1 - m.unused_weight + 1
     elif mode == 'plastic':
         mask = m.plastic_masks[t]
-        heuristic = m.unused_weight + 1
+        if t > 0:
+            heuristic = m.unused_weight + 1
 
     if len(m.prev_layers) > 0:
         P_in = 0
