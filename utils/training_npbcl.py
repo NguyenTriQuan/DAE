@@ -52,9 +52,6 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
     # model.net.load_state_dict(state_dict, strict=False)
     model.net = torch.load(base_path_memory() + args.title + '.net')
-    num_params, num_neurons = model.net.count_params()
-    num_neurons = '-'.join(str(int(num)) for num in num_neurons)
-    print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
             break
