@@ -310,12 +310,7 @@ class NPBCL(ContinualModel):
             dif = 0
             for m in self.net.DM:
                 dif += (m.stable_masks[self.task] - m.plastic_masks[self.task]).abs().sum().int().item()
-        else:
-            test_acc = 0
-            dif = 0
-        self.net.train()
-        if self.buffer is not None:
-            buffer = iter(self.buffer)
+        self.net.train()    
         for i, data in enumerate(train_loader):
             inputs, labels = data
             bs = labels.shape[0]
