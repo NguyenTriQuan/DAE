@@ -353,12 +353,12 @@ class NPBCL(ContinualModel):
             if self.task > 0:
                 self.net.freeze_used_weights()
             self.opt.step()
-            outputs = ensemble_outputs(torch.stack(outputs, dim=0))
-            _, predicts = outputs.max(1)
-            correct += torch.sum(predicts == labels).item()
-            total += labels.shape[0]
-            total_loss += loss.item() * labels.shape[0]
             if verbose:
+                outputs = ensemble_outputs(torch.stack(outputs, dim=0))
+                _, predicts = outputs.max(1)
+                correct += torch.sum(predicts == labels).item()
+                total += labels.shape[0]
+                total_loss += loss.item() * labels.shape[0]
                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, dif)
 
         self.scheduler.step()
