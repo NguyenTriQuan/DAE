@@ -62,8 +62,8 @@ class MaksedLinear(nn.Linear):
             inputs = inputs.split(N, dim=0)
 
             if self.training:
-                self.stable_masks[t] = TopK.apply(self.stable_score, 1-self.sparsity) / (1-self.sparsity)
-                self.plastic_masks[t] = TopK.apply(self.plastic_score, 1-self.sparsity) / (1-self.sparsity)
+                self.stable_masks[t] = TopK.apply(self.stable_score.abs(), 1-self.sparsity) / (1-self.sparsity)
+                self.plastic_masks[t] = TopK.apply(self.plastic_score.abs(), 1-self.sparsity) / (1-self.sparsity)
 
             stable_out = F.linear(inputs[0], self.stable_masks[t] * self.weight, self.bias)
             plastic_out = F.linear(inputs[1], self.plastic_masks[t] * self.weight, self.bias)
@@ -71,12 +71,12 @@ class MaksedLinear(nn.Linear):
             return torch.cat([stable_out, plastic_out], dim=0)
         elif self.mode == 'stable':
             if self.training:
-                self.stable_masks[t] = TopK.apply(self.stable_score, 1-self.sparsity) / (1-self.sparsity)
+                self.stable_masks[t] = TopK.apply(self.stable_score.abs(), 1-self.sparsity) / (1-self.sparsity)
             stable_out = F.linear(inputs, self.stable_masks[t] * self.weight, self.bias)
             return stable_out
         elif self.mode == 'plastic':
             if self.training:
-                self.plastic_masks[t] = TopK.apply(self.plastic_score, 1-self.sparsity) / (1-self.sparsity)
+                self.plastic_masks[t] = TopK.apply(self.plastic_score.abs(), 1-self.sparsity) / (1-self.sparsity)
             plastic_out = F.linear(inputs, self.plastic_masks[t] * self.weight, self.bias)
             return plastic_out
 
@@ -129,8 +129,8 @@ class MaskedConv2d(nn.Conv2d):
             inputs = inputs.view(E, N, *inputs.shape[1:]).permute(1,0,2,3,4).reshape(N, E*self.in_channels, *inputs.shape[2:])
         
             if self.training:
-                self.stable_masks[t] = TopK.apply(self.stable_score, 1-self.sparsity) / (1-self.sparsity)
-                self.plastic_masks[t] = TopK.apply(self.plastic_score, 1-self.sparsity) / (1-self.sparsity)
+                self.stable_masks[t] = TopK.apply(self.stable_score.abs(), 1-self.sparsity) / (1-self.sparsity)
+                self.plastic_masks[t] = TopK.apply(self.plastic_score.abs(), 1-self.sparsity) / (1-self.sparsity)
 
             ## filters with shape [num_member*chn_out, chn_in, k, k]
             weight = torch.cat([self.stable_masks[t] * self.weight, self.plastic_masks[t] * self.weight], dim=0)
@@ -142,11 +142,11 @@ class MaskedConv2d(nn.Conv2d):
         
         elif self.mode == 'stable':
             if self.training:
-                self.stable_masks[t] = TopK.apply(self.stable_score, 1-self.sparsity) / (1-self.sparsity)
+                self.stable_masks[t] = TopK.apply(self.stable_score.abs(), 1-self.sparsity) / (1-self.sparsity)
             return self._conv_forward(inputs, self.stable_masks[t] * self.weight, None, 1)
         elif self.mode == 'plastic':
             if self.training:
-                self.plastic_masks[t] = TopK.apply(self.plastic_score, 1-self.sparsity) / (1-self.sparsity)
+                self.plastic_masks[t] = TopK.apply(self.plastic_score.abs(), 1-self.sparsity) / (1-self.sparsity)
             return self._conv_forward(inputs, self.plastic_masks[t] * self.weight, None, 1)
         
         
