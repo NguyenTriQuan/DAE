@@ -140,17 +140,17 @@ def NPB_layer_count(m, mode, t):
 
     if len(m.prev_layers) > 0:
         P_in = 0
-        eff_nodes_in = torch.tensor(0).float().cuda()
+        # eff_nodes_in = torch.tensor(0).float().cuda()
         for n in m.prev_layers:
             P_in += n.P_out
-            eff_nodes_in = torch.maximum(eff_nodes_in, n.eff_nodes_out)
+            # eff_nodes_in = torch.maximum(eff_nodes_in, n.eff_nodes_out)
     else:
         P_in = torch.tensor(1).float().cuda()
-        eff_nodes_in = torch.tensor(1).float().cuda()
+        # eff_nodes_in = torch.tensor(1).float().cuda()
 
     m.P_out = torch.sum(mask * heuristic * P_in.view(m.view_in), dim=m.dim_out)
-    m.eff_nodes_in = torch.minimum(torch.sum(mask, dim=m.dim_in) * eff_nodes_in, torch.tensor(1).float().cuda())
-    m.eff_nodes_out = torch.minimum(torch.sum(mask * eff_nodes_in.view(m.view_in), dim=m.dim_out), torch.tensor(1).float().cuda())
+    # m.eff_nodes_in = torch.minimum(torch.sum(mask, dim=m.dim_in) * eff_nodes_in, torch.tensor(1).float().cuda())
+    # m.eff_nodes_out = torch.minimum(torch.sum(mask * eff_nodes_in.view(m.view_in), dim=m.dim_out), torch.tensor(1).float().cuda())
     if len(m.weight.shape) == 4:
         m.eff_kernels = torch.minimum(mask.sum(dim=(2,3)), torch.tensor(1).float().cuda()).sum()
 
@@ -160,32 +160,34 @@ def NPB_model_count(net, mode, t, alpha, beta):
     eff_paths = 0    
     for m in net.DM:
         NPB_layer_count(m, mode, t)
-    for m in net.DM:
-        if len(m.next_layers) > 0:
-            eff_nodes_out = torch.tensor(0).float().cuda()
-            for n in m.next_layers:
-                eff_nodes_out = torch.maximum(eff_nodes_out, m.eff_nodes_out * n.eff_nodes_in)
-        else:
-            eff_nodes_out = m.eff_nodes_out
+        eff_kernels += m.eff_kernels
+    # for m in net.DM:
+    #     # if len(m.next_layers) > 0:
+    #     #     eff_nodes_out = torch.tensor(0).float().cuda()
+    #     #     for n in m.next_layers:
+    #     #         eff_nodes_out = torch.maximum(eff_nodes_out, m.eff_nodes_out * n.eff_nodes_in)
+    #     # else:
+    #     #     eff_nodes_out = m.eff_nodes_out
         
-        if len(m.weight.shape) == 4:
-            # tmp = m.eff_nodes_in.view(m.view_in) * torch.minimum(m.weight_mask.sum(dim=(2,3)), torch.tensor(1).float().cuda()) * eff_nodes_out.view(m.view_out)
-            eff_kernels += m.eff_kernels
-        # else:
-        #     tmp = m.eff_nodes_in.view(m.view_in) * m.weight_mask * eff_nodes_out.view(m.view_out)
-        #     eff_kernels += torch.sum(tmp)
+    #     if len(m.weight.shape) == 4:
+    #         # tmp = m.eff_nodes_in.view(m.view_in) * torch.minimum(m.weight_mask.sum(dim=(2,3)), torch.tensor(1).float().cuda()) * eff_nodes_out.view(m.view_out)
+    #         eff_kernels += m.eff_kernels
+    #     # else:
+    #     #     tmp = m.eff_nodes_in.view(m.view_in) * m.weight_mask * eff_nodes_out.view(m.view_out)
+    #     #     eff_kernels += torch.sum(tmp)
 
-        eff_nodes += eff_nodes_out.sum()
+    #     # eff_nodes += eff_nodes_out.sum()
 
     eff_paths = net.DM[-1].P_out.sum().log()
-    eff_nodes = eff_nodes.log()
+    # eff_nodes = eff_nodes.log()
     eff_kernels = eff_kernels.log()
     for m in net.DM:
         m.P_out = 0
         m.eff_nodes_in = 0
         m.eff_nodes_out = 0
         m.eff_kernels = 0
-    return eff_nodes * alpha + eff_paths * (1-alpha) + eff_kernels * beta
+    # return eff_nodes * alpha + eff_paths * (1-alpha) + eff_kernels * beta
+    return eff_paths * alpha + eff_kernels * beta
 
 class NPBCL(ContinualModel):
     NAME = 'NPBCL'
