@@ -131,44 +131,44 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         print(f'Num params :{num_params}, num neurons: {num_neurons}')
         wandb.log({'params': num_params, 'task': t})
         
-        if 'cal' not in args.ablation:
-            mode = 'ets_kbts_cal'
-            model.evaluate(task=None, mode=mode)
-
-            mode = 'ets_kbts_cal_ba'
-            model.evaluate(task=None, mode=mode)
-
-            mode = 'ets_cal'
-            model.evaluate(task=None, mode=mode)
-
-            mode = 'ets_cal_ba'
-            model.evaluate(task=None, mode=mode)
-
-            mode = 'kbts_cal'
-            model.evaluate(task=None, mode=mode)
-
-            mode = 'kbts_cal_ba'
-            model.evaluate(task=None, mode=mode)
-
-            # continue
-
-        mode = 'ets'
-        model.evaluate(task=None, mode=mode)
-
-        mode = 'kbts'
-        model.evaluate(task=None, mode=mode)
-
         mode = 'ets_kbts'
         model.evaluate(task=None, mode=mode)
 
         mode = 'ets_kbts_ba'
         model.evaluate(task=None, mode=mode)
 
+        if 'cal' not in args.ablation:
+            mode = 'ets_kbts_cal'
+            model.evaluate(task=None, mode=mode)
+
+            mode = 'ets_kbts_ba_cal'
+            model.evaluate(task=None, mode=mode)
+
+        mode = 'ets'
+        model.evaluate(task=None, mode=mode)
+
         mode = 'ets_ba'
+        model.evaluate(task=None, mode=mode)
+
+        if 'cal' not in args.ablation:
+            mode = 'ets_cal'
+            model.evaluate(task=None, mode=mode)
+
+            mode = 'ets_ba_cal'
+            model.evaluate(task=None, mode=mode)
+
+        mode = 'kbts'
         model.evaluate(task=None, mode=mode)
 
         mode = 'kbts_ba'
         model.evaluate(task=None, mode=mode)
+
+        if 'cal' not in args.ablation:
+            mode = 'kbts_cal'
+            model.evaluate(task=None, mode=mode)
+
+            mode = 'kbts_ba_cal'
+            model.evaluate(task=None, mode=mode)
 
 def train_cal(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
