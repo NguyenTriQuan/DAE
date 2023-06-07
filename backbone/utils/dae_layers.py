@@ -96,19 +96,14 @@ class _DynamicLayer(nn.Module):
 
         self.jr_sparsity = 0
 
-        if isinstance(self, DynamicConv2D):
-            self.kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)
-            self.masked_kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)
-        else:
-            self.kb_weight = torch.empty(0, 0).to(device)
-            self.masked_kb_weight = torch.empty(0, 0).to(device)
-
         # self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
         self.gain = torch.nn.init.calculate_gain('leaky_relu', 0)
+        self.gen_dummy()
 
-        torch.manual_seed(args.seed)
-        torch.cuda.manual_seed(args.seed)
-        torch.cuda.manual_seed_all(args.seed)
+    def gen_dummy(self):
+        torch.manual_seed(self.args.seed)
+        torch.cuda.manual_seed(self.args.seed)
+        torch.cuda.manual_seed_all(self.args.seed)
         self.dummy_weight = torch.Tensor(self.base_params).to(device)
         nn.init.normal_(self.dummy_weight, 0, 1)
     
@@ -175,38 +170,15 @@ class _DynamicLayer(nn.Module):
             self.score = nn.Parameter(torch.Tensor(fan_out_kbts, fan_in_kbts).to(device))
 
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
-        # self.register_buffer('kbts_mask'+f'_{self.num_out.shape[0]-1}', torch.ones_like(self.score).to(device))
-        self.register_buffer('kbts_mask'+f'_{len(self.num_out)-1}', torch.ones_like(self.score).to(device))
+        self.register_buffer('kbts_mask'+f'_{len(self.num_out)-1}', torch.ones_like(self.score).to(device).bool())
         
         self.set_reg_strength()
-            
-
-    def set_jr_params(self, add_in, add_out=None):
-        fan_in, fan_out, add_in, add_out = self.get_expand_shape(-1, add_in, add_out)
-
-        if isinstance(self, DynamicConv2D):
-            self.score = nn.Parameter(torch.Tensor(fan_out, fan_in // self.groups, *self.kernel_size).to(device))
-        else:
-            self.score = nn.Parameter(torch.Tensor(fan_out, fan_in).to(device))
-        nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
-        self.register_buffer('jr_mask', torch.ones_like(self.score).to(device))
-        if self.norm_type is not None:
-            self.norm_layer_jr = nn.BatchNorm2d(fan_out, affine=True, track_running_stats=True)
-        
-        return add_out * self.s * self.s
 
     def get_kb_params(self, t):
         # get knowledge base parameters for task t
         # kb weight std = 1
-        # if self.kb_weight.shape[0] == self.shape_out[t] and self.kb_weight.shape[1] == self.shape_in[t]:
-        #     return
-        # if t == self.t:
-        #     return
         
-        if isinstance(self, DynamicConv2D):
-            self.kb_weight = torch.empty(0, 0, *self.kernel_size).to(device)
-        else:
-            self.kb_weight = torch.empty(0, 0).to(device)
+        self.kb_weight = torch.empty(0).to(device)
 
         for i in range(t):
             weight_scale = getattr(self, f'weight_scale_{i}')
@@ -225,12 +197,11 @@ class _DynamicLayer(nn.Module):
         # kb weight std = bound of the model size
         fan_in, fan_out, add_in, add_out = self.get_expand_shape(t, add_in, add_out, kbts=True)
 
-        # if t == self.t:
-        #     return add_out * self.s * self.s
-        # self.get_kb_params(t)
         n_0 = add_out * (fan_in-add_in) * self.ks
         n_1 = fan_out * add_in * self.ks
 
+        if self.dummy_weight is None:
+            self.gen_dummy()
         num = (n_0 + n_1) // self.dummy_weight.numel() + 1
         dummy_weight = torch.cat([self.dummy_weight for _ in range(num)])
 
@@ -293,6 +264,9 @@ class _DynamicLayer(nn.Module):
 
     def clear_memory(self):
         self.score = None
+        self.dummy_weight = None
+        self.kb_weight = None
+        self.masked_kb_weight = None
         
     def update_scale(self):
         with torch.no_grad():

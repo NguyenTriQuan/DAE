@@ -75,6 +75,8 @@ class _DynamicModel(nn.Module):
                 block.proximal_gradient_descent(lr, lamb, self.total_strength)
     
     def clear_memory(self):
+        self.ets_temp = -1
+        self.kbts_temp = -1
         for m in self.DM[:-1]:
             m.clear_memory()
     

@@ -20,7 +20,7 @@ import datetime
 import uuid
 from argparse import ArgumentParser
 
-import setproctitle
+# import setproctitle
 import torch
 from datasets import NAMES as DATASET_NAMES
 from datasets import ContinualDataset, get_dataset
@@ -33,6 +33,7 @@ from utils.conf import set_random_seed
 from utils.continual_training import train as ctrain
 from utils.distributed import make_dp
 from utils.training import train
+import wandb
 
 def lecun_fix():
     # Yann moved his website to CloudFlare. You need this now
@@ -89,12 +90,12 @@ def parse_args():
 
 
 def main(args=None):
-    lecun_fix()
+    # lecun_fix()
     if args is None:
         args = parse_args()
 
-    os.putenv("MKL_SERVICE_FORCE_INTEL", "1")
-    os.putenv("NPY_MKL_FORCE_INTEL", "1")
+    # os.putenv("MKL_SERVICE_FORCE_INTEL", "1")
+    # os.putenv("NPY_MKL_FORCE_INTEL", "1")
 
     # Add uuid, timestamp and hostname for logging
     args.conf_jobnum = str(uuid.uuid4())
@@ -126,10 +127,10 @@ def main(args=None):
     if args.debug_mode:
         args.nowand = 1
 
-    args.nowand = True
-    args.disable_log = True
+    # args.nowand = True
+    # args.disable_log = True
     # set job name
-    setproctitle.setproctitle('{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
+    # setproctitle.setproctitle('{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
     if model.NAME == 'DAE':
         from utils.training_dae import train, evaluate, train_cal
         args.title = '{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.dataset, 
@@ -148,6 +149,25 @@ def main(args=None):
     else:
         from utils.training import train
 
+    if args.verbose:
+        wandb.login(key='74ac7eba00fea7e805a70861a86c7767406946c9')
+        run = wandb.init(
+            # Set the project where this run will be logged
+            project=model.NAME,
+            name=args.title,
+            # Track hyperparameters and run metadata
+            config={
+                'dataset': args.dataset,
+                'total tasks': args.total_tasks,
+                "learning rate": args.lr,
+                "learning score": args.lr_score,
+                'lamb': args.lamb,
+                'sparsity': args.sparsity,
+                'dropout': args.dropout,
+                'buffer': args.buffer_size,
+                'ablation': args.ablation
+            })
+        args.run = run
     if args.eval:
         evaluate(model, dataset, args)
     elif args.cal:
@@ -157,6 +177,8 @@ def main(args=None):
     else:
         assert not hasattr(model, 'end_task') or model.NAME == 'joint_gcl'
         ctrain(args)
+    if args.verbose:
+        wandb.finish()
 
 
 if __name__ == '__main__':

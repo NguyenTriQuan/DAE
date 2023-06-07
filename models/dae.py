@@ -20,6 +20,7 @@ from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClass
 import numpy as np
 import random
 import math
+import wandb
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def get_parser() -> ArgumentParser:
@@ -164,13 +165,6 @@ class DAE(ContinualModel):
             N = self.args.num_aug 
             aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
             x = self.dataset.train_transform(aug_inputs)
-            # x = torch.cat([inputs, x])
-
-            # x = [inputs]
-            # for trans in self.dataset.contrast_transform:
-            #     x += [trans(inputs)]
-            # N = len(x)
-            # x = torch.cat(x, dim=0)
         else:
             x = inputs
 
@@ -193,7 +187,7 @@ class DAE(ContinualModel):
                 outputs = outputs[:, :, 1:] # ignore ood class
                 outputs = ensemble_outputs(outputs)
 
-            _, predicts = outputs.max(1)
+            predicts = outputs.argmax(1)
             return predicts + t * (self.dataset.N_CLASSES_PER_TASK)
         else:
             joint_entropy_tasks = []
@@ -215,8 +209,6 @@ class DAE(ContinualModel):
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
-                    # outputs_tasks.append(outputs.view(N+1, inputs.shape[0], -1)[0])
-                    # joint_entropy_tasks.append(joint_entropy.view(N+1, inputs.shape[0]).mean(0))
                 else:
                     outputs = torch.stack(outputs, dim=0)
                     outputs = outputs[:, :, 1:] # ignore ood class
@@ -229,51 +221,59 @@ class DAE(ContinualModel):
             joint_entropy_tasks = torch.stack(joint_entropy_tasks, dim=1)
             predicted_task = torch.argmin(joint_entropy_tasks, dim=1)
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
-            _, predicts = predicted_outputs.max(1)
-            # print(outputs_tasks.shape, outputs_tasks.abs().sum((0,2)))
-            # print('entropy', joint_entropy_tasks.mean((0)))
-            # print('mean', outputs_tasks.mean((0)).mean(-1), 'std', outputs_tasks.std((0)).mean(-1))
-            # outputs_tasks = outputs_tasks.permute((1, 0, 2)).reshape((self.task+1, -1))
-            # print('min - max', outputs_tasks.min(1)[0], outputs_tasks.max(1)[0])
-            return predicts + predicted_task * (self.dataset.N_CLASSES_PER_TASK)
+            cil_predicts = predicted_outputs.argmax(1)
+            cil_predicts = cil_predicts + predicted_task * (self.dataset.N_CLASSES_PER_TASK)
+            return cil_predicts, outputs_tasks, predicted_task
         
     def evaluate(self, task=None, mode='ets_kbts_cal'):
         with torch.no_grad():
             self.net.eval()
-            accs = []
+            til_accs = []
+            cil_accs = []
+            task_correct = 0
+            task_total = 0
             for k, test_loader in enumerate(self.dataset.test_loaders):
                 if task is not None:
-                    if k not in task:
+                    if k != task:
                         continue
-                correct, total = 0.0, 0.0
+                cil_correct, til_correct, total = 0.0, 0.0, 0.0
                 for data in test_loader:
-                    with torch.no_grad():
-                        inputs, labels = data
-                        inputs, labels = inputs.to(self.device), labels.to(self.device)
-                        if task is None:
-                            pred = self.forward(inputs, None, mode)
-                        else:
-                            pred = self.forward(inputs, k, mode)
-                        correct += torch.sum(pred == labels).item()
+                    inputs, labels = data
+                    inputs, labels = inputs.to(self.device), labels.to(self.device)
+                    if task is None:
+                        cil_predicts, outputs, predicted_task = self.forward(inputs, None, mode)
+                        cil_correct += torch.sum(cil_predicts == labels).item()
+                        til_predicts = outputs[:, k].argmax(1) + k * (self.dataset.N_CLASSES_PER_TASK)
+                        til_correct += torch.sum(til_predicts == labels).item()
+                        task_correct += torch.sum(predicted_task == k).item()
+                        total += labels.shape[0]
+                    else:
+                        til_predicts = self.forward(inputs, task, mode)
+                        til_correct += torch.sum(til_predicts == labels).item()
                         total += labels.shape[0]
 
-                acc = correct / total * 100 if 'class-il' in self.COMPATIBILITY else 0
-                accs.append(round(acc, 2))
-
-            # model.net.train(status)
-            return accs
+                til_accs.append(round(til_correct / total * 100 , 2))
+                cil_accs.append(round(cil_correct / total * 100 , 2))
+                task_total += total
+            if task is None:
+                task_acc = round(task_correct / task_total * 100, 2)
+                cil_avg = round(np.mean(cil_accs), 2)
+                til_avg = round(np.mean(til_accs), 2)
+                print(f'{mode}: cil {cil_avg} {cil_accs}, til {til_avg} {til_accs}, tp {task_acc}')
+                wandb.log({f'{mode}_cil': cil_avg, f'{mode}_til': til_avg, f'{mode}_tp': task_acc})
+                return til_accs, cil_accs, task_acc
+            else:
+                return til_accs[0]
     
     def train(self, train_loader, progress_bar, mode, squeeze, augment, epoch, verbose=False):
         total = 0
         correct = 0
         total_loss = 0
         if verbose:
-            test_acc = self.evaluate([self.task], mode=mode)[0]
+            test_acc = self.evaluate(self.task, mode=mode)
             num_params, num_neurons = self.net.count_params()
             num_params = sum(num_params)
-        else:
-            test_acc = 0
-            num_params = 0
+        
         self.net.train()
         if self.buffer is not None:
             buffer = iter(self.buffer)
@@ -455,30 +455,30 @@ class DAE(ContinualModel):
         
         data = [torch.cat(temp) for temp in data]
 
-        if 'be' not in self.args.ablation:
-            # buffer entropy
-            indices = []
-            for c in data[1].unique():
-                idx = (data[1] == c)
-                if self.task == 0:
-                    loss = data[3*self.task+2+3][idx]
-                else:
-                    join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
-                    labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
-                    loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
-                # loss = data[3*self.task+2+3][idx]
-                values, stt = loss.sort(dim=0, descending=True)
-                indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_class]])
-            indices = torch.cat(indices)
-            data = [temp[indices] for temp in data]
-        else:
-            # random class balanced selection
-            indices = []
-            for c in data[1].unique():
-                idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
-                indices.append(idx)
-            indices = torch.cat(indices)
-            data = [temp[indices] for temp in data]
+        # if 'be' not in self.args.ablation:
+        #     # buffer entropy
+        #     indices = []
+        #     for c in data[1].unique():
+        #         idx = (data[1] == c)
+        #         if self.task == 0:
+        #             loss = data[3*self.task+2+3][idx]
+        #         else:
+        #             join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
+        #             labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
+        #             loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
+        #         # loss = data[3*self.task+2+3][idx]
+        #         values, stt = loss.sort(dim=0, descending=True)
+        #         indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_class]])
+        #     indices = torch.cat(indices)
+        #     data = [temp[indices] for temp in data]
+        # else:
+        # random class balanced selection
+        indices = []
+        for c in data[1].unique():
+            idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
+            indices.append(idx)
+        indices = torch.cat(indices)
+        data = [temp[indices] for temp in data]
 
         if self.task > 0:
             buf_ent = []
@@ -526,30 +526,30 @@ class DAE(ContinualModel):
 
         data = list(self.buffer.dataset.tensors)
 
-        if 'be' not in self.args.ablation:
-            # buffer entropy
-            indices = []
-            for c in data[1].unique():
-                idx = (data[1] == c)
-                if self.task == 0:
-                    loss = data[3*self.task+2+3][idx]
-                else:
-                    join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
-                    labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
-                    loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
-                # loss = data[3*self.task+2+3][idx]
-                values, stt = loss.sort(dim=0, descending=True)
-                indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_class]])
-            indices = torch.cat(indices)
-            data = [temp[indices] for temp in data]
-        else:
-            # random class balanced selection
-            indices = []
-            for c in data[1].unique():
-                idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
-                indices.append(idx)
-            indices = torch.cat(indices)
-            data = [temp[indices] for temp in data]
+        # if 'be' not in self.args.ablation:
+        #     # buffer entropy
+        #     indices = []
+        #     for c in data[1].unique():
+        #         idx = (data[1] == c)
+        #         if self.task == 0:
+        #             loss = data[3*self.task+2+3][idx]
+        #         else:
+        #             join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
+        #             labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
+        #             loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
+        #         # loss = data[3*self.task+2+3][idx]
+        #         values, stt = loss.sort(dim=0, descending=True)
+        #         indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_class]])
+        #     indices = torch.cat(indices)
+        #     data = [temp[indices] for temp in data]
+        # else:
+        # random class balanced selection
+        indices = []
+        for c in data[1].unique():
+            idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
+            indices.append(idx)
+        indices = torch.cat(indices)
+        data = [temp[indices] for temp in data]
 
         # data = [torch.cat(temp) for temp in data]
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)

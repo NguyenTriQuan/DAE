@@ -21,63 +21,7 @@ from utils.conf import base_path_memory
 # except ImportError:
 #     wandb = None
 
-wandb = None
-
-# def mask_classes(outputs: torch.Tensor, dataset: ContinualDataset, k: int) -> None:
-#     """
-#     Given the output tensor, the dataset at hand and the current task,
-#     masks the former by setting the responses for the other tasks at -inf.
-#     It is used to obtain the results for the task-il setting.
-#     :param outputs: the output tensor
-#     :param dataset: the continual dataset
-#     :param k: the task index
-#     """
-#     outputs[:, 0:k * dataset.N_CLASSES_PER_TASK] = -float('inf')
-#     outputs[:, (k + 1) * dataset.N_CLASSES_PER_TASK:
-#                dataset.N_TASKS * dataset.N_CLASSES_PER_TASK] = -float('inf')
-
-
-# def model.evaluate(model: ContinualModel, dataset: ContinualDataset, task=None, mode='ets_kbts_jr') -> Tuple[list, list]:
-#     """
-#     Evaluates the accuracy of the model for each past task.
-#     :param model: the model to be evaluated
-#     :param dataset: the continual dataset at hand
-#     :return: a tuple of lists, containing the class-il
-#              and task-il accuracy for each task
-#     """
-#     # status = model.net.training
-#     with torch.no_grad():
-#         model.net.eval()
-#         accs, accs_mask_classes = [], []
-#         for k, test_loader in enumerate(dataset.test_loaders):
-#             if task is not None:
-#                 if k != task:
-#                     continue
-#             correct, correct_mask_classes, total = 0.0, 0.0, 0.0
-#             for data in test_loader:
-#                 with torch.no_grad():
-#                     inputs, labels = data
-#                     inputs, labels = inputs.to(model.device), labels.to(model.device)
-#                     # inputs = dataset.test_transform(inputs)
-#                     if task is not None:
-#                         pred = model(inputs, k, mode)
-#                     else:
-#                         pred = model(inputs, None, mode)
-
-#                     correct += torch.sum(pred == labels).item()
-#                     total += labels.shape[0]
-
-#                     if dataset.SETTING == 'class-il' and task is None:
-#                         pred = model(inputs, k, mode)
-#                         correct_mask_classes += torch.sum(pred == labels).item()
-
-#             acc = correct / total * 100 if 'class-il' in model.COMPATIBILITY else 0
-#             accs.append(round(acc, 2))
-#             acc = correct_mask_classes / total * 100
-#             accs_mask_classes.append(round(acc, 2))
-
-#         # model.net.train(status)
-#         return accs, accs_mask_classes
+import wandb
 
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     squeeze = False
@@ -167,6 +111,10 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
     # model.net.load_state_dict(state_dict, strict=False)
     model.net = torch.load(base_path_memory() + args.title + '.net')
+    # artifact = args.run.use_artifact('entity/DAE/model:v0', type='model')
+    # artifact_dir = artifact.download()
+    # model.net = torch.load(artifact_dir)
+
     num_params, num_neurons = model.net.count_params()
     num_neurons = '-'.join(str(int(num)) for num in num_neurons)
     print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
@@ -178,72 +126,49 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         model.task += 1 
         print(f'Task {t}:')
         num_params, num_neurons = model.net.count_params(t)
+        num_params = sum(num_params)
         num_neurons = '-'.join(str(int(num)) for num in num_neurons)
-        print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+        print(f'Num params :{num_params}, num neurons: {num_neurons}')
+        wandb.log({'params': num_params})
         
         if 'cal' not in args.ablation:
             mode = 'ets_kbts_cal'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=mode)
 
             mode = 'ets_kbts_cal_ba'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=mode)
 
             mode = 'ets_cal'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=mode)
 
             mode = 'ets_cal_ba'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
-
+            model.evaluate(task=None, mode=mode)
 
             mode = 'kbts_cal'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=mode)
 
             mode = 'kbts_cal_ba'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=mode)
 
             continue
 
         mode = 'ets'
-        til_accs = model.evaluate(task=range(t+1), mode=mode)
-        cil_accs = model.evaluate(task=None, mode=mode)
-        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+        model.evaluate(task=None, mode=mode)
 
         mode = 'kbts'
-        til_accs = model.evaluate(task=range(t+1), mode=mode)
-        cil_accs = model.evaluate(task=None, mode=mode)
-        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+        model.evaluate(task=None, mode=mode)
 
         mode = 'ets_kbts'
-        til_accs = model.evaluate(task=range(t+1), mode=mode)
-        cil_accs = model.evaluate(task=None, mode=mode)
-        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+        model.evaluate(task=None, mode=mode)
 
         mode = 'ets_kbts_ba'
-        til_accs = model.evaluate(task=range(t+1), mode=mode)
-        cil_accs = model.evaluate(task=None, mode=mode)
-        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+        model.evaluate(task=None, mode=mode)
 
         mode = 'ets_ba'
-        til_accs = model.evaluate(task=range(t+1), mode=mode)
-        cil_accs = model.evaluate(task=None, mode=mode)
-        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+        model.evaluate(task=None, mode=mode)
 
         mode = 'kbts_ba'
-        til_accs = model.evaluate(task=range(t+1), mode=mode)
-        cil_accs = model.evaluate(task=None, mode=mode)
-        print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+        model.evaluate(task=None, mode=mode)
 
 def train_cal(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
@@ -284,35 +209,22 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
 
             torch.save(model.net, base_path_memory() + args.title + '.net')
 
-            til_accs = model.evaluate(task=range(t+1), mode=eval_mode)
-            cil_accs = model.evaluate(task=None, mode=eval_mode)
-            print(f'{eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=eval_mode)
 
             eval_mode += '_ba'
-            til_accs = model.evaluate(task=range(t+1), mode=eval_mode)
-            cil_accs = model.evaluate(task=None, mode=eval_mode)
-            print(f'{eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=eval_mode)
 
             mode = 'ets_cal'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=mode)
 
             mode = 'ets_cal_ba'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
-
+            model.evaluate(task=None, mode=mode)
 
             mode = 'kbts_cal'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=mode)
 
             mode = 'kbts_cal_ba'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=mode)
 
         with torch.no_grad():
             model.fill_buffer(train_loader)
@@ -326,6 +238,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     :param args: the arguments of the current execution
     """
     print(args)
+
     if 'sub' in args.ablation:
         ratio = 0.2
         data = []
@@ -339,16 +252,16 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         dataset.train_targets = torch.cat(targets)
         print(dataset.train_data.shape)
         
-    if not args.nowand:
-        assert wandb is not None, "Wandb not installed, please install it or run without wandb"
-        wandb.init(project=args.wandb_project, entity=args.wandb_entity, config=vars(args))
-        args.wandb_url = wandb.run.get_url()
+    # if not args.nowand:
+    #     assert wandb is not None, "Wandb not installed, please install it or run without wandb"
+    #     wandb.init(project=args.wandb_project, entity=args.wandb_entity, config=vars(args))
+    #     args.wandb_url = wandb.run.get_url()
 
     model.net.to(model.device)
     results, results_mask_classes = [], []
 
-    if not args.disable_log:
-        logger = Logger(dataset.SETTING, dataset.NAME, model.NAME)
+    # if not args.disable_log:
+        # logger = Logger(dataset.SETTING, dataset.NAME, model.NAME)
 
     progress_bar = ProgressBar(verbose=not args.non_verbose)
 
@@ -382,8 +295,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if 'kbts' not in args.ablation:
             mode = 'kbts'
             train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
-            accs = model.evaluate(task=[t], mode=mode)
-            print(f'Task {t}, {mode}: til {accs[0]}')
+            acc = model.evaluate(task=t, mode=mode)
+            print(f'Task {t}, {mode}: til {acc}')
 
         model.net.clear_memory()
 
@@ -391,8 +304,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if 'ets' not in args.ablation:
             mode = 'ets'
             train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
-            accs = model.evaluate(task=[t], mode=mode)
-            print(f'Task {t}, {mode}: til {accs[0]}')
+            acc = model.evaluate(task=t, mode=mode)
+            print(f'Task {t}, {mode}: til {acc}')
             num_params, num_neurons = model.net.count_params()
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
@@ -400,7 +313,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
 
+        model.net.clear_memory()
         torch.save(model.net, base_path_memory() + args.title + '.net')
+        print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
 
         with torch.no_grad():
             model.get_rehearsal_logits(train_loader)
@@ -411,25 +326,19 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 eval_mode = 'ets_kbts'
             else:
                 eval_mode = 'ets'
-            cil_accs = model.evaluate(task=None, mode=eval_mode)
-            til_accs = model.evaluate(task=[t], mode=eval_mode)
-            print(f'Task {t}, {eval_mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {til_accs[0]}')
+            model.evaluate(task=None, mode=eval_mode)
 
             if 'ba' not in args.ablation:
                 # batch augmentation
-                accs = model.evaluate(task=None, mode=eval_mode+'_ba')
-                print(f'Task {t}, {eval_mode}_ba: cil {round(np.mean(accs), 2)} {accs}')
+                model.evaluate(task=None, mode=eval_mode+'_ba')
 
             print('checking forgetting')
             mode = 'kbts'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=mode)
 
             mode = 'ets'
-            til_accs = model.evaluate(task=range(t+1), mode=mode)
-            cil_accs = model.evaluate(task=None, mode=mode)
-            print(f'{mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            model.evaluate(task=None, mode=mode)
+
 
         # torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
         # torch.save(model.buffers, base_path_memory() + args.title + '.buffer')
