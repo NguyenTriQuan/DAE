@@ -390,8 +390,9 @@ class DAE(ContinualModel):
 
             # outputs = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=True) 
             #                           for t in range(self.task+1)])
-            
-            outputs = ensemble_outputs(torch.stack(outputs, dim=0))
+            outputs = torch.stack(outputs, dim=0)
+            outputs = outputs[:, :, 1:] # ignore ood class
+            outputs = ensemble_outputs(outputs)
             join_entropy = entropy(outputs.exp())
             join_entropy = join_entropy.view(self.task+1, data[0].shape[0]).permute(1, 0) # shape [batch size, num tasks]
             labels = torch.stack([(data[2] == t).float() for t in range(self.task+1)], dim=1)
