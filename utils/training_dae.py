@@ -150,7 +150,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
             mode = 'kbts_cal_ba'
             model.evaluate(task=None, mode=mode)
 
-            continue
+            # continue
 
         mode = 'ets'
         model.evaluate(task=None, mode=mode)
