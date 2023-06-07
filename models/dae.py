@@ -188,6 +188,7 @@ class DAE(ContinualModel):
                 outputs = ensemble_outputs(outputs)
 
             predicts = outputs.argmax(1)
+            del x, outputs
             return predicts + t * (self.dataset.N_CLASSES_PER_TASK)
         else:
             joint_entropy_tasks = []
@@ -223,6 +224,7 @@ class DAE(ContinualModel):
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             cil_predicts = predicted_outputs.argmax(1)
             cil_predicts = cil_predicts + predicted_task * (self.dataset.N_CLASSES_PER_TASK)
+            del x, joint_entropy_tasks, predicted_outputs
             return cil_predicts, outputs_tasks, predicted_task
         
     def evaluate(self, task=None, mode='ets_kbts_cal'):
@@ -247,10 +249,12 @@ class DAE(ContinualModel):
                         til_correct += torch.sum(til_predicts == labels).item()
                         task_correct += torch.sum(predicted_task == k).item()
                         total += labels.shape[0]
+                        del cil_predicts, outputs, predicted_task
                     else:
                         til_predicts = self.forward(inputs, task, mode)
                         til_correct += torch.sum(til_predicts == labels).item()
                         total += labels.shape[0]
+                        del til_predicts
 
                 til_accs.append(round(til_correct / total * 100 , 2))
                 cil_accs.append(round(cil_correct / total * 100 , 2))
@@ -259,8 +263,8 @@ class DAE(ContinualModel):
                 task_acc = round(task_correct / task_total * 100, 2)
                 cil_avg = round(np.mean(cil_accs), 2)
                 til_avg = round(np.mean(til_accs), 2)
-                print(f'{mode}: cil {cil_avg} {cil_accs}, til {til_avg} {til_accs}, tp {task_acc}')
-                wandb.log({f'{mode}_cil': cil_avg, f'{mode}_til': til_avg, f'{mode}_tp': task_acc})
+                print(f'Task {len(til_accs)-1}: {mode}: cil {cil_avg} {cil_accs}, til {til_avg} {til_accs}, tp {task_acc}')
+                wandb.log({f'{mode}_cil': cil_avg, f'{mode}_til': til_avg, f'{mode}_tp': task_acc, 'task': len(til_accs)-1})
                 return til_accs, cil_accs, task_acc
             else:
                 return til_accs[0]

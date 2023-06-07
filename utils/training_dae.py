@@ -129,7 +129,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         num_params = sum(num_params)
         num_neurons = '-'.join(str(int(num)) for num in num_neurons)
         print(f'Num params :{num_params}, num neurons: {num_neurons}')
-        wandb.log({'params': num_params})
+        wandb.log({'params': num_params, 'task': t})
         
         if 'cal' not in args.ablation:
             mode = 'ets_kbts_cal'
