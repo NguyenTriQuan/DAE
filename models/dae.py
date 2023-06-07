@@ -503,7 +503,7 @@ class DAE(ContinualModel):
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         # print(data[2].unique())
         # print(data[0].shape)
-        print(data[1].unique())
+        # print(data[1].unique())
         for c in data[1].unique():
             idx = (data[1] == c)
             print(f'{c}: {idx.sum()}', end=', ')
@@ -555,7 +555,7 @@ class DAE(ContinualModel):
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         # print(data[2].unique())
         # print(data[1].unique())
-        print(data[0].shape)
+        # print(data[0].shape)
         for c in data[1].unique():
             idx = (data[1] == c)
             print(f'{c}: {idx.sum()}', end=', ')
