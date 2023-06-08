@@ -66,8 +66,8 @@ def train_loop(model, args, train_loader, mode):
             squeeze = True
         else:
             params = model.net.linear.get_optim_ets_params()
-            n_epochs = 50
-            step_lr = [35, 45]
+            n_epochs = 20
+            step_lr = [10, 15]
         
         count = 0
         for param in params:
@@ -87,8 +87,8 @@ def train_loop(model, args, train_loader, mode):
             model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
                                         lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         else:
-            n_epochs = 50
-            step_lr = [35, 45]
+            n_epochs = 20
+            step_lr = [10, 15]
             params = model.net.linear.get_optim_kbts_params()
             count = 0
             for param in params:

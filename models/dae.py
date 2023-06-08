@@ -22,59 +22,48 @@ import random
 import math
 import wandb
 from utils.status import ProgressBar
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 def get_parser() -> ArgumentParser:
-    parser = ArgumentParser(description='Continual Learning with Dynamic Architecture and Ensemble of Knowledge Base.')
+    parser = ArgumentParser(description="Continual Learning with Dynamic Architecture and Ensemble of Knowledge Base.")
 
     add_management_args(parser)
     add_experiment_args(parser)
     add_rehearsal_args(parser)
-    parser.add_argument('--lamb', type=str, required=True,
-                        help='capacity control.')
-    parser.add_argument('--alpha', type=float, required=False,
-                        help='Join Rehearsal Distillation penalty weight.', default=0)
-    parser.add_argument('--dropout', type=float, required=False,
-                        help='Dropout probability.', default=0.0)
-    parser.add_argument('--sparsity', type=float, required=True,
-                        help='Super mask sparsity.')
-    parser.add_argument('--temperature', default=0.3, type=float, required=False,
-                        help='Supervised Contrastive loss temperature.')
-    parser.add_argument('--negative_slope', default=0, type=float, required=False,
-                        help='leaky relu activation negative slope.')
-    parser.add_argument('--ablation', type=str, required=False,
-                        help='Ablation study.', default='')
-    parser.add_argument('--norm_type', type=str, required=False,
-                        help='batch normalization layer', default='none')
-    parser.add_argument('--debug', action='store_true',
-                        help='Quick test.')
-    parser.add_argument('--verbose', action='store_true',
-                        help='compute test accuracy and number of params.')
-    parser.add_argument('--eval', action='store_true',
-                        help='evaluation only')
-    parser.add_argument('--cal', action='store_true',
-                        help='calibration training')
-    parser.add_argument('--lr_score', type=float, required=False,
-                        help='score learning rate.', default=0.1)
-    parser.add_argument('--num_tasks', type=int, required=False,
-                        help='number of tasks to run.', default=100)
-    parser.add_argument('--total_tasks', type=int, required=True,
-                        help='total number of tasks.', default=10)
-    parser.add_argument('--factor', type=float, required=False,
-                        help='entropy scale factor.', default=1)
-    parser.add_argument('--num_aug', type=int, required=False,
-                        help='number of augument samples used when evaluation.', default=16)
+    parser.add_argument("--lamb", type=str, required=True, help="capacity control.")
+    parser.add_argument("--alpha", type=float, required=False, help="Join Rehearsal Distillation penalty weight.", default=0)
+    parser.add_argument("--dropout", type=float, required=False, help="Dropout probability.", default=0.0)
+    parser.add_argument("--sparsity", type=float, required=True, help="Super mask sparsity.")
+    parser.add_argument("--temperature", default=0.3, type=float, required=False, help="Supervised Contrastive loss temperature.")
+    parser.add_argument("--negative_slope", default=0, type=float, required=False, help="leaky relu activation negative slope.")
+    parser.add_argument("--ablation", type=str, required=False, help="Ablation study.", default="")
+    parser.add_argument("--norm_type", type=str, required=False, help="batch normalization layer", default="none")
+    parser.add_argument("--debug", action="store_true", help="Quick test.")
+    parser.add_argument("--verbose", action="store_true", help="compute test accuracy and number of params.")
+    parser.add_argument("--eval", action="store_true", help="evaluation only")
+    parser.add_argument("--cal", action="store_true", help="calibration training")
+    parser.add_argument("--lr_score", type=float, required=False, help="score learning rate.", default=0.1)
+    parser.add_argument("--num_tasks", type=int, required=False, help="number of tasks to run.", default=100)
+    parser.add_argument("--total_tasks", type=int, required=True, help="total number of tasks.", default=10)
+    parser.add_argument("--factor", type=float, required=False, help="entropy scale factor.", default=1)
+    parser.add_argument("--num_aug", type=int, required=False, help="number of augument samples used when evaluation.", default=16)
     return parser
+
 
 def smooth(logits, temp, dim):
     log = logits ** (1 / temp)
     return log / torch.sum(log, dim).unsqueeze(1)
 
+
 def modified_kl_div(old, new):
     return -torch.mean(torch.sum(old * torch.log(new), 1))
 
+
 def entropy(x):
     return -torch.sum(x * torch.log(x), dim=1)
+
 
 def logmeanexp(x, dim=None, keepdim=False):
     """Stable computation of log(mean(exp(x))"""
@@ -84,6 +73,7 @@ def logmeanexp(x, dim=None, keepdim=False):
     x = x_max + torch.log(torch.mean(torch.exp(x - x_max), dim, keepdim=True))
     return x if keepdim else x.squeeze(dim)
 
+
 def ensemble_outputs(outputs):
     # outputs shape [num_member, bs, num_cls]
     outputs = F.log_softmax(outputs, dim=-1)
@@ -91,39 +81,43 @@ def ensemble_outputs(outputs):
     log_outputs = logmeanexp(outputs, dim=0)
     return log_outputs
 
-def weighted_ensemble(outputs, weights, temperature):
-    outputs = torch.stack(outputs, dim=-1) #[bs, num_cls, num_member]
-    weights = torch.stack(weights, dim=-1) #[bs, num_member]
 
-    weights = F.softmax(weights / temperature, dim=-1).unsqueeze(1) #[bs, 1, num_member]
+def weighted_ensemble(outputs, weights, temperature):
+    outputs = torch.stack(outputs, dim=-1)  # [bs, num_cls, num_member]
+    weights = torch.stack(weights, dim=-1)  # [bs, num_member]
+
+    weights = F.softmax(weights / temperature, dim=-1).unsqueeze(1)  # [bs, 1, num_member]
     outputs = F.log_softmax(outputs, dim=-2)
     output_max, _ = torch.max(outputs, dim=-1, keepdim=True)
     log_outputs = output_max + torch.log(torch.sum((outputs - output_max).exp() * weights, dim=-1, keepdim=True))
     return log_outputs.squeeze(-1)
 
-def sup_con_loss(features, labels, temperature):
-    features = F.normalize(features, p=2, dim=1)
-    batch_size = labels.shape[0]
+
+def sup_con_loss(ind_features, features, labels, temperature):
+    labels = labels.repeat(2)
     labels = labels.contiguous().view(-1, 1)
     mask = torch.eq(labels, labels.T).float().to(device)
     # compute logits
-    anchor_dot_contrast = torch.div(
-        torch.matmul(features, features.T),
-        temperature)
+    anchor_dot_contrast = torch.div(torch.matmul(ind_features, features.T), temperature)
     # for numerical stability
     logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
     logits = anchor_dot_contrast - logits_max.detach()
 
-    # tile mask
-    mask = mask.repeat(2, 2)
+    # # tile mask
     # mask-out self-contrast cases
-    logits_mask = torch.scatter(
-        torch.ones_like(mask),
-        1,
-        torch.arange(batch_size * 2).view(-1, 1).to(device),
-        0
-    )
+    # logits_mask = torch.scatter(
+    #     torch.ones_like(mask),
+    #     1,
+    #     torch.arange(batch_size * 2).view(-1, 1).to(device),
+    #     0
+    # )
+    # mask = mask * logits_mask
+
+    logits_mask = (1 - torch.eye(ind_features.shape[0]).to(device))  # remove diagonal shape: num ind, num ind
     mask = mask * logits_mask
+    extend_mask = torch.ones(ind_features.shape[0], features.shape[0] - ind_features.shape[0]).to(device)
+    logits_mask = torch.cat([logits_mask, extend_mask], dim=1) # shape num ind, num ind + ood
+    mask = torch.cat([mask, 1-extend_mask], dim=1)
 
     # compute log_prob
     exp_logits = torch.exp(logits) * logits_mask
@@ -133,18 +127,19 @@ def sup_con_loss(features, labels, temperature):
     mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
 
     # loss
-    loss = - mean_log_prob_pos
+    loss = -mean_log_prob_pos
     loss = loss.mean()
 
     return loss
 
+
 class DAE(ContinualModel):
-    NAME = 'DAE'
-    COMPATIBILITY = ['class-il', 'task-il']
+    NAME = "DAE"
+    COMPATIBILITY = ["class-il", "task-il"]
 
     def __init__(self, backbone, loss, args, dataset):
         super(DAE, self).__init__(backbone, loss, args, dataset)
-        if args.norm_type == 'none':
+        if args.norm_type == "none":
             norm_type = None
         else:
             norm_type = args.norm_type
@@ -159,20 +154,22 @@ class DAE(ContinualModel):
         #     self.lamb = float(args.lamb)
         # except:
         #     self.lamb = [float(i) for i in args.lamb.split('_')][0]
-        self.lamb = [float(i) for i in args.lamb.split('_')]
+        self.lamb = [float(i) for i in args.lamb.split("_")]
         if len(self.lamb) < self.args.total_tasks:
-            self.lamb = [self.lamb[-1] if i>=len(self.lamb) else self.lamb[i] for i in range(self.args.total_tasks)]
-        print('lambda tasks', self.lamb)
+            self.lamb = [self.lamb[-1] if i >= len(self.lamb) else self.lamb[i] for i in range(self.args.total_tasks)]
+        print("lambda tasks", self.lamb)
         self.soft = torch.nn.Softmax(dim=1)
         # self.device = 'cpu'
         self.buffer = None
 
-    def forward(self, inputs, t=None, ets=True, kbts=False, cal=True, ba = True):
+    def forward(self, inputs, t=None, ets=True, kbts=False, cal=True, ba=True):
+        bs = inputs.shape[0]
         if ba:
             # batch augmentation
-            N = self.args.num_aug 
-            aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
-            x = self.dataset.train_transform(aug_inputs)
+            N = self.args.num_aug
+            # aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N * inputs.shape[0], *inputs.shape[1:])
+            inputs = inputs.repeat(N, 1, 1, 1)
+            x = self.dataset.train_transform(inputs)
         else:
             x = inputs
 
@@ -186,13 +183,13 @@ class DAE(ContinualModel):
                 outputs.append(out)
 
             if ba:
-                outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
+                outputs = [out.view(N, bs, -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=0)
-                outputs = outputs[:, :, 1:] # ignore ood class
+                outputs = outputs[:, :, 1:]  # ignore ood class
                 outputs = ensemble_outputs(outputs)
             else:
                 outputs = torch.stack(outputs, dim=0)
-                outputs = outputs[:, :, 1:] # ignore ood class
+                outputs = outputs[:, :, 1:]  # ignore ood class
                 outputs = ensemble_outputs(outputs)
 
             predicts = outputs.argmax(1)
@@ -201,7 +198,7 @@ class DAE(ContinualModel):
         else:
             joint_entropy_tasks = []
             outputs_tasks = []
-            for i in range(self.task+1):
+            for i in range(self.task + 1):
                 outputs = []
                 if ets:
                     out = self.net.ets_forward(x, i, cal=cal)
@@ -211,21 +208,21 @@ class DAE(ContinualModel):
                     outputs.append(out)
 
                 if ba:
-                    outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
+                    outputs = [out.view(N, bs, -1) for out in outputs]
                     outputs = torch.cat(outputs, dim=0)
-                    outputs = outputs[:, :, 1:] # ignore ood class
+                    outputs = outputs[:, :, 1:]  # ignore ood class
                     outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
                 else:
                     outputs = torch.stack(outputs, dim=0)
-                    outputs = outputs[:, :, 1:] # ignore ood class
+                    outputs = outputs[:, :, 1:]  # ignore ood class
                     outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
-            
+
             outputs_tasks = torch.stack(outputs_tasks, dim=1)
             joint_entropy_tasks = torch.stack(joint_entropy_tasks, dim=1)
             predicted_task = torch.argmin(joint_entropy_tasks, dim=1)
@@ -234,12 +231,12 @@ class DAE(ContinualModel):
             cil_predicts = cil_predicts + predicted_task * (self.dataset.N_CLASSES_PER_TASK)
             del x, joint_entropy_tasks, predicted_outputs
             return cil_predicts, outputs_tasks, predicted_task
-        
-    def evaluate(self, task=None, mode='ets_kbts_cal_ba'):
-        kbts = 'kbts' in mode
-        ets = 'ets' in mode
-        cal = 'cal' in mode
-        ba = 'ba' in mode
+
+    def evaluate(self, task=None, mode="ets_kbts_cal_ba"):
+        kbts = "kbts" in mode
+        ets = "ets" in mode
+        cal = "cal" in mode
+        ba = "ba" in mode
 
         with torch.no_grad():
             self.net.eval()
@@ -269,80 +266,80 @@ class DAE(ContinualModel):
                         total += labels.shape[0]
                         del til_predicts
 
-                til_accs.append(round(til_correct / total * 100 , 2))
-                cil_accs.append(round(cil_correct / total * 100 , 2))
+                til_accs.append(round(til_correct / total * 100, 2))
+                cil_accs.append(round(cil_correct / total * 100, 2))
                 task_total += total
             if task is None:
                 task_acc = round(task_correct / task_total * 100, 2)
                 cil_avg = round(np.mean(cil_accs), 2)
                 til_avg = round(np.mean(til_accs), 2)
-                print(f'Task {len(til_accs)-1}: {mode}: cil {cil_avg} {cil_accs}, til {til_avg} {til_accs}, tp {task_acc}')
-                wandb.log({f'{mode}_cil': cil_avg, f'{mode}_til': til_avg, f'{mode}_tp': task_acc, 'task': len(til_accs)-1})
+                print(f"Task {len(til_accs)-1}: {mode}: cil {cil_avg} {cil_accs}, til {til_avg} {til_accs}, tp {task_acc}")
+                wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, f"{mode}_tp": task_acc, "task": len(til_accs) - 1})
                 return til_accs, cil_accs, task_acc
             else:
                 return til_accs[0]
-    
-    def train(self, train_loader, progress_bar, mode, squeeze, augment, epoch, verbose=False):
-        total = 0
-        correct = 0
-        total_loss = 0
-        if verbose:
-            test_acc = self.evaluate(self.task, mode=mode)
-            num_params, num_neurons = self.net.count_params()
-            num_params = sum(num_params)
-            progress_bar = ProgressBar()
-        
-        self.net.train()
-        if self.buffer is not None:
-            buffer = iter(self.buffer)
-        for i, data in enumerate(train_loader):
-            inputs, labels = data
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
-            labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
-            ood_inputs = torch.rot90(inputs, 2, dims=(2,3))
-            ood_labels = torch.zeros_like(labels)
-            if self.buffer is not None:
-                try:
-                    buffer_data = next(buffer)
-                except StopIteration:
-                    # restart the generator if the previous generator is exhausted.
-                    buffer = iter(self.buffer)
-                    buffer_data = next(buffer)
-                buffer_data = [tmp.to(self.device) for tmp in buffer_data]
-                ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
-                ood_labels = torch.cat([ood_labels, torch.zeros_like(buffer_data[1])], dim=0)
 
-            inputs = torch.cat([inputs, ood_inputs], dim=0)
-            labels = torch.cat([labels, ood_labels], dim=0)
-            if augment:
-                inputs = self.dataset.train_transform(inputs)
-            inputs = self.dataset.test_transforms[self.task](inputs)
-            self.opt.zero_grad()
-            if mode == 'ets':
-                outputs = self.net.ets_forward(inputs, self.task)
-            elif mode == 'kbts':
-                outputs = self.net.kbts_forward(inputs, self.task)
+    # def train(self, train_loader, progress_bar, mode, squeeze, augment, epoch, verbose=False):
+    #     total = 0
+    #     correct = 0
+    #     total_loss = 0
+    #     if verbose:
+    #         test_acc = self.evaluate(self.task, mode=mode)
+    #         num_params, num_neurons = self.net.count_params()
+    #         num_params = sum(num_params)
+    #         progress_bar = ProgressBar()
 
-            loss = self.loss(outputs, labels)
-            loss.backward()
-            self.opt.step()
-            _, predicts = outputs.max(1)
-            correct += torch.sum(predicts == labels).item()
-            total += labels.shape[0]
-            total_loss += loss.item() * labels.shape[0]
-            if squeeze:
-                self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
-                if verbose:
-                    num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
-                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, num_params, num_neurons)
-            else:
-                if verbose:
-                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, num_params)
-        if squeeze:
-            self.net.squeeze(self.opt.state)
-        self.scheduler.step()
-        if verbose:
-            wandb.log({'task':self.task, 'epoch':epoch, f'{mode} train acc': correct/total*100, f'{mode} test acc': test_acc})
+    #     self.net.train()
+    #     if self.buffer is not None:
+    #         buffer = iter(self.buffer)
+    #     for i, data in enumerate(train_loader):
+    #         inputs, labels = data
+    #         inputs, labels = inputs.to(self.device), labels.to(self.device)
+    #         labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
+    #         ood_inputs = torch.rot90(inputs, 2, dims=(2, 3))
+    #         ood_labels = torch.zeros_like(labels)
+    #         if self.buffer is not None:
+    #             try:
+    #                 buffer_data = next(buffer)
+    #             except StopIteration:
+    #                 # restart the generator if the previous generator is exhausted.
+    #                 buffer = iter(self.buffer)
+    #                 buffer_data = next(buffer)
+    #             buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+    #             ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
+    #             ood_labels = torch.cat([ood_labels, torch.zeros_like(buffer_data[1])], dim=0)
+
+    #         inputs = torch.cat([inputs, ood_inputs], dim=0)
+    #         labels = torch.cat([labels, ood_labels], dim=0)
+    #         if augment:
+    #             inputs = self.dataset.train_transform(inputs)
+    #         inputs = self.dataset.test_transforms[self.task](inputs)
+    #         self.opt.zero_grad()
+    #         if mode == "ets":
+    #             outputs = self.net.ets_forward(inputs, self.task)
+    #         elif mode == "kbts":
+    #             outputs = self.net.kbts_forward(inputs, self.task)
+
+    #         loss = self.loss(outputs, labels)
+    #         loss.backward()
+    #         self.opt.step()
+    #         _, predicts = outputs.max(1)
+    #         correct += torch.sum(predicts == labels).item()
+    #         total += labels.shape[0]
+    #         total_loss += loss.item() * labels.shape[0]
+    #         if squeeze:
+    #             self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
+    #             if verbose:
+    #                 num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
+    #                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss / total, correct / total * 100, test_acc, num_params, num_neurons)
+    #         else:
+    #             if verbose:
+    #                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss / total, correct / total * 100, test_acc, num_params)
+    #     if squeeze:
+    #         self.net.squeeze(self.opt.state)
+    #     self.scheduler.step()
+    #     if verbose:
+    #         wandb.log({"task": self.task, "epoch": epoch, f"{mode} train acc": correct / total * 100, f"{mode} test acc": test_acc})
 
     def train_contrast(self, train_loader, mode, ets, kbts, buf_ood, feat, squeeze, augment, epoch):
         total = 0
@@ -352,7 +349,7 @@ class DAE(ContinualModel):
             num_params, num_neurons = self.net.count_params()
             num_params = sum(num_params)
             progress_bar = ProgressBar()
-        
+
         self.net.train()
 
         if self.buffer is not None:
@@ -361,8 +358,8 @@ class DAE(ContinualModel):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
-            rot = random.randint(1,3)
-            ood_inputs = torch.rot90(inputs, rot, dims=(2,3))
+            rot = random.randint(1, 3)
+            ood_inputs = torch.rot90(inputs, rot, dims=(2, 3))
             ood_labels = torch.zeros_like(labels)
             if buf_ood:
                 if self.buffer is not None:
@@ -376,23 +373,26 @@ class DAE(ContinualModel):
                     ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
                     ood_labels = torch.cat([ood_labels, torch.zeros_like(buffer_data[1])], dim=0)
 
-            inputs = torch.cat([inputs, ood_inputs], dim=0)
-            labels = torch.cat([labels, ood_labels], dim=0)
             if feat:
-                inputs = torch.cat([inputs, inputs], dim=0)
+                inputs = torch.cat([inputs, inputs, ood_inputs], dim=0)
+            else:
+                inputs = torch.cat([inputs, ood_inputs], dim=0)
+                labels = torch.cat([labels, ood_labels], dim=0)
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             inputs = self.dataset.test_transforms[self.task](inputs)
             self.opt.zero_grad()
             if ets:
-                features = self.net.ets_forward(inputs, self.task, feat=feat)
+                outputs = self.net.ets_forward(inputs, self.task, feat=feat)
             elif kbts:
-                features = self.net.kbts_forward(inputs, self.task, feat=feat)
+                outputs = self.net.kbts_forward(inputs, self.task, feat=feat)
 
             if feat:
-                loss = sup_con_loss(features, labels, self.args.temperature)
+                outputs = F.normalize(outputs, p=2, dim=1)
+                ind_outputs = outputs[:labels.shape[0]*2]
+                loss = sup_con_loss(ind_outputs, outputs, labels, self.args.temperature)
             else:
-                loss = self.loss(features, labels)
+                loss = self.loss(outputs, labels)
             loss.backward()
             self.opt.step()
             total += labels.shape[0]
@@ -401,15 +401,15 @@ class DAE(ContinualModel):
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
                 if self.args.verbose:
                     num_neurons = [m.mask_out.sum().item() for m in self.net.DB[:-1]]
-                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, 0, 0, num_params, num_neurons)
+                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss / total, 0, 0, num_params, num_neurons)
             else:
                 if self.args.verbose:
-                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, 0, 0, num_params)
+                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss / total, 0, 0, num_params)
         if squeeze:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
         if self.args.verbose:
-            wandb.log({'task':self.task, 'epoch':epoch, f'{mode} loss': total_loss/total, 'params':num_params})
+            wandb.log({"task": self.task, "epoch": epoch, f"{mode} loss": total_loss / total, "params": num_params})
 
     # def train_contrast(self, progress_bar, epoch, mode, verbose=False):
     #     self.net.train()
@@ -427,25 +427,24 @@ class DAE(ContinualModel):
     #         # tasks = torch.cat([data[2], data[2]])
     #         # labels = torch.cat([(tasks == t) * (tasks + 1) for t in range(self.task+1)])
     #         # inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
-    #         # features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=False) 
+    #         # features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=False)
     #         #                           for t in range(self.task+1)])
-            
+
     #         # if 'ets' in mode:
     #         #     # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
-    #         #     features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, feat=True) 
+    #         #     features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, feat=True)
     #         #                           for t in range(self.task+1)])
     #         # elif 'kbts' in mode:
     #         #     # features = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=False) for t in range(self.task+1)])
     #         #     features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, feat=True)
     #         #                           for t in range(self.task+1)])
 
-
     #         inputs = torch.cat([data[0], self.dataset.train_transform(data[0])])
     #         features = self.net.task_feature_layers(inputs)
     #         labels = torch.cat([data[2], data[2]])
 
     #         loss = sup_con_loss(features, labels, self.args.temperature)
-                
+
     #         loss.backward()
     #         self.opt.step()
     #         total += data[1].shape[0]
@@ -467,22 +466,20 @@ class DAE(ContinualModel):
             inputs = self.dataset.train_transform(data[0])
 
             outputs = []
-            if 'ets' in mode:
-                outputs += [torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True)
-                                        for t in range(self.task+1)])]
+            if "ets" in mode:
+                outputs += [torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) for t in range(self.task + 1)])]
 
-            if 'kbts' in mode:
-                outputs += [torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True)
-                                        for t in range(self.task+1)])]
+            if "kbts" in mode:
+                outputs += [torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) for t in range(self.task + 1)])]
 
-            # outputs = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=True) 
+            # outputs = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=True)
             #                           for t in range(self.task+1)])
             outputs = torch.stack(outputs, dim=0)
-            outputs = outputs[:, :, 1:] # ignore ood class
+            outputs = outputs[:, :, 1:]  # ignore ood class
             outputs = ensemble_outputs(outputs)
             join_entropy = entropy(outputs.exp())
-            join_entropy = join_entropy.view(self.task+1, data[0].shape[0]).permute(1, 0) # shape [batch size, num tasks]
-            labels = torch.stack([(data[2] == t).float() for t in range(self.task+1)], dim=1)
+            join_entropy = join_entropy.view(self.task + 1, data[0].shape[0]).permute(1, 0)  # shape [batch size, num tasks]
+            labels = torch.stack([(data[2] == t).float() for t in range(self.task + 1)], dim=1)
             loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
             loss = torch.mean(loss)
 
@@ -491,10 +488,9 @@ class DAE(ContinualModel):
             total += data[1].shape[0]
             total_loss += loss.item()
             if verbose:
-                progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss/total)
+                progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss / total)
 
         self.scheduler.step()
-
 
     def begin_task(self, dataset):
         self.task += 1
@@ -508,12 +504,12 @@ class DAE(ContinualModel):
 
     def get_rehearsal_logits(self, train_loader):
         if self.task == 0:
-            samples_per_task = self.args.buffer_size // (self.task+1)
+            samples_per_task = self.args.buffer_size // (self.task + 1)
         else:
             samples_per_task = self.args.buffer_size // (self.task)
 
         if self.task == 0:
-            samples_per_class = self.args.buffer_size // ((self.task+1) * self.dataset.N_CLASSES_PER_TASK)
+            samples_per_class = self.args.buffer_size // ((self.task + 1) * self.dataset.N_CLASSES_PER_TASK)
         else:
             samples_per_class = self.args.buffer_size // (self.task * self.dataset.N_CLASSES_PER_TASK)
 
@@ -538,7 +534,6 @@ class DAE(ContinualModel):
             #     outputs = ensemble_outputs(torch.stack(outputs, dim=0))
             #     data[3*i+2+3].append(entropy(outputs.exp()).detach().clone().cpu())
 
-        
         data = [torch.cat(temp) for temp in data]
 
         # if 'be' not in self.args.ablation:
@@ -583,20 +578,18 @@ class DAE(ContinualModel):
             #     outputs = ensemble_outputs(torch.stack(outputs, dim=0))
             #     buf_ent.append(entropy(outputs.exp()).detach().clone().cpu())
 
-            # buf_data = list(self.buffer.dataset.tensors) + [torch.cat(buf_ets_feat), torch.cat(buf_kbts_feat), torch.cat(buf_ent)] 
+            # buf_data = list(self.buffer.dataset.tensors) + [torch.cat(buf_ets_feat), torch.cat(buf_kbts_feat), torch.cat(buf_ent)]
             buf_data = list(self.buffer.dataset.tensors)
             data = [torch.cat([buf_temp, temp]) for buf_temp, temp in zip(buf_data, data)]
-            
+
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         # print(data[2].unique())
         # print(data[0].shape)
         # print(data[1].unique())
         for c in data[1].unique():
-            idx = (data[1] == c)
-            print(f'{c}: {idx.sum()}', end=', ')
+            idx = data[1] == c
+            print(f"{c}: {idx.sum()}", end=", ")
         print()
-        
-
 
     def fill_buffer(self, train_loader) -> None:
         """
@@ -608,8 +601,8 @@ class DAE(ContinualModel):
         """
         mode = self.net.training
         self.net.eval()
-        samples_per_task = self.args.buffer_size // (self.task+1)
-        samples_per_class = self.args.buffer_size // ((self.task+1) * self.dataset.N_CLASSES_PER_TASK)
+        samples_per_task = self.args.buffer_size // (self.task + 1)
+        samples_per_class = self.args.buffer_size // ((self.task + 1) * self.dataset.N_CLASSES_PER_TASK)
 
         data = list(self.buffer.dataset.tensors)
 
@@ -644,7 +637,6 @@ class DAE(ContinualModel):
         # print(data[1].unique())
         # print(data[0].shape)
         for c in data[1].unique():
-            idx = (data[1] == c)
-            print(f'{c}: {idx.sum()}', end=', ')
+            idx = data[1] == c
+            print(f"{c}: {idx.sum()}", end=", ")
         print()
-
