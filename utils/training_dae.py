@@ -214,9 +214,9 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
                 # if 'kbts' not in args.ablation:
                 #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_tc')
 
-            train_loop(t, model, dataset, args, progress_bar, train_loader, mode='ets_cal')
+            train_loop(model, args, train_loader, mode='ets_cal')
             if 'kbts' not in args.ablation:
-                train_loop(t, model, dataset, args, progress_bar, train_loader, mode='kbts_cal')
+                train_loop(model, args, train_loader, mode='kbts_cal')
 
             model.net.clear_memory()
             torch.save(model.net, base_path_memory() + args.title + '.net')
