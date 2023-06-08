@@ -411,54 +411,14 @@ class DAE(ContinualModel):
         if self.args.verbose:
             wandb.log({"task": self.task, "epoch": epoch, f"{mode} loss": total_loss / total, "params": num_params})
 
-    # def train_contrast(self, progress_bar, epoch, mode, verbose=False):
-    #     self.net.train()
-    #     total = 0
-    #     correct = 0
-    #     total_loss = 0
-
-    #     for i, data in enumerate(self.buffer):
-    #         self.opt.zero_grad()
-    #         data = [tmp.to(self.device) for tmp in data]
-
-    #         # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
-    #         # labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
-
-    #         # tasks = torch.cat([data[2], data[2]])
-    #         # labels = torch.cat([(tasks == t) * (tasks + 1) for t in range(self.task+1)])
-    #         # inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
-    #         # features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=False)
-    #         #                           for t in range(self.task+1)])
-
-    #         # if 'ets' in mode:
-    #         #     # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
-    #         #     features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, feat=True)
-    #         #                           for t in range(self.task+1)])
-    #         # elif 'kbts' in mode:
-    #         #     # features = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=False) for t in range(self.task+1)])
-    #         #     features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, feat=True)
-    #         #                           for t in range(self.task+1)])
-
-    #         inputs = torch.cat([data[0], self.dataset.train_transform(data[0])])
-    #         features = self.net.task_feature_layers(inputs)
-    #         labels = torch.cat([data[2], data[2]])
-
-    #         loss = sup_con_loss(features, labels, self.args.temperature)
-
-    #         loss.backward()
-    #         self.opt.step()
-    #         total += data[1].shape[0]
-    #         total_loss += loss.item()
-    #         if verbose:
-    #             progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss/total)
-
-    #     self.scheduler.step()
-
-    def train_calibration(self, progress_bar, epoch, mode, verbose=False):
+    def train_calibration(self, epoch, mode, ets, kbts):
         self.net.train()
         total = 0
         correct = 0
         total_loss = 0
+
+        if self.args.verbose:
+            progress_bar = ProgressBar()
 
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
@@ -466,10 +426,10 @@ class DAE(ContinualModel):
             inputs = self.dataset.train_transform(data[0])
 
             outputs = []
-            if "ets" in mode:
+            if ets:
                 outputs += [torch.cat([self.net.ets_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) for t in range(self.task + 1)])]
 
-            if "kbts" in mode:
+            if kbts:
                 outputs += [torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) for t in range(self.task + 1)])]
 
             # outputs = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=True)
@@ -487,10 +447,12 @@ class DAE(ContinualModel):
             self.opt.step()
             total += data[1].shape[0]
             total_loss += loss.item()
-            if verbose:
+            if self.args.verbose:
                 progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss / total)
 
         self.scheduler.step()
+        if self.args.verbose:
+            wandb.log({"task": self.task, "epoch": epoch, f"{mode} loss": total_loss / total})
 
     def begin_task(self, dataset):
         self.task += 1

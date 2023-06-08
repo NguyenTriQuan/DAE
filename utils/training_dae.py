@@ -105,7 +105,7 @@ def train_loop(model, args, train_loader, mode):
         n_epochs = 10
     for epoch in range(n_epochs):
         if cal:
-            model.train_calibration(epoch, mode)
+            model.train_calibration(epoch, mode, ets, kbts)
         else:          
             # model.train(train_loader, progress_bar, mode, squeeze, augment, epoch, args.verbose)
             model.train_contrast(train_loader, mode, ets, kbts, buf_ood, feat, squeeze, augment, epoch)
