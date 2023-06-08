@@ -71,7 +71,7 @@ class _DynamicModel(nn.Module):
 
     def proximal_gradient_descent(self, lr=0, lamb=0):
         with torch.no_grad():
-            for block in self.DB:
+            for block in self.DB[:-1]:
                 block.proximal_gradient_descent(lr, lamb, self.total_strength)
     
     def clear_memory(self):
@@ -217,11 +217,18 @@ class ResNet(_DynamicModel):
         self.layers += self._make_layer(block, nf * 2, num_blocks[1], stride=2, norm_type=norm_type, args=args)
         self.layers += self._make_layer(block, nf * 4, num_blocks[2], stride=2, norm_type=norm_type, args=args)
         self.layers += self._make_layer(block, nf * 8, num_blocks[3], stride=2, norm_type=norm_type, args=args)
-        self.linear = DynamicClassifier(nf * 8 * block.expansion, num_classes, norm_type=norm_type, args=args, s=1)
+
+        last_dim = nf * 8 * block.expansion
+        self.mid = DynamicBlock([DynamicLinear(last_dim, last_dim, bias=False, args=args, s=1)], None, args)
+        self.linear = DynamicClassifier(last_dim, num_classes, norm_type=norm_type, args=args, s=1)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
+
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
+        
+        self.projector = nn.Linear(last_dim, 128)
+        
         
     def _make_layer(self, block: BasicBlock, planes: int,
                     num_blocks: int, stride: int, norm_type, args) -> nn.Module:
@@ -271,18 +278,17 @@ class ResNet(_DynamicModel):
 
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
-        out = self.linear.ets_forward(feature, t)
-        if cal:
-            scales = self.ets_cal_layers[t](feature)
-            if feat:
-                return scales
-            else:
+        feature = self.mid.ets_forward([feature], t)
+
+        if feat:
+            return self.projector(feature)
+        else:
+            out = self.linear.ets_forward(feature, t)
+            if cal:
+                scales = self.ets_cal_layers[t](feature)
                 alpha = scales[:, 0].view(-1, 1)
                 beta = scales[:, 1].view(-1, 1)
                 return out * alpha + beta
-        else:
-            if feat:
-                return feature, out
             else:
                 return out
     
@@ -300,18 +306,16 @@ class ResNet(_DynamicModel):
 
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
-        out = self.linear.kbts_forward(feature, t)
-        if cal:
-            scales = self.kbts_cal_layers[t](feature)
-            if feat:
-                return scales
-            else:
+        feature = self.mid.kbts_forward([feature], t)
+        if feat:
+            return self.projector(feature)
+        else:
+            out = self.linear.kbts_forward(feature, t)
+            if cal:
+                scales = self.kbts_cal_layers[t](feature)
                 alpha = scales[:, 0].view(-1, 1)
                 beta = scales[:, 1].view(-1, 1)
                 return out * alpha + beta
-        else:
-            if feat:
-                return feature, out
             else:
                 return out
     
@@ -325,6 +329,10 @@ class ResNet(_DynamicModel):
             add_in_1 = block.conv1.expand([add_in], [(None, None)])
             add_in = block.conv2.expand([add_in, add_in_1], [(None, None), (None, None)])
 
+        if t == 0:
+            add_in = self.mid.expand([add_in], [(None, None)])
+        else:
+            add_in = self.mid.expand([add_in], [(0, 0)])
         self.linear.expand(add_in, (new_classes+1, new_classes+1))
         self.total_strength = 1
         for m in self.DB:
@@ -341,7 +349,8 @@ class ResNet(_DynamicModel):
             block.conv2.squeeze(optim_state, [mask_in, block.conv1.mask_out])
             mask_in = block.conv2.mask_out
         
-        self.linear.squeeze(optim_state, mask_in, None)
+        self.mid.squeeze(optim_state, [mask_in])
+        # self.linear.squeeze(optim_state, mask_in, None)
 
         self.total_strength = 1
         for m in self.DB:
@@ -356,6 +365,11 @@ class ResNet(_DynamicModel):
         for block in self.layers:
             add_in_1 = block.conv1.get_masked_kb_params(t, [add_in], [None])
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
+
+        if t == 0:
+            self.mid.get_masked_kb_params(t, [add_in], [None])
+        else:
+            self.mid.get_masked_kb_params(t, [add_in], [0])
 
     def set_jr_params(self, num_tasks):
         hidden_dim = 128

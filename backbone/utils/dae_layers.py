@@ -249,21 +249,14 @@ class _DynamicLayer(nn.Module):
         else:
             output = F.linear(x, weight, None)
         
-        return output
-    
-    def get_jr_params(self):
-        if self.training:
-            mask = GetSubnet.apply(self.score.abs(), 1-self.jr_sparsity)
-            weight = self.masked_kb_weight * mask / (1-self.jr_sparsity)
-            self.register_buffer('jr_mask', mask.detach().bool().clone())
-        else:
-            mask = getattr(self, 'jr_mask')
-            weight = self.masked_kb_weight * mask / (1-self.jr_sparsity)
-        
-        return weight, None, self.norm_layer_jr if self.norm_type is not None else None        
+        return output    
 
     def clear_memory(self):
-        self.score = None
+        if self.score is not None:
+            t = len(self.kbts_sparsities) - 1
+            mask = GetSubnet.apply(self.score.abs(), 1-self.kbts_sparsities[t])
+            self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
+            self.score = None
         self.dummy_weight = None
         self.kb_weight = None
         self.masked_kb_weight = None
@@ -430,7 +423,7 @@ class DynamicBlock(nn.Module):
         out = 0
         for x, layer in zip(inputs, self.layers):
             out = out + layer.kbts_forward(x, t)
-
+        
         out = self.activation(self.kbts_norm_layers[t](out))
         return out
     

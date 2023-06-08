@@ -23,13 +23,17 @@ from utils.conf import base_path_memory
 
 import wandb
 
-def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
+def train_loop(model, args, train_loader, mode):
     squeeze = False
     augment = True
+    ets = 'ets' in mode
+    kbts = 'kbts' in mode
+    buf_ood = 'buf_ood' not in args.ablation
+    feat = 'feat' in mode
+    cal = 'cal' in mode
     num_squeeze = 0
     num_augment = 1000
-    progress_bar = ProgressBar(verbose=not args.non_verbose)
-    if 'cal' in mode:
+    if cal:
         # calibration outputs
         n_epochs = 100
         tc = 'tc' not in args.ablation
@@ -40,68 +44,72 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
-    elif 'tc' in mode:
-        # tasks contrast:
-        n_epochs = 100
-        params = model.net.get_optim_tc_params()
-        count = 0
-        for param in params:
-            count += param.numel()
-        print(f'Training mode: {mode}, Number of optim params: {count}')
-        from utils.lars_optimizer import LARC
-        # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9), trust_coefficient=0.001)
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
-        # model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
-    elif 'ets' in mode:
-        params = model.net.get_optim_ets_params()
-        count = 0
-        for param in params:
-            count += param.numel()
-        print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        if 'squeeze' in args.ablation:
-            n_epochs = 120
-            num_augment = 117
-            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [100, 115], gamma=0.1, verbose=False)
-            squeeze = False
-        else:
+    # elif 'tc' in mode:
+    #     # tasks contrast:
+    #     n_epochs = 100
+    #     params = model.net.get_optim_tc_params()
+    #     count = 0
+    #     for param in params:
+    #         count += param.numel()
+    #     print(f'Training mode: {mode}, Number of optim params: {count}')
+    #     from utils.lars_optimizer import LARC
+    #     # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9), trust_coefficient=0.001)
+    #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+    #     model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
+    #     # model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
+    elif ets:
+        if feat:
+            params = model.net.get_optim_ets_params()
             n_epochs = 150
             num_squeeze = 100
-            num_augment = 147
-            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [130, 145], gamma=0.1, verbose=False)
+            step_lr = [130, 145]
             squeeze = True
-        if 'join' in args.ablation:
+        else:
+            params = model.net.linear.get_optim_ets_params()
             n_epochs = 50
-            model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
-            squeeze = False
-    elif 'kbts' in mode:
-        params, scores = model.net.get_optim_kbts_params()
+            step_lr = [35, 45]
+        
         count = 0
-        for param in params + scores:
+        for param in params:
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-        n_epochs = 120
-        num_augment = 117
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [100, 115], gamma=0.1, verbose=False)
+        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
+        
+    elif kbts:
+        if 'feat' in mode:
+            n_epochs = 120
+            step_lr = [100, 115]
+            params, scores = model.net.get_optim_kbts_params()
+            count = 0
+            for param in params + scores:
+                count += param.numel()
+            model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+                                        lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+        else:
+            n_epochs = 50
+            step_lr = [35, 45]
+            params = model.net.linear.get_optim_kbts_params()
+            count = 0
+            for param in params:
+                count += param.numel()
+            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+
+        print(f'Training mode: {mode}, Number of optim params: {count}')
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
 
     if 'epoch' in args.ablation:
         n_epochs = 10
     for epoch in range(n_epochs):
-        if 'cal' in mode:
-            model.train_calibration(progress_bar, epoch, mode, args.verbose)
-        elif 'tc' in mode:
-            model.train_contrast(progress_bar, epoch, mode, args.verbose)
+        if cal:
+            model.train_calibration(epoch, mode)
         else:          
-            model.train(train_loader, progress_bar, mode, squeeze, augment, epoch, args.verbose)
+            # model.train(train_loader, progress_bar, mode, squeeze, augment, epoch, args.verbose)
+            model.train_contrast(train_loader, mode, ets, kbts, buf_ood, feat, squeeze, augment, epoch)
 
         # do not perform squeeze and augment at a few last epochs for better convergence
         if epoch >= num_squeeze:
             squeeze = False
-
-        # if epoch >= num_augment:
-        #     augment = False
 
     print()
 
@@ -265,8 +273,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     # if not args.disable_log:
         # logger = Logger(dataset.SETTING, dataset.NAME, model.NAME)
 
-    progress_bar = ProgressBar(verbose=not args.non_verbose)
-
     print(file=sys.stderr)
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
@@ -293,24 +299,31 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             #     model.factor = new_params / base_params
             # print(f'Task {t}, lamb = {model.lamb * model.factor}')
 
-        # kbts training
-        if 'kbts' not in args.ablation:
-            mode = 'kbts'
-            train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
-            acc = model.evaluate(task=t, mode=mode)
-            print(f'Task {t}, {mode}: til {acc}')
+        # ets training
+        mode = 'ets_feat'
+        train_loop(model, args, train_loader, mode=mode)
+        num_params, num_neurons = model.net.count_params()
+        num_neurons = '-'.join(str(int(num)) for num in num_neurons)
+        print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
+        # kbts training
+        mode = 'kbts_feat'
+        train_loop(model, args, train_loader, mode=mode)
+            
+        for m in model.net.DB:
+            m.freeze()
         model.net.clear_memory()
 
-        # ets training
-        if 'ets' not in args.ablation:
-            mode = 'ets'
-            train_loop(t, model, dataset, args, progress_bar, train_loader, mode=mode)
-            acc = model.evaluate(task=t, mode=mode)
-            print(f'Task {t}, {mode}: til {acc}')
-            num_params, num_neurons = model.net.count_params()
-            num_neurons = '-'.join(str(int(num)) for num in num_neurons)
-            print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+        mode = 'ets'
+        train_loop(model, args, train_loader, mode=mode)
+        acc = model.evaluate(task=t, mode=mode)
+        print(f'Task {t}, {mode}: til {acc}')
+
+        mode = 'kbts'
+        train_loop(model, args, train_loader, mode=mode)
+        acc = model.evaluate(task=t, mode=mode)
+        print(f'Task {t}, {mode}: til {acc}')
+
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)

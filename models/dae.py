@@ -21,6 +21,7 @@ import numpy as np
 import random
 import math
 import wandb
+from utils.status import ProgressBar
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def get_parser() -> ArgumentParser:
@@ -101,26 +102,36 @@ def weighted_ensemble(outputs, weights, temperature):
     return log_outputs.squeeze(-1)
 
 def sup_con_loss(features, labels, temperature):
-    features = F.normalize(features, dim=1)
-    sim = torch.div(
+    features = F.normalize(features, p=2, dim=1)
+    batch_size = labels.shape[0]
+    labels = labels.contiguous().view(-1, 1)
+    mask = torch.eq(labels, labels.T).float().to(device)
+    # compute logits
+    anchor_dot_contrast = torch.div(
         torch.matmul(features, features.T),
         temperature)
-    logits_max, _ = torch.max(sim, dim=1, keepdim=True)
-    logits = sim - logits_max.detach()
-    pos_mask = (labels.view(-1, 1) == labels.view(1, -1)).float().to(device)
+    # for numerical stability
+    logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
+    logits = anchor_dot_contrast - logits_max.detach()
 
+    # tile mask
+    mask = mask.repeat(2, 2)
+    # mask-out self-contrast cases
     logits_mask = torch.scatter(
-        torch.ones_like(pos_mask),
+        torch.ones_like(mask),
         1,
-        torch.arange(features.shape[0]).view(-1, 1).to(device),
+        torch.arange(batch_size * 2).view(-1, 1).to(device),
         0
     )
-    pos_mask = pos_mask * logits_mask
+    mask = mask * logits_mask
 
+    # compute log_prob
     exp_logits = torch.exp(logits) * logits_mask
-    log_prob = logits - torch.log(exp_logits.mean(1, keepdim=True))
+    log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True))
 
-    mean_log_prob_pos = (pos_mask * log_prob).sum(1) / pos_mask.sum(1)        
+    # compute mean of log-likelihood over positive
+    mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
+
     # loss
     loss = - mean_log_prob_pos
     loss = loss.mean()
@@ -156,11 +167,8 @@ class DAE(ContinualModel):
         # self.device = 'cpu'
         self.buffer = None
 
-    def forward(self, inputs, t=None, mode='ets_kbts_cal_ba'):
-        cal = False
-        if 'cal' in mode:
-            cal = True
-        if 'ba' in mode:
+    def forward(self, inputs, t=None, ets=True, kbts=False, cal=True, ba = True):
+        if ba:
             # batch augmentation
             N = self.args.num_aug 
             aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N*inputs.shape[0], *inputs.shape[1:])
@@ -170,14 +178,14 @@ class DAE(ContinualModel):
 
         if t is not None:
             outputs = []
-            if 'ets' in mode:
+            if ets:
                 out = self.net.ets_forward(x, t)
                 outputs.append(out)
-            if 'kbts' in mode:
+            if kbts:
                 out = self.net.kbts_forward(x, t)
                 outputs.append(out)
 
-            if 'ba' in mode:
+            if ba:
                 outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=0)
                 outputs = outputs[:, :, 1:] # ignore ood class
@@ -195,14 +203,14 @@ class DAE(ContinualModel):
             outputs_tasks = []
             for i in range(self.task+1):
                 outputs = []
-                if 'ets' in mode:
+                if ets:
                     out = self.net.ets_forward(x, i, cal=cal)
                     outputs.append(out)
-                if 'kbts' in mode:
+                if kbts:
                     out = self.net.kbts_forward(x, i, cal=cal)
                     outputs.append(out)
 
-                if 'ba' in mode:
+                if ba:
                     outputs = [out.view(N, inputs.shape[0], -1) for out in outputs]
                     outputs = torch.cat(outputs, dim=0)
                     outputs = outputs[:, :, 1:] # ignore ood class
@@ -227,7 +235,12 @@ class DAE(ContinualModel):
             del x, joint_entropy_tasks, predicted_outputs
             return cil_predicts, outputs_tasks, predicted_task
         
-    def evaluate(self, task=None, mode='ets_kbts_cal'):
+    def evaluate(self, task=None, mode='ets_kbts_cal_ba'):
+        kbts = 'kbts' in mode
+        ets = 'ets' in mode
+        cal = 'cal' in mode
+        ba = 'ba' in mode
+
         with torch.no_grad():
             self.net.eval()
             til_accs = []
@@ -243,7 +256,7 @@ class DAE(ContinualModel):
                     inputs, labels = data
                     inputs, labels = inputs.to(self.device), labels.to(self.device)
                     if task is None:
-                        cil_predicts, outputs, predicted_task = self.forward(inputs, None, mode)
+                        cil_predicts, outputs, predicted_task = self.forward(inputs, None, ets, kbts, cal, ba)
                         cil_correct += torch.sum(cil_predicts == labels).item()
                         til_predicts = outputs[:, k].argmax(1) + k * (self.dataset.N_CLASSES_PER_TASK)
                         til_correct += torch.sum(til_predicts == labels).item()
@@ -251,7 +264,7 @@ class DAE(ContinualModel):
                         total += labels.shape[0]
                         del cil_predicts, outputs, predicted_task
                     else:
-                        til_predicts = self.forward(inputs, task, mode)
+                        til_predicts = self.forward(inputs, task, ets, kbts, cal, ba)
                         til_correct += torch.sum(til_predicts == labels).item()
                         total += labels.shape[0]
                         del til_predicts
@@ -277,6 +290,7 @@ class DAE(ContinualModel):
             test_acc = self.evaluate(self.task, mode=mode)
             num_params, num_neurons = self.net.count_params()
             num_params = sum(num_params)
+            progress_bar = ProgressBar()
         
         self.net.train()
         if self.buffer is not None:
@@ -327,50 +341,119 @@ class DAE(ContinualModel):
         if squeeze:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
+        if verbose:
+            wandb.log({'task':self.task, 'epoch':epoch, f'{mode} train acc': correct/total*100, f'{mode} test acc': test_acc})
 
-    def train_contrast(self, progress_bar, epoch, mode, verbose=False):
-        self.net.train()
+    def train_contrast(self, train_loader, mode, ets, kbts, buf_ood, feat, squeeze, augment, epoch):
         total = 0
         correct = 0
         total_loss = 0
+        if self.args.verbose:
+            num_params, num_neurons = self.net.count_params()
+            num_params = sum(num_params)
+            progress_bar = ProgressBar()
+        
+        self.net.train()
 
-        for i, data in enumerate(self.buffer):
+        if self.buffer is not None:
+            buffer = iter(self.buffer)
+        for i, data in enumerate(train_loader):
+            inputs, labels = data
+            inputs, labels = inputs.to(self.device), labels.to(self.device)
+            labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
+            rot = random.randint(1,3)
+            ood_inputs = torch.rot90(inputs, rot, dims=(2,3))
+            ood_labels = torch.zeros_like(labels)
+            if buf_ood:
+                if self.buffer is not None:
+                    try:
+                        buffer_data = next(buffer)
+                    except StopIteration:
+                        # restart the generator if the previous generator is exhausted.
+                        buffer = iter(self.buffer)
+                        buffer_data = next(buffer)
+                    buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+                    ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
+                    ood_labels = torch.cat([ood_labels, torch.zeros_like(buffer_data[1])], dim=0)
+
+            inputs = torch.cat([inputs, ood_inputs], dim=0)
+            labels = torch.cat([labels, ood_labels], dim=0)
+            if feat:
+                inputs = torch.cat([inputs, inputs], dim=0)
+            if augment:
+                inputs = self.dataset.train_transform(inputs)
+            inputs = self.dataset.test_transforms[self.task](inputs)
             self.opt.zero_grad()
-            data = [tmp.to(self.device) for tmp in data]
+            if ets:
+                features = self.net.ets_forward(inputs, self.task, feat=feat)
+            elif kbts:
+                features = self.net.kbts_forward(inputs, self.task, feat=feat)
 
-            # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
-            # labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
-
-            # tasks = torch.cat([data[2], data[2]])
-            # labels = torch.cat([(tasks == t) * (tasks + 1) for t in range(self.task+1)])
-            # inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
-            # features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=False) 
-            #                           for t in range(self.task+1)])
-            
-            # if 'ets' in mode:
-            #     # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
-            #     features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, feat=True) 
-            #                           for t in range(self.task+1)])
-            # elif 'kbts' in mode:
-            #     # features = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=False) for t in range(self.task+1)])
-            #     features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, feat=True)
-            #                           for t in range(self.task+1)])
-
-
-            inputs = torch.cat([data[0], self.dataset.train_transform(data[0])])
-            features = self.net.task_feature_layers(inputs)
-            labels = torch.cat([data[2], data[2]])
-
-            loss = sup_con_loss(features, labels, self.args.temperature)
-                
+            if feat:
+                loss = sup_con_loss(features, labels, self.args.temperature)
+            else:
+                loss = self.loss(features, labels)
             loss.backward()
             self.opt.step()
-            total += data[1].shape[0]
-            total_loss += loss.item()
-            if verbose:
-                progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss/total)
-
+            total += labels.shape[0]
+            total_loss += loss.item() * labels.shape[0]
+            if squeeze:
+                self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
+                if self.args.verbose:
+                    num_neurons = [m.mask_out.sum().item() for m in self.net.DB[:-1]]
+                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, 0, 0, num_params, num_neurons)
+            else:
+                if self.args.verbose:
+                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, 0, 0, num_params)
+        if squeeze:
+            self.net.squeeze(self.opt.state)
         self.scheduler.step()
+        if self.args.verbose:
+            wandb.log({'task':self.task, 'epoch':epoch, f'{mode} loss': total_loss/total, 'params':num_params})
+
+    # def train_contrast(self, progress_bar, epoch, mode, verbose=False):
+    #     self.net.train()
+    #     total = 0
+    #     correct = 0
+    #     total_loss = 0
+
+    #     for i, data in enumerate(self.buffer):
+    #         self.opt.zero_grad()
+    #         data = [tmp.to(self.device) for tmp in data]
+
+    #         # labels = torch.cat([data[2] + t * (self.task+1) for t in range(self.task+1)])
+    #         # labels = torch.cat([(data[2] == t) for t in range(self.task+1)])
+
+    #         # tasks = torch.cat([data[2], data[2]])
+    #         # labels = torch.cat([(tasks == t) * (tasks + 1) for t in range(self.task+1)])
+    #         # inputs = torch.cat([self.dataset.train_transform(data[0]), self.dataset.train_transform(data[0])])
+    #         # features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=False) 
+    #         #                           for t in range(self.task+1)])
+            
+    #         # if 'ets' in mode:
+    #         #     # features = torch.cat([self.net.ets_cal_forward(data[3*t+3], t, cal=False) for t in range(self.task+1)])
+    #         #     features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, feat=True) 
+    #         #                           for t in range(self.task+1)])
+    #         # elif 'kbts' in mode:
+    #         #     # features = torch.cat([self.net.kbts_cal_forward(data[3*t+1+3], t, cal=False) for t in range(self.task+1)])
+    #         #     features = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, feat=True)
+    #         #                           for t in range(self.task+1)])
+
+
+    #         inputs = torch.cat([data[0], self.dataset.train_transform(data[0])])
+    #         features = self.net.task_feature_layers(inputs)
+    #         labels = torch.cat([data[2], data[2]])
+
+    #         loss = sup_con_loss(features, labels, self.args.temperature)
+                
+    #         loss.backward()
+    #         self.opt.step()
+    #         total += data[1].shape[0]
+    #         total_loss += loss.item()
+    #         if verbose:
+    #             progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss/total)
+
+    #     self.scheduler.step()
 
     def train_calibration(self, progress_bar, epoch, mode, verbose=False):
         self.net.train()
@@ -418,9 +501,7 @@ class DAE(ContinualModel):
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:
-            # m.kbts_sparsities = torch.cat([m.kbts_sparsities, torch.IntTensor([m.sparsity]).to(device)])
             m.kbts_sparsities += [m.sparsity]
-        self.opt = torch.optim.SGD(self.net.parameters(), lr=self.args.lr, weight_decay=0, momentum=self.args.optim_mom)
 
     def end_task(self, dataset) -> None:
         self.net.freeze()
@@ -437,24 +518,25 @@ class DAE(ContinualModel):
             samples_per_class = self.args.buffer_size // (self.task * self.dataset.N_CLASSES_PER_TASK)
 
         self.net.eval()
-        data = [[] for _ in range(3 + (self.task+1) * 3)]
+        # data = [[] for _ in range(3 + (self.task+1) * 3)]
+        data = [[] for _ in range(3)]
 
         for inputs, labels in train_loader:
             data[0].append(inputs)
             data[1].append(labels)
             data[2].append(torch.ones_like(labels) * self.task)
-            inputs = inputs.to(self.device)
-            for i in range(self.task+1):
-                x = self.dataset.test_transforms[i](inputs)
-                outputs = []
-                feat, out = self.net.ets_forward(x, i, feat=True)
-                data[3*i+3].append(feat.detach().clone().cpu())
-                outputs.append(out)
-                feat, out = self.net.kbts_forward(x, i, feat=True)
-                data[3*i+1+3].append(feat.detach().clone().cpu())
-                outputs.append(out)
-                outputs = ensemble_outputs(torch.stack(outputs, dim=0))
-                data[3*i+2+3].append(entropy(outputs.exp()).detach().clone().cpu())
+            # inputs = inputs.to(self.device)
+            # for i in range(self.task+1):
+            #     x = self.dataset.test_transforms[i](inputs)
+            #     outputs = []
+            #     feat, out = self.net.ets_forward(x, i, feat=True)
+            #     data[3*i+3].append(feat.detach().clone().cpu())
+            #     outputs.append(out)
+            #     feat, out = self.net.kbts_forward(x, i, feat=True)
+            #     data[3*i+1+3].append(feat.detach().clone().cpu())
+            #     outputs.append(out)
+            #     outputs = ensemble_outputs(torch.stack(outputs, dim=0))
+            #     data[3*i+2+3].append(entropy(outputs.exp()).detach().clone().cpu())
 
         
         data = [torch.cat(temp) for temp in data]
@@ -485,23 +567,24 @@ class DAE(ContinualModel):
         data = [temp[indices] for temp in data]
 
         if self.task > 0:
-            buf_ent = []
-            buf_ets_feat = []
-            buf_kbts_feat = []
-            for temp in self.buffer:
-                inputs = temp[0].to(self.device)
-                x = self.dataset.test_transforms[self.task](inputs)
-                outputs = []
-                feat, out = self.net.ets_forward(x, self.task, feat=True)
-                buf_ets_feat.append(feat.detach().clone().cpu())
-                outputs.append(out)
-                feat, out = self.net.kbts_forward(x, self.task, feat=True)
-                buf_kbts_feat.append(feat.detach().clone().cpu())
-                outputs.append(out)
-                outputs = ensemble_outputs(torch.stack(outputs, dim=0))
-                buf_ent.append(entropy(outputs.exp()).detach().clone().cpu())
+            # buf_ent = []
+            # buf_ets_feat = []
+            # buf_kbts_feat = []
+            # for temp in self.buffer:
+            #     inputs = temp[0].to(self.device)
+            #     x = self.dataset.test_transforms[self.task](inputs)
+            #     outputs = []
+            #     feat, out = self.net.ets_forward(x, self.task, feat=True)
+            #     buf_ets_feat.append(feat.detach().clone().cpu())
+            #     outputs.append(out)
+            #     feat, out = self.net.kbts_forward(x, self.task, feat=True)
+            #     buf_kbts_feat.append(feat.detach().clone().cpu())
+            #     outputs.append(out)
+            #     outputs = ensemble_outputs(torch.stack(outputs, dim=0))
+            #     buf_ent.append(entropy(outputs.exp()).detach().clone().cpu())
 
-            buf_data = list(self.buffer.dataset.tensors) + [torch.cat(buf_ets_feat), torch.cat(buf_kbts_feat), torch.cat(buf_ent)] 
+            # buf_data = list(self.buffer.dataset.tensors) + [torch.cat(buf_ets_feat), torch.cat(buf_kbts_feat), torch.cat(buf_ent)] 
+            buf_data = list(self.buffer.dataset.tensors)
             data = [torch.cat([buf_temp, temp]) for buf_temp, temp in zip(buf_data, data)]
             
         self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
