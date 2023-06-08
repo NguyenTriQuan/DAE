@@ -229,7 +229,11 @@ class ResNet(_DynamicModel):
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
         
-        self.projector = nn.Linear(last_dim, 128)
+        self.projector = nn.Sequential(
+            nn.Linear(last_dim, last_dim),
+            nn.ReLU(),
+            nn.Linear(last_dim, 128)
+        ).to(device)
         
         
     def _make_layer(self, block: BasicBlock, planes: int,
