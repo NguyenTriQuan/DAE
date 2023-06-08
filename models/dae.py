@@ -36,7 +36,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--alpha", type=float, required=False, help="Join Rehearsal Distillation penalty weight.", default=0)
     parser.add_argument("--dropout", type=float, required=False, help="Dropout probability.", default=0.0)
     parser.add_argument("--sparsity", type=float, required=True, help="Super mask sparsity.")
-    parser.add_argument("--temperature", default=0.3, type=float, required=False, help="Supervised Contrastive loss temperature.")
+    parser.add_argument("--temperature", default=0.1, type=float, required=False, help="Supervised Contrastive loss temperature.")
     parser.add_argument("--negative_slope", default=0, type=float, required=False, help="leaky relu activation negative slope.")
     parser.add_argument("--ablation", type=str, required=False, help="Ablation study.", default="")
     parser.add_argument("--norm_type", type=str, required=False, help="batch normalization layer", default="none")
