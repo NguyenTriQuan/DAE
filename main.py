@@ -165,7 +165,8 @@ def main(args=None):
                 'sparsity': args.sparsity,
                 'dropout': args.dropout,
                 'buffer': args.buffer_size,
-                'ablation': args.ablation
+                'ablation': args.ablation,
+                'temperature': args.temperature
             })
         args.run = run
     if args.eval:
