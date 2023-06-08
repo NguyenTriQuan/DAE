@@ -297,8 +297,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
         # kbts training
-        mode = 'kbts_feat'
-        train_loop(model, args, train_loader, mode=mode)
+        if 'kbts' not in args.ablation:
+            mode = 'kbts_feat'
+            train_loop(model, args, train_loader, mode=mode)
             
         for m in model.net.DB:
             m.freeze()
@@ -309,10 +310,11 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         acc = model.evaluate(task=t, mode=mode)
         print(f'Task {t}, {mode}: til {acc}')
 
-        mode = 'kbts'
-        train_loop(model, args, train_loader, mode=mode)
-        acc = model.evaluate(task=t, mode=mode)
-        print(f'Task {t}, {mode}: til {acc}')
+        if 'kbts' not in args.ablation:
+            mode = 'kbts'
+            train_loop(model, args, train_loader, mode=mode)
+            acc = model.evaluate(task=t, mode=mode)
+            print(f'Task {t}, {mode}: til {acc}')
 
 
         if hasattr(model, 'end_task'):
