@@ -63,7 +63,7 @@ def train_loop(model, args, train_loader, mode):
             n_epochs = 150
             num_squeeze = 100
             step_lr = [130, 145]
-            squeeze = True
+            squeeze = False
             from utils.lars_optimizer import LARC
             model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom), trust_coefficient=0.001)
         else:
