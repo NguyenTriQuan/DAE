@@ -42,7 +42,7 @@ def train_loop(model, args, train_loader, mode):
         for param in params:
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
     # elif 'tc' in mode:
     #     # tasks contrast:
@@ -65,12 +65,13 @@ def train_loop(model, args, train_loader, mode):
             step_lr = [130, 145]
             squeeze = False
             from utils.lars_optimizer import LARC
-            model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom), trust_coefficient=0.001)
+            # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         else:
             params = model.net.linear.get_optim_ets_params()
             n_epochs = 20
             step_lr = [10, 15]
-            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         
         count = 0
         for param in params:
@@ -87,7 +88,7 @@ def train_loop(model, args, train_loader, mode):
             for param in params + scores:
                 count += param.numel()
             model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-                                        lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+                                        lr=args.lr, weight_decay=0, momentum=0.9)
         else:
             n_epochs = 20
             step_lr = [10, 15]
@@ -95,7 +96,7 @@ def train_loop(model, args, train_loader, mode):
             count = 0
             for param in params:
                 count += param.numel()
-            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
 
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
