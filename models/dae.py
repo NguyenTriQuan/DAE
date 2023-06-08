@@ -114,7 +114,7 @@ def sup_con_loss(ind_features, features, labels, temperature):
     # mask = mask * logits_mask
 
     logits_mask = (1 - torch.eye(ind_features.shape[0]).to(device))  # remove diagonal shape: num ind, num ind
-    mask = mask * logits_mask
+    # mask = mask * logits_mask
     extend_mask = torch.ones(ind_features.shape[0], features.shape[0] - ind_features.shape[0]).to(device)
     logits_mask = torch.cat([logits_mask, extend_mask], dim=1) # shape num ind, num ind + ood
     mask = torch.cat([mask, 1-extend_mask], dim=1)
