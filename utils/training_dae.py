@@ -148,7 +148,8 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         num_params = sum(num_params)
         num_neurons = '-'.join(str(int(num)) for num in num_neurons)
         print(f'Num params :{num_params}, num neurons: {num_neurons}')
-        wandb.log({'params': num_params, 'task': t})
+        if args.verbose:
+            wandb.log({'params': num_params, 'task': t})
         
         mode = 'ets_kbts'
         model.evaluate(task=None, mode=mode)
