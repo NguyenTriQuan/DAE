@@ -436,6 +436,7 @@ class DAE(ContinualModel):
             total_loss += loss.item()
 
         self.scheduler.step()
+        print(total_loss)
         return total_loss / total
 
     def begin_task(self, dataset):
