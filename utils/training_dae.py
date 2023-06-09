@@ -70,7 +70,7 @@ def train_loop(model, args, train_loader, mode):
         else:
             params = model.net.linear.get_optim_ets_params()
             n_epochs = 50
-            step_lr = [10, 35, 45]
+            step_lr = [35, 45]
             model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         
         count = 0
@@ -91,7 +91,7 @@ def train_loop(model, args, train_loader, mode):
                                         lr=args.lr, weight_decay=0, momentum=0.9)
         else:
             n_epochs = 50
-            step_lr = [10, 35, 45]
+            step_lr = [35, 45]
             params = model.net.linear.get_optim_kbts_params()
             count = 0
             for param in params:
