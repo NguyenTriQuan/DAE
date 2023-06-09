@@ -206,10 +206,6 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
             break
-        print(args.task)
-        if args.task >= 0 :
-            if t != args.task:
-                continue
         train_loader, test_loader = dataset.get_data_loaders()   
         model.task += 1 
 
@@ -223,7 +219,11 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
         with torch.no_grad():
             model.get_rehearsal_logits(train_loader)
         # jr training
-        if t > 0:
+        run  = t > 0
+        if args.task >= 0 :
+            if t != args.task:
+                run = False
+        if run:
             # if 'tc' not in args.ablation:
             #     train_loop(t, model, dataset, args, progress_bar, train_loader, mode='tc')
                 # if 'kbts' not in args.ablation:
