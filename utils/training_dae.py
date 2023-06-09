@@ -201,9 +201,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     # model.net.load_state_dict(state_dict, strict=False)
     model.net = torch.load(base_path_memory() + args.title + '.net')
     progress_bar = ProgressBar(verbose=not args.non_verbose)
-    model.net.ets_cal_layers = torch.nn.ModuleList([])
-    model.net.kbts_cal_layers = torch.nn.ModuleList([])
-    model.net.set_jr_params(args.num_tasks)
+    model.net.set_cal_params(args.num_tasks)
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
             break
@@ -216,7 +214,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             eval_mode = 'ets'
 
         eval_mode += '_cal'
-        model.net.set_jr_params(t+1)
+        model.net.reset_jr_params(t+1)
         with torch.no_grad():
             model.get_rehearsal_logits(train_loader)
         # jr training
