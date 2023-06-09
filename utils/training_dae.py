@@ -65,8 +65,8 @@ def train_loop(model, args, train_loader, mode):
             step_lr = [130, 145]
             squeeze = 'squeeze' not in args.ablation
             from utils.lars_optimizer import LARC
-            # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
-            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+            model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+            # model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         else:
             params = model.net.linear.get_optim_ets_params()
             n_epochs = 50

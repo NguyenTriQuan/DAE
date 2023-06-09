@@ -94,7 +94,7 @@ def weighted_ensemble(outputs, weights, temperature):
     return log_outputs.squeeze(-1)
 
 
-def sup_con_loss(ind_features, features, labels, temperature):
+def sup_clr_ood_loss(ind_features, features, labels, temperature):
     labels = labels.repeat(2)
     labels = labels.contiguous().view(-1, 1)
     mask = torch.eq(labels, labels.T).float().to(device)
@@ -104,21 +104,37 @@ def sup_con_loss(ind_features, features, labels, temperature):
     logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
     logits = anchor_dot_contrast - logits_max.detach()
 
-    # # tile mask
-    # mask-out self-contrast cases
-    # logits_mask = torch.scatter(
-    #     torch.ones_like(mask),
-    #     1,
-    #     torch.arange(batch_size * 2).view(-1, 1).to(device),
-    #     0
-    # )
-    # mask = mask * logits_mask
-
     logits_mask = (1 - torch.eye(ind_features.shape[0]).to(device))  # remove diagonal shape: num ind, num ind
-    # mask = mask * logits_mask
+    mask = mask * logits_mask
     extend_mask = torch.ones(ind_features.shape[0], features.shape[0] - ind_features.shape[0]).to(device)
     logits_mask = torch.cat([logits_mask, extend_mask], dim=1) # shape num ind, num ind + ood
     mask = torch.cat([mask, 1-extend_mask], dim=1)
+
+    # compute log_prob
+    exp_logits = torch.exp(logits) * logits_mask
+    log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True))
+
+    # compute mean of log-likelihood over positive
+    mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
+
+    # loss
+    loss = -mean_log_prob_pos
+    loss = loss.mean()
+
+    return loss
+
+def sup_clr_loss(features, labels, temperature):
+    labels = labels.repeat(2)
+    labels = labels.contiguous().view(-1, 1)
+    mask = torch.eq(labels, labels.T).float().to(device)
+    # compute logits
+    anchor_dot_contrast = torch.div(torch.matmul(features, features.T), temperature)
+    # for numerical stability
+    logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
+    logits = anchor_dot_contrast - logits_max.detach()
+
+    logits_mask = (1 - torch.eye(features.shape[0]).to(device))  # remove diagonal shape: num ind, num ind
+    mask = mask * logits_mask
 
     # compute log_prob
     exp_logits = torch.exp(logits) * logits_mask
@@ -343,7 +359,7 @@ class DAE(ContinualModel):
     #     if verbose:
     #         wandb.log({"task": self.task, "epoch": epoch, f"{mode} train acc": correct / total * 100, f"{mode} test acc": test_acc})
 
-    def train_contrast(self, train_loader, mode, ets, kbts, buf_ood, feat, squeeze, augment):
+    def train_contrast(self, train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment):
         total = 0
         correct = 0
         total_loss = 0
@@ -356,26 +372,29 @@ class DAE(ContinualModel):
             inputs, labels = data
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
-            rot = random.randint(1, 3)
-            ood_inputs = torch.rot90(inputs, rot, dims=(2, 3))
-            ood_labels = torch.zeros_like(labels)
-            if buf_ood:
-                if self.buffer is not None:
-                    try:
-                        buffer_data = next(buffer)
-                    except StopIteration:
-                        # restart the generator if the previous generator is exhausted.
-                        buffer = iter(self.buffer)
-                        buffer_data = next(buffer)
-                    buffer_data = [tmp.to(self.device) for tmp in buffer_data]
-                    ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
-                    ood_labels = torch.cat([ood_labels, torch.zeros_like(buffer_data[1])], dim=0)
+            if clr_ood:
+                rot = random.randint(1, 3)
+                ood_inputs = torch.rot90(inputs, rot, dims=(2, 3))
+                if buf_ood:
+                    if self.buffer is not None:
+                        try:
+                            buffer_data = next(buffer)
+                        except StopIteration:
+                            # restart the generator if the previous generator is exhausted.
+                            buffer = iter(self.buffer)
+                            buffer_data = next(buffer)
+                        buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+                        ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
 
             if feat:
-                inputs = torch.cat([inputs, inputs, ood_inputs], dim=0)
+                inputs = torch.cat([inputs, inputs], dim=0)
+                if clr_ood:
+                    inputs = torch.cat([inputs, ood_inputs], dim=0)
             else:
-                inputs = torch.cat([inputs, ood_inputs], dim=0)
-                labels = torch.cat([labels, ood_labels], dim=0)
+                if clr_ood:
+                    ood_labels = torch.zeros(ood_inputs.shape[0]).to(device)
+                    inputs = torch.cat([inputs, ood_inputs], dim=0)
+                    labels = torch.cat([labels, ood_labels], dim=0)
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             inputs = self.dataset.test_transforms[self.task](inputs)
@@ -387,8 +406,11 @@ class DAE(ContinualModel):
 
             if feat:
                 outputs = F.normalize(outputs, p=2, dim=1)
-                ind_outputs = outputs[:labels.shape[0]*2]
-                loss = sup_con_loss(ind_outputs, outputs, labels, self.args.temperature)
+                if clr_ood:
+                    ind_outputs = outputs[:labels.shape[0]*2]
+                    loss = sup_clr_ood_loss(ind_outputs, outputs, labels, self.args.temperature)
+                else:
+                    loss = sup_clr_loss(outputs, labels, self.args.temperature)
             else:
                 loss = self.loss(outputs, labels)
             loss.backward()
