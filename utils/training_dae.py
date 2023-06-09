@@ -29,6 +29,7 @@ def train_loop(model, args, train_loader, mode):
     ets = 'ets' in mode
     kbts = 'kbts' in mode
     buf_ood = 'buf_ood' not in args.ablation
+    clr_ood = 'clr_ood' not in args.ablation
     feat = 'feat' in mode
     cal = 'cal' in mode
     num_squeeze = 0
@@ -108,7 +109,7 @@ def train_loop(model, args, train_loader, mode):
         if cal:
             loss = model.train_calibration(mode, ets, kbts)
         else:          
-            loss = model.train_contrast(train_loader, mode, ets, kbts, buf_ood, feat, squeeze, augment)
+            loss = model.train_contrast(train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment)
 
         if args.verbose:
             if squeeze:
