@@ -62,7 +62,7 @@ def modified_kl_div(old, new):
 
 
 def entropy(x):
-    return -torch.sum(x * torch.log(x), dim=1)
+    return -torch.sum(x * torch.log(x+1e-9), dim=1)
 
 
 def logmeanexp(x, dim=None, keepdim=False):
@@ -423,7 +423,6 @@ class DAE(ContinualModel):
 
             outputs = torch.stack(outputs, dim=0)
             outputs = outputs[:, :, 1:]  # ignore ood class
-            print(outputs.abs().max(), outputs.abs().min())
             outputs = ensemble_outputs(outputs)
             join_entropy = entropy(outputs.exp())
             join_entropy = join_entropy.view(self.task + 1, data[0].shape[0]).permute(1, 0)  # shape [batch size, num tasks]
