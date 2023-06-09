@@ -206,6 +206,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
             break
+        print(args.task)
         if args.task >= 0 :
             if t != args.task:
                 continue
