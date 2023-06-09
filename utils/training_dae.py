@@ -114,6 +114,7 @@ def train_loop(model, args, train_loader, mode):
             if squeeze:
                 num_params, num_neurons = model.net.count_params()
                 num_neurons = '-'.join(str(int(num)) for num in num_neurons)
+                num_params = sum(num_params)
                 progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, 0, num_params, num_neurons)
                 wandb.log({"task": model.task, "epoch": epoch, f"Task {model.task} {mode} loss": loss, "params": num_params})
             else:
