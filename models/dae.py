@@ -274,7 +274,8 @@ class DAE(ContinualModel):
                 cil_avg = round(np.mean(cil_accs), 2)
                 til_avg = round(np.mean(til_accs), 2)
                 print(f"Task {len(til_accs)-1}: {mode}: cil {cil_avg} {cil_accs}, til {til_avg} {til_accs}, tp {task_acc}")
-                wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, f"{mode}_tp": task_acc, "task": len(til_accs) - 1})
+                if self.args.verbose:
+                    wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, f"{mode}_tp": task_acc, "task": len(til_accs) - 1})
                 return til_accs, cil_accs, task_acc
             else:
                 return til_accs[0]
