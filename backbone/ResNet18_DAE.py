@@ -230,8 +230,6 @@ class ResNet(_DynamicModel):
         self.kbts_cal_layers = nn.ModuleList([])
         
         self.projector = nn.Sequential(
-            nn.Linear(last_dim, last_dim),
-            nn.ReLU(),
             nn.Linear(last_dim, 128)
         ).to(device)
         
