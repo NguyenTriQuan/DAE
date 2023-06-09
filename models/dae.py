@@ -393,7 +393,7 @@ class DAE(ContinualModel):
                     inputs = torch.cat([inputs, ood_inputs], dim=0)
             else:
                 if clr_ood:
-                    ood_labels = torch.zeros(ood_inputs.shape[0]).to(device)
+                    ood_labels = torch.zeros(ood_inputs.shape[0], dtype=torch.long).to(device)
                     inputs = torch.cat([inputs, ood_inputs], dim=0)
                     # labels = torch.cat([labels, ood_labels], dim=0)
             if augment:

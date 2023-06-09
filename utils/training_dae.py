@@ -61,9 +61,9 @@ def train_loop(model, args, train_loader, mode):
     elif ets:
         if feat:
             params = model.net.get_optim_ets_params()
-            n_epochs = 150
+            n_epochs = 200
             num_squeeze = 100
-            step_lr = [130, 145]
+            step_lr = [130, 180]
             squeeze = 'squeeze' not in args.ablation
             from utils.lars_optimizer import LARC
             model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
@@ -82,8 +82,8 @@ def train_loop(model, args, train_loader, mode):
         
     elif kbts:
         if 'feat' in mode:
-            n_epochs = 120
-            step_lr = [100, 115]
+            n_epochs = 200
+            step_lr = [130, 180]
             params, scores = model.net.get_optim_kbts_params()
             count = 0
             for param in params + scores:
