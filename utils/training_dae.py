@@ -214,7 +214,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             eval_mode = 'ets'
 
         eval_mode += '_cal'
-        model.net.reset_jr_params(t+1)
+        model.net.reset_cal_params(t+1)
         with torch.no_grad():
             model.get_rehearsal_logits(train_loader)
         # jr training
