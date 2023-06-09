@@ -221,7 +221,7 @@ class ResNet(_DynamicModel):
         self.layers += self._make_layer(block, nf * 8, num_blocks[3], stride=2, norm_type=norm_type, args=args)
 
         last_dim = nf * 8 * block.expansion
-        self.mid = DynamicBlock([DynamicLinear(last_dim, last_dim, bias=False, args=args, s=1)], None, args)
+        # self.mid = DynamicBlock([DynamicLinear(last_dim, last_dim, bias=False, args=args, s=1)], None, args)
         self.linear = DynamicClassifier(last_dim, num_classes, norm_type=norm_type, args=args, s=1)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
@@ -282,7 +282,7 @@ class ResNet(_DynamicModel):
 
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
-        feature = self.mid.ets_forward([feature], t)
+        # feature = self.mid.ets_forward([feature], t)
 
         if feat:
             return self.projector(feature)
@@ -310,7 +310,7 @@ class ResNet(_DynamicModel):
 
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
-        feature = self.mid.kbts_forward([feature], t)
+        # feature = self.mid.kbts_forward([feature], t)
         if feat:
             return self.projector(feature)
         else:
@@ -329,14 +329,22 @@ class ResNet(_DynamicModel):
         else:
             add_in = self.conv1.expand([(0, 0)], [(None, None)])
 
-        for block in self.layers:
+        for block in self.layers[:-1]:
             add_in_1 = block.conv1.expand([add_in], [(None, None)])
             add_in = block.conv2.expand([add_in, add_in_1], [(None, None), (None, None)])
 
+        # do not expand and squeeze the last layer (fix number of features)
+        block = self.layers[-1]
         if t == 0:
-            add_in = self.mid.expand([add_in], [(None, None)])
+            add_in_1 = block.conv1.expand([add_in], [(None, None)])
+            add_in = block.conv2.expand([add_in, add_in_1], [(None, None), (None, None)])
         else:
-            add_in = self.mid.expand([add_in], [(0, 0)])
+            add_in_1 = block.conv1.expand([add_in], [(None, None)])
+            add_in = block.conv2.expand([add_in, add_in_1], [(0, 0), (0, 0)])
+        # if t == 0:
+        #     add_in = self.mid.expand([add_in], [(None, None)])
+        # else:
+        #     add_in = self.mid.expand([add_in], [(0, 0)])
         self.linear.expand(add_in, (new_classes+1, new_classes+1))
         self.total_strength = 1
         for m in self.DB:
@@ -353,7 +361,7 @@ class ResNet(_DynamicModel):
             block.conv2.squeeze(optim_state, [mask_in, block.conv1.mask_out])
             mask_in = block.conv2.mask_out
         
-        self.mid.squeeze(optim_state, [mask_in])
+        # self.mid.squeeze(optim_state, [mask_in])
         # self.linear.squeeze(optim_state, mask_in, None)
 
         self.total_strength = 1
@@ -366,14 +374,23 @@ class ResNet(_DynamicModel):
         else:
             add_in = self.conv1.get_masked_kb_params(t, [0], [None])
 
-        for block in self.layers:
+        for block in self.layers[:-1]:
             add_in_1 = block.conv1.get_masked_kb_params(t, [add_in], [None])
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
+        # do not expand and squeeze the last layer (fix number of features)
+        block = self.layers[-1]
         if t == 0:
-            self.mid.get_masked_kb_params(t, [add_in], [None])
+            add_in_1 = block.conv1.get_masked_kb_params(t, [add_in], [None])
+            add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
         else:
-            self.mid.get_masked_kb_params(t, [add_in], [0])
+            add_in_1 = block.conv1.get_masked_kb_params(t, [add_in], [None])
+            add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [0, 0])
+
+        # if t == 0:
+        #     self.mid.get_masked_kb_params(t, [add_in], [None])
+        # else:
+        #     self.mid.get_masked_kb_params(t, [add_in], [0])
 
     def set_cal_params(self, num_tasks):
         hidden_dim = 128
