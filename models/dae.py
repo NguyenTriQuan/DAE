@@ -370,6 +370,7 @@ class DAE(ContinualModel):
             buffer = iter(self.buffer)
         for i, data in enumerate(train_loader):
             inputs, labels = data
+            bs = labels.shape[0]
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
             if clr_ood:
@@ -394,7 +395,7 @@ class DAE(ContinualModel):
                 if clr_ood:
                     ood_labels = torch.zeros(ood_inputs.shape[0]).to(device)
                     inputs = torch.cat([inputs, ood_inputs], dim=0)
-                    labels = torch.cat([labels, ood_labels], dim=0)
+                    # labels = torch.cat([labels, ood_labels], dim=0)
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             inputs = self.dataset.test_transforms[self.task](inputs)
@@ -407,16 +408,21 @@ class DAE(ContinualModel):
             if feat:
                 outputs = F.normalize(outputs, p=2, dim=1)
                 if clr_ood:
-                    ind_outputs = outputs[:labels.shape[0]*2]
+                    ind_outputs = outputs[:bs*2]
                     loss = sup_clr_ood_loss(ind_outputs, outputs, labels, self.args.temperature)
                 else:
                     loss = sup_clr_loss(outputs, labels, self.args.temperature)
             else:
-                loss = self.loss(outputs, labels)
+                if clr_ood:
+                    ind_outputs = outputs[:bs]
+                    ood_outputs = outputs[bs:]
+                    loss = self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)
+                else:
+                    loss = self.loss(outputs, labels)
             loss.backward()
             self.opt.step()
-            total += labels.shape[0]
-            total_loss += loss.item() * labels.shape[0]
+            total += bs
+            total_loss += loss.item() * bs
             if squeeze:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
                 

@@ -230,6 +230,8 @@ class ResNet(_DynamicModel):
         self.kbts_cal_layers = nn.ModuleList([])
         
         self.projector = nn.Sequential(
+            nn.Linear(last_dim, last_dim),
+            nn.ReLU(),
             nn.Linear(last_dim, 128)
         ).to(device)
         
@@ -250,25 +252,6 @@ class ResNet(_DynamicModel):
             layers.append(block(self.in_planes, planes, stride, norm_type, args))
             self.in_planes = planes * block.expansion
         return nn.ModuleList(layers)
-    
-    def cal_forward(self, x, t, cal=True):
-        hidden_tasks = self.task_feature_layers(x)
-        with torch.no_grad():
-            feat, out_ets = self.ets_forward(x, t, feat=True)
-        # hidden_ets = self.ets_cal_layers[t](feat)
-        with torch.no_grad():
-            feat, out_kbts = self.kbts_forward(x, t, feat=True)
-        # hidden_kbts = self.kbts_cal_layers[t](feat)
-        # hidden = hidden_ets + hidden_kbts + hidden_tasks
-        # hidden = hidden_tasks
-        # hidden = self.projector(hidden)
-        if not cal:
-            return hidden_tasks
-        else:
-            scales = self.cal_head(hidden_tasks)[:, t].view(-1, 1)
-            out_ets = out_ets * scales
-            out_kbts = out_kbts * scales
-            return ensemble_outputs([out_ets, out_kbts])
 
 
     def ets_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
