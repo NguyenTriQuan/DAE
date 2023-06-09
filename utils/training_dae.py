@@ -232,13 +232,6 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             if 'kbts' not in args.ablation:
                 train_loop(model, args, train_loader, mode='kbts_cal')
 
-            try:
-                model.net.clear_memory()
-                torch.save(model.net, base_path_memory() + args.title + '.net')
-                print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
-            except:
-                print('no save')
-
             model.evaluate(task=None, mode=eval_mode)
 
             eval_mode += '_ba'
