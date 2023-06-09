@@ -341,14 +341,10 @@ class DAE(ContinualModel):
     #     if verbose:
     #         wandb.log({"task": self.task, "epoch": epoch, f"{mode} train acc": correct / total * 100, f"{mode} test acc": test_acc})
 
-    def train_contrast(self, train_loader, mode, ets, kbts, buf_ood, feat, squeeze, augment, epoch):
+    def train_contrast(self, train_loader, mode, ets, kbts, buf_ood, feat, squeeze, augment):
         total = 0
         correct = 0
         total_loss = 0
-        if self.args.verbose:
-            num_params, num_neurons = self.net.count_params()
-            num_params = sum(num_params)
-            progress_bar = ProgressBar()
 
         self.net.train()
 
@@ -399,26 +395,18 @@ class DAE(ContinualModel):
             total_loss += loss.item() * labels.shape[0]
             if squeeze:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
-                if self.args.verbose:
-                    num_neurons = [m.mask_out.sum().item() for m in self.net.DB[:-1]]
-                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss / total, 0, 0, num_params, num_neurons)
-            else:
-                if self.args.verbose:
-                    progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss / total, 0, 0, num_params)
+                
         if squeeze:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
-        if self.args.verbose:
-            wandb.log({"task": self.task, "epoch": epoch, f"{mode} loss": total_loss / total, "params": num_params})
 
-    def train_calibration(self, epoch, mode, ets, kbts):
+        return total_loss / total
+
+    def train_calibration(self, mode, ets, kbts):
         self.net.train()
         total = 0
         correct = 0
         total_loss = 0
-
-        if self.args.verbose:
-            progress_bar = ProgressBar()
 
         for i, data in enumerate(self.buffer):
             self.opt.zero_grad()
@@ -432,8 +420,6 @@ class DAE(ContinualModel):
             if kbts:
                 outputs += [torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) for t in range(self.task + 1)])]
 
-            # outputs = torch.cat([self.net.cal_forward(self.dataset.test_transforms[t](inputs), t, cal=True)
-            #                           for t in range(self.task+1)])
             outputs = torch.stack(outputs, dim=0)
             outputs = outputs[:, :, 1:]  # ignore ood class
             outputs = ensemble_outputs(outputs)
@@ -447,12 +433,9 @@ class DAE(ContinualModel):
             self.opt.step()
             total += data[1].shape[0]
             total_loss += loss.item()
-            if self.args.verbose:
-                progress_bar.prog(i, len(self.buffer), epoch, self.task, total_loss / total)
 
         self.scheduler.step()
-        if self.args.verbose:
-            wandb.log({"task": self.task, "epoch": epoch, f"{mode} loss": total_loss / total})
+        return total_loss / total
 
     def begin_task(self, dataset):
         self.task += 1

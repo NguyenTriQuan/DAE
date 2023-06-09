@@ -103,14 +103,22 @@ def train_loop(model, args, train_loader, mode):
 
     if 'epoch' in args.ablation:
         n_epochs = 10
+    progress_bar = ProgressBar()
     for epoch in range(n_epochs):
         if cal:
-            model.train_calibration(epoch, mode, ets, kbts)
+            loss = model.train_calibration(mode, ets, kbts)
         else:          
-            # model.train(train_loader, progress_bar, mode, squeeze, augment, epoch, args.verbose)
-            model.train_contrast(train_loader, mode, ets, kbts, buf_ood, feat, squeeze, augment, epoch)
+            loss = model.train_contrast(train_loader, mode, ets, kbts, buf_ood, feat, squeeze, augment)
 
-        # do not perform squeeze and augment at a few last epochs for better convergence
+        if args.verbose:
+            if squeeze:
+                num_params, num_neurons = model.net.count_params()
+                num_neurons = '-'.join(str(int(num)) for num in num_neurons)
+                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, 0, num_params, num_neurons)
+                wandb.log({"task": model.task, "epoch": epoch, f"Task {model.task} {mode} loss": loss, "params": num_params})
+            else:
+                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, 0)
+                wandb.log({"task": model.task, "epoch": epoch, f"Task {model.task} {mode} loss": loss})
         if epoch >= num_squeeze:
             squeeze = False
 

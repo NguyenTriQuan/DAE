@@ -24,9 +24,7 @@ class ProgressBar:
         :param epoch: the epoch
         :param task_number: the task index
         :param loss: the current value of the loss function
-        """
-        if num_neurons is not None:
-            num_neurons = '-'.join(str(int(num)) for num in num_neurons)
+        """        
         if not self.verbose:
             if i == 0:
                 print('[ {} ] Task {} | epoch {}\n'.format(
