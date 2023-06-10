@@ -310,7 +310,7 @@ class ResNet(_DynamicModel):
         else:
             add_in = self.conv1.expand([(0, 0)], [(None, None)])
 
-        for block in self.layers[:-1]:
+        for block in self.layers:
             add_in_1 = block.conv1.expand([add_in], [(None, None)])
             add_in = block.conv2.expand([add_in, add_in_1], [(None, None), (None, None)])
 
@@ -356,7 +356,7 @@ class ResNet(_DynamicModel):
         else:
             add_in = self.conv1.get_masked_kb_params(t, [0], [None])
 
-        for block in self.layers[:-1]:
+        for block in self.layers:
             add_in_1 = block.conv1.get_masked_kb_params(t, [add_in], [None])
             add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [None, None])
 
