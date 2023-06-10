@@ -416,7 +416,7 @@ class DAE(ContinualModel):
                 if clr_ood:
                     ind_outputs = outputs[:bs]
                     ood_outputs = outputs[bs:]
-                    loss = self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)
+                    loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
                 else:
                     loss = self.loss(outputs, labels)
             loss.backward()

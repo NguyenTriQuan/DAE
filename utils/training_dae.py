@@ -44,7 +44,7 @@ def train_loop(model, args, train_loader, mode):
             count += param.numel()
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [5, 35, 45], gamma=0.1, verbose=False)
+        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
     # elif 'tc' in mode:
     #     # tasks contrast:
     #     n_epochs = 100
@@ -61,17 +61,17 @@ def train_loop(model, args, train_loader, mode):
     elif ets:
         if feat:
             params = model.net.get_optim_ets_params()
-            n_epochs = 200
+            n_epochs = 150
             num_squeeze = 100
-            step_lr = [130, 180]
+            step_lr = [130, 145]
             squeeze = 'squeeze' not in args.ablation
             from utils.lars_optimizer import LARC
-            model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
-            # model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+            # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         else:
             params = model.net.linear.get_optim_ets_params()
             n_epochs = 50
-            step_lr = [5, 35, 45]
+            step_lr = [35, 45]
             model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         
         count = 0
@@ -82,8 +82,8 @@ def train_loop(model, args, train_loader, mode):
         
     elif kbts:
         if 'feat' in mode:
-            n_epochs = 200
-            step_lr = [130, 180]
+            n_epochs = 120
+            step_lr = [100, 115]
             params, scores = model.net.get_optim_kbts_params()
             count = 0
             for param in params + scores:
@@ -92,7 +92,7 @@ def train_loop(model, args, train_loader, mode):
                                         lr=args.lr, weight_decay=0, momentum=0.9)
         else:
             n_epochs = 50
-            step_lr = [5, 35, 45]
+            step_lr = [35, 45]
             params = model.net.linear.get_optim_kbts_params()
             count = 0
             for param in params:
