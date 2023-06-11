@@ -419,6 +419,7 @@ class DAE(ContinualModel):
                     loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
                 else:
                     loss = self.loss(outputs, labels)
+            assert not math.isnan(loss)
             loss.backward()
             self.opt.step()
             total += bs
@@ -459,6 +460,7 @@ class DAE(ContinualModel):
             loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
             loss = torch.mean(loss)
 
+            assert not math.isnan(loss)
             loss.backward()
             self.opt.step()
             total += data[1].shape[0]
