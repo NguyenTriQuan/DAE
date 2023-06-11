@@ -42,8 +42,6 @@ class SequentialCIFAR100(ContinualDataset):
                                         (0.2675, 0.2565, 0.2761)),
             )
     test_transforms = []
-    test_loaders = []
-    train_loaders = []
     
     train_set=CIFAR100(base_path() + 'CIFAR100',train=True,download=True)
     test_set=CIFAR100(base_path() + 'CIFAR100',train=False,download=True)
@@ -63,7 +61,6 @@ class SequentialCIFAR100(ContinualDataset):
         train_loader = DataLoader(TensorDataset(self.train_data[train_mask], self.train_targets[train_mask]), batch_size=self.args.batch_size, shuffle=True)
         test_loader = DataLoader(TensorDataset(self.test_data[test_mask], self.test_targets[test_mask]), batch_size=self.args.val_batch_size, shuffle=False)
         self.test_loaders.append(test_loader)
-        self.train_loaders.append(train_loader)
         self.train_loader = train_loader
         if 'dis' in self.args.ablation:
             mean = train_loader.dataset.tensors[0].mean((0, 2, 3))
@@ -83,7 +80,6 @@ class SequentialCIFAR100(ContinualDataset):
         train_loader = DataLoader(TensorDataset(self.train_data, self.train_targets), batch_size=self.args.batch_size, shuffle=True)
         test_loader = DataLoader(TensorDataset(self.test_data, self.test_targets), batch_size=self.args.val_batch_size, shuffle=False)
         self.test_loaders.append(test_loader)
-        self.train_loaders.append(train_loader)
         self.train_loader = train_loader
         mean = train_loader.dataset.tensors[0].mean((0, 2, 3))
         std = train_loader.dataset.tensors[0].std((0, 2, 3), unbiased=False)

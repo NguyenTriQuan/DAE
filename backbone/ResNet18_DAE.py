@@ -232,6 +232,7 @@ class ResNet(_DynamicModel):
         self.projector = nn.Sequential(
             nn.Linear(last_dim, 128)
         ).to(device)
+        self.last_dim = last_dim
         
         
     def _make_layer(self, block: BasicBlock, planes: int,
@@ -381,12 +382,12 @@ class ResNet(_DynamicModel):
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
 
-        for i in range(len(self.linear.weight_ets)):
-            ets_dim = self.linear.weight_ets[i].shape[1]
-            kbts_dim = self.linear.weight_kbts[i].shape[1]
+        for i in range(num_tasks):
+            # ets_dim = self.linear.weight_ets[i].shape[1]
+            # kbts_dim = self.linear.weight_kbts[i].shape[1]
             self.ets_cal_layers.append(
                 nn.Sequential(
-                    nn.Linear(ets_dim, hidden_dim),
+                    nn.Linear(self.last_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
                     nn.Linear(hidden_dim, hidden_dim),
@@ -398,7 +399,7 @@ class ResNet(_DynamicModel):
             )
             self.kbts_cal_layers.append(
                 nn.Sequential(
-                    nn.Linear(kbts_dim, hidden_dim),
+                    nn.Linear(self.last_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
                     nn.Linear(hidden_dim, hidden_dim),
