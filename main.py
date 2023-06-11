@@ -177,7 +177,7 @@ def main(args=None):
     elif isinstance(dataset, ContinualDataset):
         train(model, dataset, args)
         train_cal(model, dataset, args)
-        evaluate(model, dataset, args)
+        # evaluate(model, dataset, args)
     else:
         assert not hasattr(model, 'end_task') or model.NAME == 'joint_gcl'
         ctrain(args)

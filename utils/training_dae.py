@@ -65,9 +65,9 @@ def train_loop(model, args, train_loader, mode):
             num_squeeze = 100
             step_lr = [130, 145]
             squeeze = 'squeeze' not in args.ablation
-            from utils.lars_optimizer import LARC
-            model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
-            # model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+            # from utils.lars_optimizer import LARC
+            # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         else:
             params = model.net.linear.get_optim_ets_params()
             n_epochs = 50
@@ -88,11 +88,11 @@ def train_loop(model, args, train_loader, mode):
             count = 0
             for param in params + scores:
                 count += param.numel()
-            # model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-            #                             lr=args.lr, weight_decay=0, momentum=0.9)
-            from utils.lars_optimizer import LARC
-            model.opt = LARC(torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-                                             lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+            model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+                                        lr=args.lr, weight_decay=0, momentum=0.9)
+            # from utils.lars_optimizer import LARC
+            # model.opt = LARC(torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+            #                                  lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
         else:
             n_epochs = 50
             step_lr = [5, 35, 45]
