@@ -214,9 +214,9 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
         if t >= args.num_tasks:
             break
         model.task += 1
+        model.net.reset_cal_params(t+1)
         if args.cal:
             train_loader, test_loader = dataset.get_data_loaders()   
-            model.net.reset_cal_params(t+1)
             with torch.no_grad():
                 model.get_rehearsal_logits(train_loader)
         else:
