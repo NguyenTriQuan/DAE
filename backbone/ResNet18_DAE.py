@@ -327,7 +327,7 @@ class ResNet(_DynamicModel):
             add_in = self.mid.expand([add_in], [(None, None)])
         else:
             add_in = self.mid.expand([add_in], [(0, 0)])
-        self.linear.expand(add_in, (new_classes+1, new_classes+1))
+        self.linear.expand(add_in, (new_classes, new_classes))
         self.total_strength = 1
         for m in self.DB:
             self.total_strength += m.strength

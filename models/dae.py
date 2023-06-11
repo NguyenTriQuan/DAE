@@ -202,11 +202,11 @@ class DAE(ContinualModel):
             if ba:
                 outputs = [out.view(N, bs, -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=0)
-                outputs = outputs[:, :, 1:]  # ignore ood class
+                # outputs = outputs[:, :, 1:]  # ignore ood class
                 outputs = ensemble_outputs(outputs)
             else:
                 outputs = torch.stack(outputs, dim=0)
-                outputs = outputs[:, :, 1:]  # ignore ood class
+                # outputs = outputs[:, :, 1:]  # ignore ood class
                 outputs = ensemble_outputs(outputs)
 
             predicts = outputs.argmax(1)
@@ -227,14 +227,14 @@ class DAE(ContinualModel):
                 if ba:
                     outputs = [out.view(N, bs, -1) for out in outputs]
                     outputs = torch.cat(outputs, dim=0)
-                    outputs = outputs[:, :, 1:]  # ignore ood class
+                    # outputs = outputs[:, :, 1:]  # ignore ood class
                     outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
                 else:
                     outputs = torch.stack(outputs, dim=0)
-                    outputs = outputs[:, :, 1:]  # ignore ood class
+                    # outputs = outputs[:, :, 1:]  # ignore ood class
                     outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
@@ -297,68 +297,6 @@ class DAE(ContinualModel):
             else:
                 return til_accs[0]
 
-    # def train(self, train_loader, progress_bar, mode, squeeze, augment, epoch, verbose=False):
-    #     total = 0
-    #     correct = 0
-    #     total_loss = 0
-    #     if verbose:
-    #         test_acc = self.evaluate(self.task, mode=mode)
-    #         num_params, num_neurons = self.net.count_params()
-    #         num_params = sum(num_params)
-    #         progress_bar = ProgressBar()
-
-    #     self.net.train()
-    #     if self.buffer is not None:
-    #         buffer = iter(self.buffer)
-    #     for i, data in enumerate(train_loader):
-    #         inputs, labels = data
-    #         inputs, labels = inputs.to(self.device), labels.to(self.device)
-    #         labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
-    #         ood_inputs = torch.rot90(inputs, 2, dims=(2, 3))
-    #         ood_labels = torch.zeros_like(labels)
-    #         if self.buffer is not None:
-    #             try:
-    #                 buffer_data = next(buffer)
-    #             except StopIteration:
-    #                 # restart the generator if the previous generator is exhausted.
-    #                 buffer = iter(self.buffer)
-    #                 buffer_data = next(buffer)
-    #             buffer_data = [tmp.to(self.device) for tmp in buffer_data]
-    #             ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
-    #             ood_labels = torch.cat([ood_labels, torch.zeros_like(buffer_data[1])], dim=0)
-
-    #         inputs = torch.cat([inputs, ood_inputs], dim=0)
-    #         labels = torch.cat([labels, ood_labels], dim=0)
-    #         if augment:
-    #             inputs = self.dataset.train_transform(inputs)
-    #         inputs = self.dataset.test_transforms[self.task](inputs)
-    #         self.opt.zero_grad()
-    #         if mode == "ets":
-    #             outputs = self.net.ets_forward(inputs, self.task)
-    #         elif mode == "kbts":
-    #             outputs = self.net.kbts_forward(inputs, self.task)
-
-    #         loss = self.loss(outputs, labels)
-    #         loss.backward()
-    #         self.opt.step()
-    #         _, predicts = outputs.max(1)
-    #         correct += torch.sum(predicts == labels).item()
-    #         total += labels.shape[0]
-    #         total_loss += loss.item() * labels.shape[0]
-    #         if squeeze:
-    #             self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
-    #             if verbose:
-    #                 num_neurons = [m.mask_out.sum().item() for m in self.net.DB]
-    #                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss / total, correct / total * 100, test_acc, num_params, num_neurons)
-    #         else:
-    #             if verbose:
-    #                 progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss / total, correct / total * 100, test_acc, num_params)
-    #     if squeeze:
-    #         self.net.squeeze(self.opt.state)
-    #     self.scheduler.step()
-    #     if verbose:
-    #         wandb.log({"task": self.task, "epoch": epoch, f"{mode} train acc": correct / total * 100, f"{mode} test acc": test_acc})
-
     def train_contrast(self, train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment):
         total = 0
         correct = 0
@@ -372,7 +310,7 @@ class DAE(ContinualModel):
             inputs, labels = data
             bs = labels.shape[0]
             inputs, labels = inputs.to(self.device), labels.to(self.device)
-            labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK + 1
+            labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
             if clr_ood:
                 rot = random.randint(1, 3)
                 ood_inputs = torch.rot90(inputs, rot, dims=(2, 3))
@@ -393,7 +331,7 @@ class DAE(ContinualModel):
                     inputs = torch.cat([inputs, ood_inputs], dim=0)
             else:
                 if clr_ood:
-                    ood_labels = torch.zeros(ood_inputs.shape[0], dtype=torch.long).to(device)
+                    # ood_labels = torch.zeros(ood_inputs.shape[0], dtype=torch.long).to(device)
                     inputs = torch.cat([inputs, ood_inputs], dim=0)
                     # labels = torch.cat([labels, ood_labels], dim=0)
             if augment:
@@ -416,7 +354,9 @@ class DAE(ContinualModel):
                 if clr_ood:
                     ind_outputs = outputs[:bs]
                     ood_outputs = outputs[bs:]
-                    loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
+                    # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
+                    ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
+                    loss = self.loss(ind_outputs, labels) - entropy(ood_outputs.exp())
                 else:
                     loss = self.loss(outputs, labels)
             assert not math.isnan(loss)
@@ -452,7 +392,7 @@ class DAE(ContinualModel):
                 outputs += [torch.cat([self.net.kbts_forward(self.dataset.test_transforms[t](inputs), t, feat=False, cal=True) for t in range(self.task + 1)])]
 
             outputs = torch.stack(outputs, dim=0)
-            outputs = outputs[:, :, 1:]  # ignore ood class
+            # outputs = outputs[:, :, 1:]  # ignore ood class
             outputs = ensemble_outputs(outputs)
             join_entropy = entropy(outputs.exp())
             join_entropy = join_entropy.view(self.task + 1, data[0].shape[0]).permute(1, 0)  # shape [batch size, num tasks]
