@@ -134,8 +134,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
     # model.net.load_state_dict(state_dict, strict=False)
-    if args.eval:
-        model.net = torch.load(base_path_memory() + args.title + '.net')
+    model.net = torch.load(base_path_memory() + args.title + '.net')
     # artifact = args.run.use_artifact('entity/DAE/model:v0', type='model')
     # artifact_dir = artifact.download()
     # model.net = torch.load(artifact_dir)
@@ -149,9 +148,8 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         if args.task >= 0 :
             if t != args.task:
                 continue
-        if args.eval:
-            model.task += 1
-            train_loader, test_loader = dataset.get_data_loaders()   
+        model.task += 1
+        train_loader, test_loader = dataset.get_data_loaders()   
         print(f'Task {t}:')
         num_params, num_neurons = model.net.count_params(t)
         num_params = sum(num_params)
@@ -204,9 +202,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
     # model.net.load_state_dict(state_dict, strict=False)
-    model.task = -1
-    if args.cal:
-        model.net = torch.load(base_path_memory() + args.title + '.net')
+    model.net = torch.load(base_path_memory() + args.title + '.net')
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     model.net.set_cal_params(args.num_tasks)
     for t in range(dataset.N_TASKS):
@@ -214,12 +210,9 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             break
         model.task += 1
         model.net.reset_cal_params(t+1)
-        if args.cal:
-            train_loader, test_loader = dataset.get_data_loaders()   
-            with torch.no_grad():
-                model.get_rehearsal_logits(train_loader)
-        else:
-            train_loader = dataset.train_loaders[t]
+        train_loader, test_loader = dataset.get_data_loaders()   
+        with torch.no_grad():
+            model.get_rehearsal_logits(train_loader)
         print('Task', model.task)
         if 'kbts' not in args.ablation:
             eval_mode = 'ets_kbts'
@@ -259,9 +252,8 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             mode = 'kbts_cal_ba'
             model.evaluate(task=None, mode=mode)
 
-        if args.cal:
-            with torch.no_grad():
-                model.fill_buffer(train_loader)
+        with torch.no_grad():
+            model.fill_buffer(train_loader)
 
 def train(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
