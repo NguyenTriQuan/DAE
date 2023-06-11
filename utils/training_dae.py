@@ -290,6 +290,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # logger = Logger(dataset.SETTING, dataset.NAME, model.NAME)
 
     print(file=sys.stderr)
+
+    if 'cal' not in args.ablation:
+        model.net.set_cal_params(args.num_tasks)
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
             break
@@ -340,10 +343,6 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         torch.save(model.net, base_path_memory() + args.title + '.net')
         print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
 
-        with torch.no_grad():
-            model.get_rehearsal_logits(train_loader)
-            model.fill_buffer(train_loader)
-
         if args.verbose:
             if 'kbts' not in args.ablation:
                 eval_mode = 'ets_kbts'
@@ -361,6 +360,37 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
             mode = 'ets'
             model.evaluate(task=None, mode=mode)
+
+        with torch.no_grad():
+            model.get_rehearsal_logits(train_loader)
+
+        if 'cal' not in args.ablation:
+            model.net.reset_cal_params(t+1)
+            if t > 0:
+                train_loop(model, args, train_loader, mode='ets_cal')
+                if 'kbts' not in args.ablation:
+                    train_loop(model, args, train_loader, mode='kbts_cal')
+
+                if args.verbose:
+                    model.evaluate(task=None, mode=eval_mode)
+
+                    eval_mode += '_ba'
+                    model.evaluate(task=None, mode=eval_mode)
+
+                    mode = 'ets_cal'
+                    model.evaluate(task=None, mode=mode)
+
+                    mode = 'ets_cal_ba'
+                    model.evaluate(task=None, mode=mode)
+
+                    mode = 'kbts_cal'
+                    model.evaluate(task=None, mode=mode)
+
+                    mode = 'kbts_cal_ba'
+                    model.evaluate(task=None, mode=mode)
+
+        with torch.no_grad():
+            model.fill_buffer(train_loader)
 
 
         # torch.save(model.net.state_dict(), base_path_memory() + args.title + '.net')
