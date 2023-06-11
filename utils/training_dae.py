@@ -344,22 +344,24 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
 
         if args.verbose:
-            if 'kbts' not in args.ablation:
-                eval_mode = 'ets_kbts'
-            else:
-                eval_mode = 'ets'
-            model.evaluate(task=None, mode=eval_mode)
+            mode = 'ets_kbts'
+            model.evaluate(task=None, mode=mode)
 
-            if 'ba' not in args.ablation:
-                # batch augmentation
-                model.evaluate(task=None, mode=eval_mode+'_ba')
-
-            print('checking forgetting')
-            mode = 'kbts'
+            mode = 'ets_kbts_ba'
             model.evaluate(task=None, mode=mode)
 
             mode = 'ets'
             model.evaluate(task=None, mode=mode)
+
+            mode = 'ets_ba'
+            model.evaluate(task=None, mode=mode)
+
+            mode = 'kbts'
+            model.evaluate(task=None, mode=mode)
+
+            mode = 'kbts_ba'
+            model.evaluate(task=None, mode=mode)
+
 
         with torch.no_grad():
             model.get_rehearsal_logits(train_loader)
@@ -372,10 +374,11 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                     train_loop(model, args, train_loader, mode='kbts_cal')
 
                 if args.verbose:
-                    model.evaluate(task=None, mode=eval_mode)
+                    mode = 'ets_kbts_cal'
+                    model.evaluate(task=None, mode=mode)
 
-                    eval_mode += '_ba'
-                    model.evaluate(task=None, mode=eval_mode)
+                    mode = 'ets_kbts_cal_ba'
+                    model.evaluate(task=None, mode=mode)
 
                     mode = 'ets_cal'
                     model.evaluate(task=None, mode=mode)
