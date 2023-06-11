@@ -341,7 +341,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         model.net.clear_memory()
         torch.save(model.net, base_path_memory() + args.title + '.net')
-        print('Model size:', os.path.getsize(base_path_memory() + args.title + '.net'))
+        model_size = os.path.getsize(base_path_memory() + args.title + '.net')
+        print('Model size:', model_size)
+        wandb.log({'model size':model_size, 'task': t})
 
         if args.verbose:
             mode = 'ets_kbts'
