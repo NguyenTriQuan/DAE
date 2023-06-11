@@ -134,7 +134,6 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
     # model.net.load_state_dict(state_dict, strict=False)
-    model.task = -1
     if args.eval:
         model.net = torch.load(base_path_memory() + args.title + '.net')
     # artifact = args.run.use_artifact('entity/DAE/model:v0', type='model')
@@ -145,13 +144,13 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     num_neurons = '-'.join(str(int(num)) for num in num_neurons)
     print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
     for t in range(dataset.N_TASKS):
-        model.task += 1
         if t >= args.num_tasks:
             break
         if args.task >= 0 :
             if t != args.task:
                 continue
         if args.eval:
+            model.task += 1
             train_loader, test_loader = dataset.get_data_loaders()   
         print(f'Task {t}:')
         num_params, num_neurons = model.net.count_params(t)
