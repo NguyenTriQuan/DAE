@@ -81,15 +81,18 @@ def train_loop(model, args, train_loader, mode):
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
         
     elif kbts:
-        if 'feat' in mode:
+        if feat:
             n_epochs = 120
             step_lr = [100, 115]
             params, scores = model.net.get_optim_kbts_params()
             count = 0
             for param in params + scores:
                 count += param.numel()
-            model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-                                        lr=args.lr, weight_decay=0, momentum=0.9)
+            # model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+            #                             lr=args.lr, weight_decay=0, momentum=0.9)
+            from utils.lars_optimizer import LARC
+            model.opt = LARC(torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+                                             lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
         else:
             n_epochs = 50
             step_lr = [35, 45]
