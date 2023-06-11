@@ -218,6 +218,8 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             model.net.reset_cal_params(t+1)
             with torch.no_grad():
                 model.get_rehearsal_logits(train_loader)
+        else:
+            train_loader = dataset.train_loader[t]
         print('Task', model.task)
         if 'kbts' not in args.ablation:
             eval_mode = 'ets_kbts'
