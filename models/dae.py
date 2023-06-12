@@ -417,7 +417,8 @@ class DAE(ContinualModel):
             m.kbts_sparsities += [m.sparsity]
 
     def end_task(self, dataset) -> None:
-        self.net.freeze()
+        self.net.freeze_feature()
+        self.net.freeze_classifier()
 
     def get_rehearsal_logits(self, train_loader):
         if self.task == 0:

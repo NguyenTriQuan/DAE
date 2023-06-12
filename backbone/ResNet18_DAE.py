@@ -41,7 +41,7 @@ class _DynamicModel(nn.Module):
         params = []
         for m in self.DB:
             params += m.get_optim_ets_params()
-        params += self.DM[-1].get_optim_ets_params()
+        params += self.mid.get_optim_ets_params()
         params += self.projector.parameters()
         return params
     
@@ -52,7 +52,7 @@ class _DynamicModel(nn.Module):
             p, s = m.get_optim_kbts_params()
             params += p
             scores += s
-        params += self.DM[-1].get_optim_kbts_params()
+        params += self.mid.get_optim_kbts_params()
         params += self.projector.parameters()
         return params, scores
 
@@ -66,34 +66,30 @@ class _DynamicModel(nn.Module):
             num_neurons.append(m.shape_out[t+1])
         return num_params, num_neurons
 
-    def freeze(self):
+    def freeze_feature(self):
         for m in self.DB:
             m.freeze()
-        self.DM[-1].freeze()
+        self.mid.freeze()
+
+    def freeze_classifier(self):
+        self.last.freeze()
 
     def proximal_gradient_descent(self, lr=0, lamb=0):
         with torch.no_grad():
-            for block in self.DB[:-1]:
+            for block in self.DB:
                 block.proximal_gradient_descent(lr, lamb, self.total_strength)
     
     def clear_memory(self):
         self.ets_temp = -1
         self.kbts_temp = -1
-        for m in self.DM[:-1]:
-            m.clear_memory()
+        for m in self.DM:
+            if not isinstance(m, DynamicClassifier):
+                m.clear_memory()
     
     def get_kb_params(self, t):
-        for m in self.DM[:-1]:
-            m.get_kb_params(t)
-    
-    def get_masked_kb_params(self, t):
-        if t == 0:
-            add_in = self.DM[0].base_in_features
-        else:
-            add_in = 0
-
-        for m in self.DM[:-1]:
-            add_in = m.get_masked_kb_params(t, add_in)
+        for m in self.DM:
+            if not isinstance(m, DynamicClassifier):
+                m.get_kb_params(t)
 
     def ERK_sparsify(self, sparsity=0.9):
         # print('initialize by ERK')
@@ -101,53 +97,57 @@ class _DynamicModel(nn.Module):
         erk_power_scale = 1
 
         total_params = 0
-        for m in self.DM[:-1]:
-            total_params += m.score.numel()
+        for m in self.DM:
+            if not isinstance(m, DynamicClassifier):
+                total_params += m.score.numel()
         is_epsilon_valid = False
 
         dense_layers = set()
         while not is_epsilon_valid:
             divisor = 0
             rhs = 0
-            for m in self.DM[:-1]:
-                m.raw_probability = 0
-                n_param = np.prod(m.score.shape)
-                n_zeros = n_param * (1 - density)
-                n_ones = n_param * density
+            for m in self.DM:
+                if not isinstance(m, DynamicClassifier):
+                    m.raw_probability = 0
+                    n_param = np.prod(m.score.shape)
+                    n_zeros = n_param * (1 - density)
+                    n_ones = n_param * density
 
-                if m in dense_layers:
-                    rhs -= n_zeros
-                else:
-                    rhs += n_ones
-                    m.raw_probability = (np.sum(m.score.shape) / np.prod(m.score.shape)) ** erk_power_scale
-                    divisor += m.raw_probability * n_param
+                    if m in dense_layers:
+                        rhs -= n_zeros
+                    else:
+                        rhs += n_ones
+                        m.raw_probability = (np.sum(m.score.shape) / np.prod(m.score.shape)) ** erk_power_scale
+                        divisor += m.raw_probability * n_param
 
             epsilon = rhs / divisor
-            max_prob = np.max([m.raw_probability for m in self.DM[:-1]])
+            max_prob = np.max([m.raw_probability for m in self.DM if not isinstance(m, DynamicClassifier)])
             max_prob_one = max_prob * epsilon
             if max_prob_one > 1:
                 is_epsilon_valid = False
-                for m in self.DM[:-1]:
-                    if m.raw_probability == max_prob:
-                        # print(f"Sparsity of var:{mask_name} had to be set to 0.")
-                        dense_layers.add(m)
+                for m in self.DM:
+                    if not isinstance(m, DynamicClassifier):
+                        if m.raw_probability == max_prob:
+                            # print(f"Sparsity of var:{mask_name} had to be set to 0.")
+                            dense_layers.add(m)
             else:
                 is_epsilon_valid = True
 
         total_nonzero = 0.0
         # With the valid epsilon, we can set sparsities of the remaning layers.
         min_sparsity = 0.5
-        for i, m in enumerate(self.DM[:-1]):
-            n_param = np.prod(m.score.shape)
-            if m in dense_layers:
-                m.sparsity = min_sparsity
-            else:
-                probability_one = epsilon * m.raw_probability
-                m.sparsity = max(1 - probability_one, min_sparsity)
-            # print(
-            #     f"layer: {i}, shape: {m.score.shape}, sparsity: {m.sparsity}"
-            # )
-            total_nonzero += (1-m.sparsity) * m.score.numel()
+        for i, m in enumerate(self.DM):
+            if not isinstance(m, DynamicClassifier):
+                n_param = np.prod(m.score.shape)
+                if m in dense_layers:
+                    m.sparsity = min_sparsity
+                else:
+                    probability_one = epsilon * m.raw_probability
+                    m.sparsity = max(1 - probability_one, min_sparsity)
+                # print(
+                #     f"layer: {i}, shape: {m.score.shape}, sparsity: {m.sparsity}"
+                # )
+                total_nonzero += (1-m.sparsity) * m.score.numel()
         print(f"Overall sparsity {1-total_nonzero / total_params}")
 
 def conv3x3(in_planes: int, out_planes: int, stride: int=1, norm_type=None, args=None) -> F.conv2d:
@@ -220,9 +220,10 @@ class ResNet(_DynamicModel):
         self.layers += self._make_layer(block, nf * 4, num_blocks[2], stride=2, norm_type=norm_type, args=args)
         self.layers += self._make_layer(block, nf * 8, num_blocks[3], stride=2, norm_type=norm_type, args=args)
 
-        last_dim = nf * 8 * block.expansion
-        self.mid = DynamicBlock([DynamicLinear(last_dim, last_dim, bias=False, args=args, s=1)], None, args)
-        self.linear = DynamicClassifier(last_dim, num_classes, norm_type=norm_type, args=args, s=1)
+        feat_dim = nf * 8 * block.expansion
+        # self.mid = DynamicBlock([DynamicLinear(last_dim, last_dim, bias=False, args=args, s=1)], None, args)
+        self.mid = DynamicClassifier(feat_dim, feat_dim, norm_type=norm_type, args=args, s=1)
+        self.last = DynamicClassifier(feat_dim, num_classes, norm_type=norm_type, args=args, s=1)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
 
@@ -230,9 +231,9 @@ class ResNet(_DynamicModel):
         self.kbts_cal_layers = nn.ModuleList([])
         
         self.projector = nn.Sequential(
-            nn.Linear(last_dim, 128)
+            nn.Linear(feat_dim, 128)
         ).to(device)
-        self.last_dim = last_dim
+        self.feat_dim = feat_dim
         
         
     def _make_layer(self, block: BasicBlock, planes: int,
@@ -264,12 +265,12 @@ class ResNet(_DynamicModel):
 
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
-        feature = self.mid.ets_forward([feature], t)
+        feature = self.mid.ets_forward(feature, t)
 
         if feat:
             return self.projector(feature)
         else:
-            out = self.linear.ets_forward(feature, t)
+            out = self.last.ets_forward(feature, t)
             if cal:
                 scales = self.ets_cal_layers[t](feature)
                 alpha = scales[:, 0].view(-1, 1)
@@ -292,11 +293,11 @@ class ResNet(_DynamicModel):
 
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
-        feature = self.mid.kbts_forward([feature], t)
+        feature = self.mid.kbts_forward(feature, t)
         if feat:
             return self.projector(feature)
         else:
-            out = self.linear.kbts_forward(feature, t)
+            out = self.last.kbts_forward(feature, t)
             if cal:
                 scales = self.kbts_cal_layers[t](feature)
                 alpha = scales[:, 0].view(-1, 1)
@@ -324,11 +325,16 @@ class ResNet(_DynamicModel):
         #     add_in_1 = block.conv1.expand([add_in], [(None, None)])
         #     add_in = block.conv2.expand([add_in, add_in_1], [(0, 0), (0, 0)])
 
+        # if t == 0:
+        #     add_in = self.mid.expand([add_in], [(None, None)])
+        # else:
+        #     add_in = self.mid.expand([add_in], [(0, 0)])
+        self.mid.expand(add_in, (self.feat_dim, self.feat_dim))
         if t == 0:
-            add_in = self.mid.expand([add_in], [(None, None)])
+            self.last.expand((self.feat_dim, self.feat_dim), (new_classes, new_classes))
         else:
-            add_in = self.mid.expand([add_in], [(0, 0)])
-        self.linear.expand(add_in, (new_classes, new_classes))
+            self.last.expand((0, 0), (new_classes, new_classes))
+        # self.linear.expand(add_in, (new_classes, new_classes))
         self.total_strength = 1
         for m in self.DB:
             self.total_strength += m.strength
@@ -344,7 +350,8 @@ class ResNet(_DynamicModel):
             block.conv2.squeeze(optim_state, [mask_in, block.conv1.mask_out])
             mask_in = block.conv2.mask_out
         
-        self.mid.squeeze(optim_state, [mask_in])
+        # self.mid.squeeze(optim_state, [mask_in])
+        self.mid.squeeze(optim_state, mask_in, None)
         # self.linear.squeeze(optim_state, mask_in, None)
 
         self.total_strength = 1
@@ -370,14 +377,13 @@ class ResNet(_DynamicModel):
         #     add_in_1 = block.conv1.get_masked_kb_params(t, [add_in], [None])
         #     add_in = block.conv2.get_masked_kb_params(t, [add_in, add_in_1], [0, 0])
 
-        if t == 0:
-            self.mid.get_masked_kb_params(t, [add_in], [None])
-        else:
-            self.mid.get_masked_kb_params(t, [add_in], [0])
+        # if t == 0:
+        #     self.mid.get_masked_kb_params(t, [add_in], [None])
+        # else:
+        #     self.mid.get_masked_kb_params(t, [add_in], [0])
 
     def set_cal_params(self, num_tasks):
         hidden_dim = 128
-        feat_dim = 128
 
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
@@ -387,10 +393,7 @@ class ResNet(_DynamicModel):
             # kbts_dim = self.linear.weight_kbts[i].shape[1]
             self.ets_cal_layers.append(
                 nn.Sequential(
-                    nn.Linear(self.last_dim, hidden_dim),
-                    nn.ReLU(),
-                    nn.Dropout(0.2),
-                    nn.Linear(hidden_dim, hidden_dim),
+                    nn.Linear(self.feat_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
@@ -399,10 +402,7 @@ class ResNet(_DynamicModel):
             )
             self.kbts_cal_layers.append(
                 nn.Sequential(
-                    nn.Linear(self.last_dim, hidden_dim),
-                    nn.ReLU(),
-                    nn.Dropout(0.2),
-                    nn.Linear(hidden_dim, hidden_dim),
+                    nn.Linear(self.feat_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
@@ -416,15 +416,12 @@ class ResNet(_DynamicModel):
 
         self.ets_cal_layers = nn.ModuleList([])
 
-        for i in range(len(self.linear.weight_ets)):
-            ets_dim = self.linear.weight_ets[i].shape[1]
-            kbts_dim = self.linear.weight_kbts[i].shape[1]
+        for i in range(len(self.last.weight_ets)):
+            ets_dim = self.last.weight_ets[i].shape[1]
+            kbts_dim = self.last.weight_kbts[i].shape[1]
             self.ets_cal_layers.append(
                 nn.Sequential(
                     nn.Linear(ets_dim, hidden_dim),
-                    nn.ReLU(),
-                    nn.Dropout(0.2),
-                    nn.Linear(hidden_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),

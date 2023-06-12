@@ -285,21 +285,6 @@ class _DynamicLayer(nn.Module):
             else:
                 self.register_buffer(f'bwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
 
-            # temp = getattr(self, f'weight_scale_{i}').view(-1)
-            # print(temp.max(), temp.min())
-            # temp = getattr(self, f'fwt_weight_scale_{i}').view(-1)
-            # print(temp.max(), temp.min())
-            # temp = getattr(self, f'bwt_weight_scale_{i}').view(-1)
-            # print(temp.max(), temp.min())
-
-    # def get_optim_params(self):
-    #     params = [self.weight[-1], self.fwt_weight[-1], self.bwt_weight[-1], self.score]
-    #     if 'affine' in self.norm_type:
-    #         params += [self.norm_layer_ets.weight[-1], self.norm_layer_ets.bias[-1]]
-    #         params += [self.norm_layer_kbts.weight[-1], self.norm_layer_kbts.bias[-1]]
-    #         params += [self.norm_layer_jr.weight[-1], self.norm_layer_jr.bias[-1]]
-    #     return params
-
     def count_params(self, t):
         count = 0
         for i in range(t+1):
@@ -309,7 +294,6 @@ class _DynamicLayer(nn.Module):
     def norm_in(self):
         weight = torch.cat([self.fwt_weight[-1], self.weight[-1]], dim=1)
         norm = weight.norm(2, dim=self.dim_in)
-        # norm = (weight ** 2).mean(dim=self.dim_in) ** 0.5
         return norm
     
     def set_reg_strength(self):

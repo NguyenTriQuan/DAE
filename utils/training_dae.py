@@ -16,6 +16,7 @@ from models.utils.continual_model import ContinualModel
 from utils.loggers import *
 from utils.status import ProgressBar
 from utils.conf import base_path_memory
+from utils.lars_optimizer import LARC
 # try:
 #     import wandb
 # except ImportError:
@@ -65,11 +66,10 @@ def train_loop(model, args, train_loader, mode):
             num_squeeze = 100
             step_lr = [130, 145]
             squeeze = 'squeeze' not in args.ablation
-            # from utils.lars_optimizer import LARC
-            # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
-            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+            model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+            # model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         else:
-            params = model.net.linear.get_optim_ets_params()
+            params = model.net.last.get_optim_ets_params()
             n_epochs = 50
             step_lr = [35, 45]
             model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
@@ -88,15 +88,14 @@ def train_loop(model, args, train_loader, mode):
             count = 0
             for param in params + scores:
                 count += param.numel()
-            model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-                                        lr=args.lr, weight_decay=0, momentum=0.9)
-            # from utils.lars_optimizer import LARC
-            # model.opt = LARC(torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-            #                                  lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+            # model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+            #                             lr=args.lr, weight_decay=0, momentum=0.9)
+            model.opt = LARC(torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+                                             lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
         else:
             n_epochs = 50
             step_lr = [35, 45]
-            params = model.net.linear.get_optim_kbts_params()
+            params = model.net.last.get_optim_kbts_params()
             count = 0
             for param in params:
                 count += param.numel()
@@ -209,7 +208,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
         if t >= args.num_tasks:
             break
         model.task += 1
-        model.net.reset_cal_params(args.total_tasks)
+        model.net.set_cal_params(args.total_tasks)
         train_loader, test_loader = dataset.get_data_loaders()   
         with torch.no_grad():
             model.get_rehearsal_logits(train_loader)
@@ -320,8 +319,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             mode = 'kbts_feat'
             train_loop(model, args, train_loader, mode=mode)
             
-        for m in model.net.DB:
-            m.freeze()
+        model.net.freeze_feature()
         model.net.clear_memory()
 
         mode = 'ets'
@@ -343,7 +341,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         torch.save(model.net, base_path_memory() + args.title + '.net')
         model_size = os.path.getsize(base_path_memory() + args.title + '.net')
         print('Model size:', model_size)
-        wandb.log({'model size':model_size, 'task': t})
+        if args.verbose:
+            wandb.log({'model size':model_size, 'task': t})
 
         if args.verbose:
             mode = 'ets_kbts'
@@ -369,7 +368,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             model.get_rehearsal_logits(train_loader)
 
         if 'cal' not in args.ablation:
-            model.net.reset_cal_params(args.total_tasks)
+            model.net.set_cal_params(args.total_tasks)
             if t > 0:
                 train_loop(model, args, train_loader, mode='ets_cal')
                 if 'kbts' not in args.ablation:
