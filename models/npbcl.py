@@ -178,7 +178,7 @@ def NPB_model_count(net, mode, t, alpha, beta):
 
         eff_nodes += eff_nodes_out.sum()
 
-    eff_paths = torch.logsumexp(net.DM[-1].P_out)
+    eff_paths = torch.logsumexp(net.DM[-1].P_out, dim=0)
     eff_nodes = eff_nodes.log()
     eff_kernels = eff_kernels.log()
     for m in net.DM:
