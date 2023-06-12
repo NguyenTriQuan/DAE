@@ -127,32 +127,39 @@ def sup_con_loss(features, labels, temperature):
 
     return loss
 
+def logsumexp(x, dim=None, keepdim=False):
+    """Stable computation of log(sum(exp(x))"""
+    if dim is None:
+        x, dim = x.view(-1), 0
+    x_max, _ = torch.max(x, dim, keepdim=True)
+    x = x_max + torch.log(torch.sum(torch.exp(x - x_max), dim, keepdim=True))
+    return x if keepdim else x.squeeze(dim)
+
 def NPB_layer_count(m, mode, t):
     heuristic = 1
     if mode == 'stable':
         mask = m.stable_masks[t]
         if t > 0:
             heuristic = 1 - m.unused_weight + 1
+            heuristic = heuristic * heuristic.numel() / heuristic.sum()
     elif mode == 'plastic':
         mask = m.plastic_masks[t]
         if t > 0:
             heuristic = m.unused_weight + 1
+            heuristic = heuristic * heuristic.numel() / heuristic.sum()
 
     if len(m.prev_layers) > 0:
-        P_in = 0
-        # eff_nodes_in = torch.tensor(0).float().cuda()
-        for n in m.prev_layers:
-            P_in += n.P_out
-            # eff_nodes_in = torch.maximum(eff_nodes_in, n.eff_nodes_out)
+        P_in = torch.logsumexp(torch.stack([n.P_out for n in m.prev_layers], dim=0), dim=0)
+        eff_nodes_in, _ = torch.max(torch.stack([n.eff_nodes_out for n in m.prev_layers], dim=0), dim=0)
     else:
-        P_in = torch.tensor(1).float().cuda()
-        # eff_nodes_in = torch.tensor(1).float().cuda()
+        P_in = torch.tensor(0).float().cuda()
+        eff_nodes_in = torch.tensor(1).float().cuda()
 
-    m.P_out = torch.sum(mask * heuristic * P_in.view(m.view_in), dim=m.dim_out)
-    # m.eff_nodes_in = torch.minimum(torch.sum(mask, dim=m.dim_in) * eff_nodes_in, torch.tensor(1).float().cuda())
-    # m.eff_nodes_out = torch.minimum(torch.sum(mask * eff_nodes_in.view(m.view_in), dim=m.dim_out), torch.tensor(1).float().cuda())
+    m.P_out = torch.logsumexp(torch.log(mask * heuristic) + P_in.view(m.view_in), dim=m.dim_out)
+    m.eff_nodes_in = torch.clamp(torch.sum(mask, dim=m.dim_in) * eff_nodes_in, max=1)
+    m.eff_nodes_out = torch.clamp(torch.sum(mask * eff_nodes_in.view(m.view_in), dim=m.dim_out), max=1)
     if len(m.weight.shape) == 4:
-        m.eff_kernels = torch.minimum(mask.sum(dim=(2,3)), torch.tensor(1).float().cuda()).sum()
+        m.eff_kernels = torch.clamp(mask.sum(dim=(2,3)), max=1).sum()
 
 def NPB_model_count(net, mode, t, alpha, beta):
     eff_nodes = 0
@@ -160,34 +167,26 @@ def NPB_model_count(net, mode, t, alpha, beta):
     eff_paths = 0    
     for m in net.DM:
         NPB_layer_count(m, mode, t)
-        eff_kernels += m.eff_kernels
-    # for m in net.DM:
-    #     # if len(m.next_layers) > 0:
-    #     #     eff_nodes_out = torch.tensor(0).float().cuda()
-    #     #     for n in m.next_layers:
-    #     #         eff_nodes_out = torch.maximum(eff_nodes_out, m.eff_nodes_out * n.eff_nodes_in)
-    #     # else:
-    #     #     eff_nodes_out = m.eff_nodes_out
+    for m in net.DM:
+        if len(m.next_layers) > 0:
+            eff_nodes_out, _ = torch.max(torch.stack([m.eff_nodes_out * n.eff_nodes_in for n in m.next_layers], dim=0), dim=0)
+        else:
+            eff_nodes_out = m.eff_nodes_out
         
-    #     if len(m.weight.shape) == 4:
-    #         # tmp = m.eff_nodes_in.view(m.view_in) * torch.minimum(m.weight_mask.sum(dim=(2,3)), torch.tensor(1).float().cuda()) * eff_nodes_out.view(m.view_out)
-    #         eff_kernels += m.eff_kernels
-    #     # else:
-    #     #     tmp = m.eff_nodes_in.view(m.view_in) * m.weight_mask * eff_nodes_out.view(m.view_out)
-    #     #     eff_kernels += torch.sum(tmp)
+        if len(m.weight.shape) == 4:
+            eff_kernels += m.eff_kernels
 
-    #     # eff_nodes += eff_nodes_out.sum()
+        eff_nodes += eff_nodes_out.sum()
 
-    eff_paths = net.DM[-1].P_out.sum().log()
-    # eff_nodes = eff_nodes.log()
+    eff_paths = torch.logsumexp(net.DM[-1].P_out)
+    eff_nodes = eff_nodes.log()
     eff_kernels = eff_kernels.log()
     for m in net.DM:
         m.P_out = 0
         m.eff_nodes_in = 0
         m.eff_nodes_out = 0
         m.eff_kernels = 0
-    # return eff_nodes * alpha + eff_paths * (1-alpha) + eff_kernels * beta
-    return eff_paths * alpha + eff_kernels * beta
+    return eff_nodes * alpha + eff_paths * (1-alpha) + eff_kernels * beta
 
 class NPBCL(ContinualModel):
     NAME = 'NPBCL'
@@ -321,11 +320,6 @@ class NPBCL(ContinualModel):
         total = 0
         correct = 0
         total_loss = 0
-        if verbose:
-            test_acc = self.evaluate([self.task], mode=mode)[0]
-            dif = 0
-            for m in self.net.DM:
-                dif += (m.stable_masks[self.task] - m.plastic_masks[self.task]).abs().sum().int().item()
         self.net.train()    
         for i, data in enumerate(train_loader):
             inputs, labels = data
@@ -360,19 +354,20 @@ class NPBCL(ContinualModel):
                 npb_reg = NPB_model_count(self.net, 'stable', self.task, self.alpha, self.beta) 
                 npb_reg += NPB_model_count(self.net, 'plastic', self.task, self.alpha, self.beta)
                 loss = loss - self.lamb * npb_reg
+
+            assert not math.isnan(loss)
             loss.backward()
             if self.task > 0:
                 self.net.freeze_used_weights()
             self.opt.step()
-            if verbose:
-                outputs = ensemble_outputs(torch.stack(outputs, dim=0))
-                _, predicts = outputs.max(1)
-                correct += torch.sum(predicts == labels).item()
-                total += labels.shape[0]
-                total_loss += loss.item() * labels.shape[0]
-                progress_bar.prog(i, len(train_loader), epoch, self.task, total_loss/total, correct/total*100, test_acc, dif)
+            outputs = ensemble_outputs(torch.stack(outputs, dim=0))
+            _, predicts = outputs.max(1)
+            correct += torch.sum(predicts == labels).item()
+            total += labels.shape[0]
+            total_loss += loss.item() * labels.shape[0]
 
         self.scheduler.step()
+        return total_loss/total, correct/total*100
 
     
     def train_calibration(self, progress_bar, epoch, mode, verbose=False):

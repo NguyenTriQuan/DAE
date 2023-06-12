@@ -21,8 +21,7 @@ from utils.conf import base_path_memory
 # except ImportError:
 #     wandb = None
 
-wandb = None
-
+import wandb
 def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
     squeeze = False
     augment = True
@@ -37,13 +36,16 @@ def train_loop(t, model, dataset, args, progress_bar, train_loader, mode):
 
     if 'epoch' in args.ablation:
         n_epochs = 10
-    for epoch in range(n_epochs):     
-        model.train(train_loader, progress_bar, mode, squeeze, augment, epoch, args.verbose)
-
-        # do not perform squeeze and augment at a few last epochs for better convergence
-        # if epoch >= num_augment:
-        #     augment = False
-
+    for epoch in range(n_epochs):  
+            
+        loss, train_acc = model.train(train_loader, progress_bar, mode, squeeze, augment, epoch, args.verbose)
+        if args.verbose:
+            test_acc = model.evaluate([model.task], mode=mode)[0]
+            dif = 0
+            for m in model.net.DM:
+                dif += (m.stable_masks[model.task] - m.plastic_masks[model.task]).abs().sum().int().item()   
+            progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, train_acc, test_acc, dif)
+            wandb.log({f"task {model.task} loss": loss, f"task {model.task} train acc": train_acc, f"task {model.task} test acc": test_acc,  "epoch": epoch})
     print()
 
 
@@ -226,16 +228,25 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             til_accs = model.evaluate(task=range(t+1), mode=mode)
             cil_accs = model.evaluate(task=None, mode=mode)
             print(f'Task {t}, mode {mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            cil_avg = round(np.mean(cil_accs), 2)
+            til_avg = round(np.mean(til_accs), 2)
+            wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, "task": t})
 
             mode = 'stable'
             til_accs = model.evaluate(task=range(t+1), mode=mode)
             cil_accs = model.evaluate(task=None, mode=mode)
             print(f'Task {t}, mode {mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            cil_avg = round(np.mean(cil_accs), 2)
+            til_avg = round(np.mean(til_accs), 2)
+            wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, "task": t})
 
             mode = 'plastic'
             til_accs = model.evaluate(task=range(t+1), mode=mode)
             cil_accs = model.evaluate(task=None, mode=mode)
             print(f'Task {t}, mode {mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+            cil_avg = round(np.mean(cil_accs), 2)
+            til_avg = round(np.mean(til_accs), 2)
+            wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, "task": t})
 
             if 'ba' not in args.ablation:
                 # batch augmentation
@@ -243,16 +254,25 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 til_accs = model.evaluate(task=range(t+1), mode=mode)
                 cil_accs = model.evaluate(task=None, mode=mode)
                 print(f'Task {t}, mode {mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+                cil_avg = round(np.mean(cil_accs), 2)
+                til_avg = round(np.mean(til_accs), 2)
+                wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, "task": t})
 
                 mode = 'stable_ba'
                 til_accs = model.evaluate(task=range(t+1), mode=mode)
                 cil_accs = model.evaluate(task=None, mode=mode)
                 print(f'Task {t}, mode {mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+                cil_avg = round(np.mean(cil_accs), 2)
+                til_avg = round(np.mean(til_accs), 2)
+                wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, "task": t})
 
                 mode = 'plastic_ba'
                 til_accs = model.evaluate(task=range(t+1), mode=mode)
                 cil_accs = model.evaluate(task=None, mode=mode)
                 print(f'Task {t}, mode {mode}: cil {round(np.mean(cil_accs), 2)} {cil_accs}, til {round(np.mean(til_accs), 2)} {til_accs}')
+                cil_avg = round(np.mean(cil_accs), 2)
+                til_avg = round(np.mean(til_accs), 2)
+                wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, "task": t})
 
         # if not args.disable_log:
         #     logger.log(mean_acc)
