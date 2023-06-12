@@ -188,17 +188,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         dataset.train_data = torch.cat(data)
         dataset.train_targets = torch.cat(targets)
         print(dataset.train_data.shape)
-        
-    if not args.nowand:
-        assert wandb is not None, "Wandb not installed, please install it or run without wandb"
-        wandb.init(project=args.wandb_project, entity=args.wandb_entity, config=vars(args))
-        args.wandb_url = wandb.run.get_url()
 
     model.net.to(model.device)
     results, results_mask_classes = [], []
-
-    if not args.disable_log:
-        logger = Logger(dataset.SETTING, dataset.NAME, model.NAME)
 
     progress_bar = ProgressBar(verbose=not args.non_verbose)
 
