@@ -266,6 +266,7 @@ class ResNet(_DynamicModel):
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
         feature = self.mid.ets_forward(feature, t)
+        feature = F.relu(feature)
 
         if feat:
             return self.projector(feature)
@@ -294,6 +295,7 @@ class ResNet(_DynamicModel):
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
         feature = self.mid.kbts_forward(feature, t)
+        feature = F.relu(feature)
         if feat:
             return self.projector(feature)
         else:
