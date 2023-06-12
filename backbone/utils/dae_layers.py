@@ -540,20 +540,20 @@ class DynamicClassifier(DynamicLinear):
         super(DynamicClassifier, self).__init__(in_features, out_features, bias, norm_type, args, s)
         self.weight_ets = nn.ParameterList([])
         self.weight_kbts = nn.ParameterList([])
-        self.bias = bias
+        self.use_bias = bias
         if bias:
             self.bias_ets = nn.ParameterList([])
             self.bias_kbts = nn.ParameterList([])
 
     def ets_forward(self, x, t): 
         weight = self.weight_ets[t]
-        bias = self.bias_ets[t] if self.bias else None
+        bias = self.bias_ets[t] if self.use_bias else None
         out = F.linear(x, weight, bias)
         return out
     
     def kbts_forward(self, x, t):
         weight = self.weight_kbts[t]
-        bias = self.bias_kbts[t] if self.bias else None
+        bias = self.bias_kbts[t] if self.use_bias else None
         out = F.linear(x, weight, bias)
         return out
     
@@ -584,7 +584,7 @@ class DynamicClassifier(DynamicLinear):
         # bound_std = self.gain / math.sqrt(self.num_out[-1])
         self.weight_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_kbts).normal_(0, bound_std).to(device)))
 
-        if self.bias:
+        if self.use_bias:
             self.bias_ets.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device))) 
             self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device)))
         
@@ -592,19 +592,19 @@ class DynamicClassifier(DynamicLinear):
     def freeze(self):
         self.weight_ets[-1].requires_grad = False
         self.weight_kbts[-1].requires_grad = False
-        if self.bias:
+        if self.use_bias:
             self.bias_ets[-1].requires_grad = False
             self.bias_kbts[-1].requires_grad = False
         
 
     def get_optim_ets_params(self):
-        if self.bias:
+        if self.use_bias:
             return [self.weight_ets[-1], self.bias_ets[-1]]
         else:
             return [self.weight_ets[-1]]
 
     def get_optim_kbts_params(self):
-        if self.bias:
+        if self.use_bias:
             return [self.weight_kbts[-1], self.bias_kbts[-1]]
         else:
             return [self.weight_kbts[-1]]
@@ -614,7 +614,7 @@ class DynamicClassifier(DynamicLinear):
         for i in range(t+1):
             count += self.weight_ets[i].numel()
             count += self.weight_kbts[i].numel()
-            if self.bias:
+            if self.use_bias:
                 count += self.bias_ets[i].numel()
                 count += self.bias_kbts[i].numel()
         return count
