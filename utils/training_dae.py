@@ -304,31 +304,47 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
-        # ets training
-        mode = 'ets_feat'
-        train_loop(model, args, train_loader, mode=mode)
-        num_params, num_neurons = model.net.count_params()
-        num_neurons = '-'.join(str(int(num)) for num in num_neurons)
-        print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
-
-        # kbts training
-        if 'kbts' not in args.ablation:
-            mode = 'kbts_feat'
+        if 'all' in args.ablation:
+            mode = 'ets_all'
             train_loop(model, args, train_loader, mode=mode)
-            
-        model.net.freeze_feature()
-        model.net.clear_memory()
+            num_params, num_neurons = model.net.count_params()
+            num_neurons = '-'.join(str(int(num)) for num in num_neurons)
+            print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+            acc = model.evaluate(task=t, mode=mode)
+            print(f'Task {t}, {mode}: til {acc}')
 
-        mode = 'ets'
-        train_loop(model, args, train_loader, mode=mode)
-        acc = model.evaluate(task=t, mode=mode)
-        print(f'Task {t}, {mode}: til {acc}')
+            if 'kbts' not in args.ablation:
+                mode = 'kbts_all'
+                train_loop(model, args, train_loader, mode=mode)
+                acc = model.evaluate(task=t, mode=mode)
+                print(f'Task {t}, {mode}: til {acc}')
 
-        if 'kbts' not in args.ablation:
-            mode = 'kbts'
+        else:
+            # ets training
+            mode = 'ets_feat'
+            train_loop(model, args, train_loader, mode=mode)
+            num_params, num_neurons = model.net.count_params()
+            num_neurons = '-'.join(str(int(num)) for num in num_neurons)
+            print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+
+            # kbts training
+            if 'kbts' not in args.ablation:
+                mode = 'kbts_feat'
+                train_loop(model, args, train_loader, mode=mode)
+                
+            model.net.freeze_feature()
+            model.net.clear_memory()
+
+            mode = 'ets'
             train_loop(model, args, train_loader, mode=mode)
             acc = model.evaluate(task=t, mode=mode)
             print(f'Task {t}, {mode}: til {acc}')
+
+            if 'kbts' not in args.ablation:
+                mode = 'kbts'
+                train_loop(model, args, train_loader, mode=mode)
+                acc = model.evaluate(task=t, mode=mode)
+                print(f'Task {t}, {mode}: til {acc}')
 
 
         if hasattr(model, 'end_task'):
