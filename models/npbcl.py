@@ -155,7 +155,7 @@ def NPB_layer_count(m, mode, t):
         P_in = torch.tensor(0).float().cuda()
         eff_nodes_in = torch.tensor(1).float().cuda()
 
-    m.P_out = torch.logsumexp(torch.log(mask * heuristic) + P_in.view(m.view_in), dim=m.dim_out)
+    m.P_out = torch.logsumexp(mask * heuristic * P_in.view(m.view_in), dim=m.dim_out)
     m.eff_nodes_in = torch.clamp(torch.sum(mask, dim=m.dim_in) * eff_nodes_in, max=1)
     m.eff_nodes_out = torch.clamp(torch.sum(mask * eff_nodes_in.view(m.view_in), dim=m.dim_out), max=1)
     if len(m.weight.shape) == 4:
