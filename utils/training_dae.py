@@ -33,6 +33,8 @@ def train_loop(model, args, train_loader, mode):
     clr_ood = 'clr_ood' not in args.ablation
     feat = 'feat' in mode
     cal = 'cal' in mode
+    all = 'all' in mode
+    if all: feat = False
     num_squeeze = 0
     num_augment = 1000
     if cal:
@@ -60,7 +62,7 @@ def train_loop(model, args, train_loader, mode):
     #     model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
     #     # model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
     elif ets:
-        if feat:
+        if feat or all:
             params = model.net.get_optim_ets_params()
             n_epochs = 150
             num_squeeze = 100
@@ -81,7 +83,7 @@ def train_loop(model, args, train_loader, mode):
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
         
     elif kbts:
-        if feat:
+        if feat or all:
             n_epochs = 120
             step_lr = [100, 115]
             params, scores = model.net.get_optim_kbts_params()
