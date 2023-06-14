@@ -400,8 +400,11 @@ class ResNet(_DynamicModel):
                     nn.Linear(self.feat_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
+                    nn.Linear(hidden_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
-                    nn.Sigmoid()
+                    nn.Softplus()
                 ).to(device)
             )
             self.kbts_cal_layers.append(
@@ -409,8 +412,11 @@ class ResNet(_DynamicModel):
                     nn.Linear(self.feat_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
+                    nn.Linear(hidden_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
-                    nn.Sigmoid()
+                    nn.Softplus()
                 ).to(device)
             )
 
