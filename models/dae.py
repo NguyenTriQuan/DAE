@@ -396,7 +396,7 @@ class DAE(ContinualModel):
             outputs = ensemble_outputs(outputs)
             join_entropy = entropy(outputs.exp())
             join_entropy = join_entropy.view(self.task + 1, data[0].shape[0]).permute(1, 0)  # shape [batch size, num tasks]
-            print(torch.sum(join_entropy, dim=1))
+            print(torch.sum(join_entropy, dim=1).min(), torch.sum(join_entropy, dim=1).max())
             labels = torch.stack([(data[2] == t).float() for t in range(self.task + 1)], dim=1)
             loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
             loss = torch.mean(loss)
