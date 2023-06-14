@@ -400,9 +400,9 @@ class ResNet(_DynamicModel):
                     nn.Linear(self.feat_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
-                    nn.Linear(hidden_dim, hidden_dim),
-                    nn.ReLU(),
-                    nn.Dropout(0.2),
+                    # nn.Linear(hidden_dim, hidden_dim),
+                    # nn.ReLU(),
+                    # nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
                     nn.Softplus()
                 ).to(device)
@@ -412,9 +412,9 @@ class ResNet(_DynamicModel):
                     nn.Linear(self.feat_dim, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
-                    nn.Linear(hidden_dim, hidden_dim),
-                    nn.ReLU(),
-                    nn.Dropout(0.2),
+                    # nn.Linear(hidden_dim, hidden_dim),
+                    # nn.ReLU(),
+                    # nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
                     nn.Softplus()
                 ).to(device)
