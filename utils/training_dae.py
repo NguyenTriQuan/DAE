@@ -246,10 +246,16 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
             eval_mode += '_ba'
             model.evaluate(task=None, mode=eval_mode)
 
+            mode = 'ets'
+            model.evaluate(task=None, mode=mode)
+
             mode = 'ets_cal'
             model.evaluate(task=None, mode=mode)
 
             mode = 'ets_cal_ba'
+            model.evaluate(task=None, mode=mode)
+
+            mode = 'kbts'
             model.evaluate(task=None, mode=mode)
 
             mode = 'kbts_cal'
