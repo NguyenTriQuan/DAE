@@ -116,15 +116,20 @@ def train_loop(model, args, train_loader, mode):
             loss = model.train_contrast(train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment)
 
         if args.verbose:
+            test_acc = 0
+            if not feat:
+                test_acc = model.evaluate(task=model.task, mode=mode)
+                wandb.log({"task": model.task, "epoch": epoch, f"Task {model.task} {mode} test acc": test_acc})
             if squeeze:
                 num_params, num_neurons = model.net.count_params()
                 num_neurons = '-'.join(str(int(num)) for num in num_neurons)
                 num_params = sum(num_params)
-                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, 0, num_params, num_neurons)
+                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, test_acc, num_params, num_neurons)
                 wandb.log({"task": model.task, "epoch": epoch, f"Task {model.task} {mode} loss": loss, "params": num_params})
             else:
-                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, 0)
+                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, test_acc)
                 wandb.log({"task": model.task, "epoch": epoch, f"Task {model.task} {mode} loss": loss})
+
         if epoch >= num_squeeze:
             squeeze = False
 

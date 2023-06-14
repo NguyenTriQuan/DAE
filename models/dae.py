@@ -33,7 +33,7 @@ def get_parser() -> ArgumentParser:
     add_experiment_args(parser)
     add_rehearsal_args(parser)
     parser.add_argument("--lamb", type=str, required=True, help="capacity control.")
-    parser.add_argument("--alpha", type=float, required=False, help="Join Rehearsal Distillation penalty weight.", default=0)
+    parser.add_argument("--alpha", type=float, required=False, help="maximize entropy of ood samples loss factor.", default=1)
     parser.add_argument("--dropout", type=float, required=False, help="Dropout probability.", default=0.0)
     parser.add_argument("--sparsity", type=float, required=True, help="Super mask sparsity.")
     parser.add_argument("--temperature", default=0.1, type=float, required=False, help="Supervised Contrastive loss temperature.")
@@ -176,7 +176,7 @@ class DAE(ContinualModel):
             self.lamb = [self.lamb[-1] if i >= len(self.lamb) else self.lamb[i] for i in range(self.args.total_tasks)]
         print("lambda tasks", self.lamb)
         self.soft = torch.nn.Softmax(dim=1)
-        # self.device = 'cpu'
+        self.alpha = args.alpha
         self.buffer = None
 
     def forward(self, inputs, t=None, ets=True, kbts=False, cal=True, ba=True):
@@ -356,7 +356,7 @@ class DAE(ContinualModel):
                     ood_outputs = outputs[bs:]
                     # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
                     ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
-                    loss = self.loss(ind_outputs, labels) - entropy(ood_outputs.exp()).mean()
+                    loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
                 else:
                     loss = self.loss(outputs, labels)
             assert not math.isnan(loss)
