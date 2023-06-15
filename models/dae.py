@@ -356,7 +356,8 @@ class DAE(ContinualModel):
                     ood_outputs = outputs[bs:]
                     # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
                     ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
-                    loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
+                    # loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
+                    loss = self.loss(ind_outputs, labels) / (entropy(ood_outputs.exp()).mean()+1e-9)
                 else:
                     loss = self.loss(outputs, labels)
             assert not math.isnan(loss)
@@ -397,7 +398,8 @@ class DAE(ContinualModel):
             join_entropy = entropy(outputs.exp())
             join_entropy = join_entropy.view(self.task + 1, data[0].shape[0]).permute(1, 0)  # shape [batch size, num tasks]
             labels = torch.stack([(data[2] == t).float() for t in range(self.task + 1)], dim=1)
-            loss = torch.sum(join_entropy * labels, dim=1) / (torch.sum(join_entropy, dim=1)+1e-9)
+            # loss = torch.sum(join_entropy * labels, dim=1) / (torch.sum(join_entropy, dim=1)+1e-9)
+            loss = - torch.sum(join_entropy * (1-labels), dim=1)
             loss = torch.mean(loss)
 
             assert not math.isnan(loss)
