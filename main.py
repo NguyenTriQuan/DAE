@@ -149,6 +149,9 @@ def main(args=None):
         print(args.title)
     else:
         from utils.training import train
+        args.title = '{}_{}_batch_{}_lr_{}'.format(args.model, args.dataset, 
+                                                                args.batch_size, args.lr)
+        print(args.title)
 
     if args.verbose:
         wandb.login(key='74ac7eba00fea7e805a70861a86c7767406946c9')
