@@ -129,7 +129,7 @@ class Joint(ContinualModel):
                 
         self.scheduler.step()
 
-        return total_loss / total, correct / total
+        return total_loss / total, correct * 100 / total
     
     def train_loop(self):
         n_epochs = 50
