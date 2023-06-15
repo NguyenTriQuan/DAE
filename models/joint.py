@@ -40,6 +40,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--factor", type=float, required=False, help="entropy scale factor.", default=1)
     parser.add_argument("--num_aug", type=int, required=False, help="number of augument samples used when evaluation.", default=16)
     parser.add_argument("--task", type=int, required=False, help="Specify task for eval or cal.", default=-1)
+    parser.add_argument('--buffer_size', type=int, required=False, default=0, help='The size of the memory buffer.')
     return parser
 
 def logmeanexp(x, dim=None, keepdim=False):
