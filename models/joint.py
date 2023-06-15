@@ -132,14 +132,14 @@ class Joint(ContinualModel):
         return total_loss / total, correct * 100 / total
     
     def train_loop(self):
-        n_epochs = 50
+        n_epochs = 120
         params = self.net.parameters()
         count = 0
         for param in params:
             count += param.numel()
         print(f'Joint Training, Number of optim params: {count}')
         self.opt = torch.optim.SGD(self.net.parameters(), lr=self.args.lr, weight_decay=0, momentum=0.9)
-        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.opt, [35, 45], gamma=0.1, verbose=False)
+        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.opt, [100, 115], gamma=0.1, verbose=False)
         
         train_loader, test_loader = self.dataset.get_full_data_loader()
         progress_bar = ProgressBar()
