@@ -174,6 +174,8 @@ def main(args=None):
         evaluate(model, dataset, args)
     elif args.cal:
         train_cal(model, dataset, args)
+    elif model.NAME == 'joint':
+        model.train_loop()
     elif isinstance(dataset, ContinualDataset):
         train(model, dataset, args)
     else:
