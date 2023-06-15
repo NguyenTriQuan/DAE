@@ -378,14 +378,14 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             mode = 'ets'
             model.evaluate(task=None, mode=mode)
 
-            mode = 'ets_ba'
-            model.evaluate(task=None, mode=mode)
+            # mode = 'ets_ba'
+            # model.evaluate(task=None, mode=mode)
 
             mode = 'kbts'
             model.evaluate(task=None, mode=mode)
 
-            mode = 'kbts_ba'
-            model.evaluate(task=None, mode=mode)
+            # mode = 'kbts_ba'
+            # model.evaluate(task=None, mode=mode)
 
 
         with torch.no_grad():
