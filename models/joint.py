@@ -109,9 +109,6 @@ class Joint(ContinualModel):
         total_loss = 0
 
         self.net.train()
-
-        if self.buffer is not None:
-            buffer = iter(self.buffer)
         for i, data in enumerate(train_loader):
             inputs, labels = data
             bs = labels.shape[0]
