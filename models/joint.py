@@ -66,6 +66,7 @@ class Joint(ContinualModel):
 
     def __init__(self, backbone, loss, args, dataset):
         super(Joint, self).__init__(backbone, loss, args, dataset)
+        self.net.to(self.device)
 
     def forward(self, inputs, ba=True):
         bs = inputs.shape[0]
