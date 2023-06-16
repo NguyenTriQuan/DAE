@@ -349,7 +349,7 @@ class DAE(ContinualModel):
                 else:
                     loss = sup_clr_loss(outputs, labels, self.args.temperature)
             else:
-                if ood:
+                if ood and (ood_inputs.numel() > 0):
                     ind_outputs = outputs[:bs]
                     ood_outputs = outputs[bs:]
                     # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
