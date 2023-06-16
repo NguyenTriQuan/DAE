@@ -303,6 +303,7 @@ class DAE(ContinualModel):
         total_loss = 0
 
         self.net.train()
+        ood = clr_ood or buf_ood
 
         if self.buffer is not None:
             buffer = iter(self.buffer)
@@ -311,32 +312,29 @@ class DAE(ContinualModel):
             bs = labels.shape[0]
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
+            ood_inputs = torch.empty(0).to(self.device)
             if clr_ood:
                 rot = random.randint(1, 3)
                 ood_inputs = torch.rot90(inputs, rot, dims=(2, 3))
-                if buf_ood:
-                    if self.buffer is not None:
-                        try:
-                            buffer_data = next(buffer)
-                        except StopIteration:
-                            # restart the generator if the previous generator is exhausted.
-                            buffer = iter(self.buffer)
-                            buffer_data = next(buffer)
-                        buffer_data = [tmp.to(self.device) for tmp in buffer_data]
-                        ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
+            if buf_ood:
+                if self.buffer is not None:
+                    try:
+                        buffer_data = next(buffer)
+                    except StopIteration:
+                        # restart the generator if the previous generator is exhausted.
+                        buffer = iter(self.buffer)
+                        buffer_data = next(buffer)
+                    buffer_data = [tmp.to(self.device) for tmp in buffer_data]
+                    ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
 
             if feat:
                 inputs = torch.cat([inputs, inputs], dim=0)
-                if clr_ood:
-                    inputs = torch.cat([inputs, ood_inputs], dim=0)
-            else:
-                if clr_ood:
-                    # ood_labels = torch.zeros(ood_inputs.shape[0], dtype=torch.long).to(device)
-                    inputs = torch.cat([inputs, ood_inputs], dim=0)
-                    # labels = torch.cat([labels, ood_labels], dim=0)
+            if ood:
+                inputs = torch.cat([inputs, ood_inputs], dim=0)
+            
             if augment:
                 inputs = self.dataset.train_transform(inputs)
-            inputs = self.dataset.test_transforms[self.task](inputs)
+            # inputs = self.dataset.test_transforms[self.task](inputs)
             self.opt.zero_grad()
             if ets:
                 outputs = self.net.ets_forward(inputs, self.task, feat=feat)
@@ -345,19 +343,18 @@ class DAE(ContinualModel):
 
             if feat:
                 outputs = F.normalize(outputs, p=2, dim=1)
-                if clr_ood:
+                if ood:
                     ind_outputs = outputs[:bs*2]
                     loss = sup_clr_ood_loss(ind_outputs, outputs, labels, self.args.temperature)
                 else:
                     loss = sup_clr_loss(outputs, labels, self.args.temperature)
             else:
-                if clr_ood:
+                if ood:
                     ind_outputs = outputs[:bs]
                     ood_outputs = outputs[bs:]
                     # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
                     ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
                     loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
-                    # loss = self.loss(ind_outputs, labels) / (entropy(ood_outputs.exp()).mean()+1e-9)
                 else:
                     loss = self.loss(outputs, labels)
             assert not math.isnan(loss)
