@@ -369,10 +369,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             wandb.log({'model size':model_size, 'task': t})
 
         if args.verbose:
-            mode = 'ets_kbts'
+            if 'kbts' not in args.ablation:
+                mode = 'ets_kbts'
+            else:
+                mode = 'ets'
             model.evaluate(task=None, mode=mode)
 
-            mode = 'ets_kbts_ba'
+            mode += '_ba'
             model.evaluate(task=None, mode=mode)
 
             mode = 'ets'
@@ -380,9 +383,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
             # mode = 'ets_ba'
             # model.evaluate(task=None, mode=mode)
-
-            mode = 'kbts'
-            model.evaluate(task=None, mode=mode)
+            if 'kbts' not in args.ablation:
+                mode = 'kbts'
+                model.evaluate(task=None, mode=mode)
 
             # mode = 'kbts_ba'
             # model.evaluate(task=None, mode=mode)
