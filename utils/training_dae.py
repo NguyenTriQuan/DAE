@@ -128,7 +128,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
 
         checkpoint = {'net': model.net, 'opt': model.opt, 'scheduler': model.scheduler, 'epoch':epoch, 'mode':mode, 'task':model.task}
         torch.save(checkpoint, base_path_memory() + args.title + '.checkpoint')
-        wandb.save(base_path_memory() + args.title + '.checkpoint')
+        # wandb.save(base_path_memory() + args.title + '.checkpoint')
         if args.verbose:
             test_acc = 0
             if not feat:
