@@ -161,18 +161,20 @@ def main(args=None):
             name=args.title,
             resume=True,
             # Track hyperparameters and run metadata
-            config={
-                'dataset': args.dataset,
-                'total tasks': args.total_tasks,
-                "learning rate": args.lr,
-                "learning score": args.lr_score,
-                'lamb': args.lamb,
-                'sparsity': args.sparsity,
-                'dropout': args.dropout,
-                'buffer': args.buffer_size,
-                'ablation': args.ablation,
-                'temperature': args.temperature
-            })
+            config=args
+            # config={
+            #     'dataset': args.dataset,
+            #     'total tasks': args.total_tasks,
+            #     "learning rate": args.lr,
+            #     "learning score": args.lr_score,
+            #     'lamb': args.lamb,
+            #     'sparsity': args.sparsity,
+            #     'dropout': args.dropout,
+            #     'buffer': args.buffer_size,
+            #     'ablation': args.ablation,
+            #     'temperature': args.temperature
+            # }
+            )
     if args.eval:
         evaluate(model, dataset, args)
     elif args.cal:

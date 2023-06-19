@@ -127,8 +127,8 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
             loss = model.train_contrast(train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment)
 
         checkpoint = {'net': model.net, 'opt': model.opt, 'scheduler': model.scheduler, 'epoch':epoch, 'mode':mode, 'task':model.task}
-        torch.save(checkpoint, base_path_memory() + args.title + '.checkpoint')
-        wandb.save(base_path_memory() + args.title + '.checkpoint')
+        torch.save(checkpoint, base_path_memory() + args.title + '.tar')
+        wandb.save(base_path_memory() + args.title + '.tar')
         if args.verbose:
             test_acc = 0
             if not feat:
@@ -163,7 +163,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     # artifact_dir = artifact.download()
     # model.net = torch.load(artifact_dir)
     # if wandb.run.resumed:
-    checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
+    checkpoint = torch.load(base_path_memory() + args.title + '.tar')
     model.net = checkpoint['net']
 
     num_params, num_neurons = model.net.count_params()
@@ -230,7 +230,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
     # model.net.load_state_dict(state_dict, strict=False)
     # model.net = torch.load(base_path_memory() + args.title + '.net')
-    checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
+    checkpoint = torch.load(base_path_memory() + args.title + '.tar')
     model.net = checkpoint['net']
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     model.net.set_cal_params(args.total_tasks)
@@ -303,7 +303,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     checkpoint = None
     if wandb.run.resumed and args.resume:
         # checkpoint = torch.load(wandb.restore(base_path_memory() + args.title + '.checkpoint'))
-        checkpoint = torch.load(wandb.restore('tmp/memory/' + args.title + '.checkpoint'))
+        checkpoint = torch.load(wandb.restore('tmp/memory/' + args.title + '.tar'))
         start_task = checkpoint['task']
 
     if 'sub' in args.ablation:
