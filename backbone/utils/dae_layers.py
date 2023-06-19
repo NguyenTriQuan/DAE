@@ -470,8 +470,10 @@ class DynamicBlock(nn.Module):
             mask = torch.ones(self.layers[0].shape_out[-2], dtype=bool, device=device)
             mask = torch.cat([mask, self.mask_out])
             if self.ets_norm_layers[-1].affine:
-                apply_mask_out(self.ets_norm_layers[-1].weight, mask, optim_state)
-                apply_mask_out(self.ets_norm_layers[-1].bias, mask, optim_state)
+                self.ets_norm_layers[-1].weight.data = self.ets_norm_layers[-1].weight.data[mask]
+                self.ets_norm_layers[-1].bias.data = self.ets_norm_layers[-1].bias.data[mask]
+                # apply_mask_out(self.ets_norm_layers[-1].weight, mask, optim_state)
+                # apply_mask_out(self.ets_norm_layers[-1].bias, mask, optim_state)
                 self.ets_norm_layers[-1].num_features = self.ets_norm_layers[-1].weight.shape[0]
             
             if self.ets_norm_layers[-1].track_running_stats:
