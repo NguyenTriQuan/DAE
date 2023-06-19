@@ -355,8 +355,8 @@ class DAE(ContinualModel):
                     ood_outputs = outputs[bs:]
                     # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
                     ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
-                    loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
-                    # loss = self.loss(ind_outputs, labels) / (entropy(ood_outputs.exp()).mean()+1e-9)
+                    # loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
+                    loss = self.loss(ind_outputs, labels) / (entropy(ood_outputs.exp()).mean()+1e-9)
                 else:
                     loss = self.loss(outputs, labels)
             assert not math.isnan(loss)
