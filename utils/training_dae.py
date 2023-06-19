@@ -300,6 +300,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     """
     print(args)
     start_task = 0
+    checkpoint = None
     if wandb.run.resumed:
         checkpoint = torch.load(wandb.restore(base_path_memory() + args.title + '.checkpoint'))
         start_task = checkpoint['task']
