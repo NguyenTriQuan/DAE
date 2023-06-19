@@ -41,7 +41,7 @@ class _DynamicModel(nn.Module):
         params = []
         for m in self.DB:
             params += m.get_optim_ets_params()
-        params += self.mid.get_optim_ets_params()
+        # params += self.mid.get_optim_ets_params()
         params += self.last.get_optim_ets_params()
         params += self.projector.parameters()
         return params
@@ -53,7 +53,7 @@ class _DynamicModel(nn.Module):
             p, s = m.get_optim_kbts_params()
             params += p
             scores += s
-        params += self.mid.get_optim_kbts_params()
+        # params += self.mid.get_optim_kbts_params()
         params += self.last.get_optim_kbts_params()
         params += self.projector.parameters()
         return params, scores
@@ -71,7 +71,7 @@ class _DynamicModel(nn.Module):
     def freeze_feature(self):
         for m in self.DB:
             m.freeze()
-        self.mid.freeze()
+        # self.mid.freeze()
 
     def freeze_classifier(self):
         self.last.freeze()

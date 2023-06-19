@@ -44,6 +44,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--verbose", action="store_true", help="compute test accuracy and number of params.")
     parser.add_argument("--eval", action="store_true", help="evaluation only")
     parser.add_argument("--cal", action="store_true", help="calibration training")
+    parser.add_argument("--resume", action="store_true", help="resume training")
     parser.add_argument("--lr_score", type=float, required=False, help="score learning rate.", default=0.1)
     parser.add_argument("--num_tasks", type=int, required=False, help="number of tasks to run.", default=100)
     parser.add_argument("--total_tasks", type=int, required=True, help="total number of tasks.", default=10)
@@ -292,7 +293,7 @@ class DAE(ContinualModel):
                 til_avg = round(np.mean(til_accs), 2)
                 print(f"Task {len(til_accs)-1}: {mode}: cil {cil_avg} {cil_accs}, til {til_avg} {til_accs}, tp {task_acc}")
                 if self.args.verbose:
-                    wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, f"{mode}_tp": task_acc, "task": len(til_accs) - 1})
+                    wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, f"{mode}_tp": task_acc}, step=len(til_accs) - 1)
                 return til_accs, cil_accs, task_acc
             else:
                 return til_accs[0]
@@ -396,8 +397,8 @@ class DAE(ContinualModel):
             join_entropy = entropy(outputs.exp())
             join_entropy = join_entropy.view(self.task + 1, data[0].shape[0]).permute(1, 0)  # shape [batch size, num tasks]
             labels = torch.stack([(data[2] == t).float() for t in range(self.task + 1)], dim=1)
-            # loss = torch.sum(join_entropy * labels, dim=1) / (torch.sum(join_entropy, dim=1)+1e-9)
-            loss = - torch.sum(join_entropy * (1-labels), dim=1)
+            loss = torch.sum(join_entropy * labels, dim=1) / (torch.sum(join_entropy, dim=1)+1e-9)
+            # loss = - torch.sum(join_entropy * (1-labels), dim=1)
             loss = torch.mean(loss)
 
             assert not math.isnan(loss)
@@ -419,6 +420,7 @@ class DAE(ContinualModel):
     def end_task(self, dataset) -> None:
         self.net.freeze_feature()
         self.net.freeze_classifier()
+        self.net.clear_memory()
 
     def get_rehearsal_logits(self, train_loader):
         if self.task == 0:

@@ -24,7 +24,12 @@ from utils.lars_optimizer import LARC
 
 import wandb
 
-def train_loop(model, args, train_loader, mode):
+def train_loop(model, args, train_loader, mode, checkpoint=None):
+    start_epoch = 0
+    if checkpoint is not None:
+        start_epoch = checkpoint['epoch']+1
+        mode = checkpoint['mode']
+
     squeeze = False
     augment = True
     ets = 'ets' in mode
@@ -37,6 +42,7 @@ def train_loop(model, args, train_loader, mode):
     if all: feat = False
     num_squeeze = 0
     num_augment = 1000
+
     if cal:
         # calibration outputs
         n_epochs = 50
@@ -106,44 +112,59 @@ def train_loop(model, args, train_loader, mode):
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
 
+    if checkpoint is not None:
+        model.net = checkpoint['net']
+        model.opt = checkpoint['opt']
+        model.scheduler = checkpoint['scheduler']
+
     if 'epoch' in args.ablation:
         n_epochs = 10
     progress_bar = ProgressBar()
-    for epoch in range(n_epochs):
+    for epoch in range(start_epoch, n_epochs):
         if cal:
             loss = model.train_calibration(mode, ets, kbts)
         else:          
             loss = model.train_contrast(train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment)
 
+        checkpoint = {'net': model.net, 'opt': model.opt, 'scheduler': model.scheduler, 'epoch':epoch, 'mode':mode, 'task':model.task}
+        torch.save(checkpoint, base_path_memory() + args.title + '.checkpoint')
+        wandb.save(base_path_memory() + args.title + '.checkpoint')
         if args.verbose:
             test_acc = 0
             if not feat:
                 test_acc = model.evaluate(task=model.task, mode=mode)
-                wandb.log({"task": model.task, "epoch": epoch, f"Task {model.task} {mode} test acc": test_acc})
+                wandb.log({f"Task {model.task} {mode} test acc": test_acc}, step=epoch)
             if squeeze:
                 num_params, num_neurons = model.net.count_params()
                 num_neurons = '-'.join(str(int(num)) for num in num_neurons)
                 num_params = sum(num_params)
                 progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, test_acc, num_params, num_neurons)
-                wandb.log({"task": model.task, "epoch": epoch, f"Task {model.task} {mode} loss": loss, "params": num_params})
+                wandb.log({f"Task {model.task} {mode} loss": loss, f"Task {model.task} params": num_params}, step=epoch)
             else:
                 progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, test_acc)
-                wandb.log({"task": model.task, "epoch": epoch, f"Task {model.task} {mode} loss": loss})
+                wandb.log({f"Task {model.task} {mode} loss": loss}, step=epoch)
 
         if epoch >= num_squeeze:
             squeeze = False
 
     print()
+    if ets:
+        num_params, num_neurons = model.net.count_params()
+        num_neurons = '-'.join(str(int(num)) for num in num_neurons)
+        print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
 
 def evaluate(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
     # model.net.load_state_dict(state_dict, strict=False)
-    model.net = torch.load(base_path_memory() + args.title + '.net')
+    # model.net = torch.load(base_path_memory() + args.title + '.net')
     # artifact = args.run.use_artifact('entity/DAE/model:v0', type='model')
     # artifact_dir = artifact.download()
     # model.net = torch.load(artifact_dir)
+    # if wandb.run.resumed:
+    checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
+    model.net = checkpoint['net']
 
     num_params, num_neurons = model.net.count_params()
     num_neurons = '-'.join(str(int(num)) for num in num_neurons)
@@ -208,7 +229,9 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     
     # state_dict = torch.load(base_path_memory() + args.title + '.net')
     # model.net.load_state_dict(state_dict, strict=False)
-    model.net = torch.load(base_path_memory() + args.title + '.net')
+    # model.net = torch.load(base_path_memory() + args.title + '.net')
+    checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
+    model.net = checkpoint['net']
     progress_bar = ProgressBar(verbose=not args.non_verbose)
     model.net.set_cal_params(args.total_tasks)
     for t in range(dataset.N_TASKS):
@@ -276,6 +299,10 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     :param args: the arguments of the current execution
     """
     print(args)
+    start_task = 0
+    if wandb.run.resumed:
+        checkpoint = torch.load(wandb.restore(base_path_memory() + args.title + '.checkpoint'))
+        start_task = checkpoint['task']
 
     if 'sub' in args.ablation:
         ratio = 0.1
@@ -300,15 +327,12 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
     if 'cal' not in args.ablation:
         model.net.set_cal_params(args.total_tasks)
-    for t in range(dataset.N_TASKS):
+    for t in range(start_task, dataset.N_TASKS):
         if t >= args.num_tasks:
             break
         model.net.train()
-        if 'joint' in args.ablation:
-            train_loader, test_loader = dataset.get_full_data_loader()
-        else:
-            train_loader, test_loader = dataset.get_data_loaders()
-        if hasattr(model, 'begin_task'):
+        train_loader, test_loader = dataset.get_data_loaders()
+        if hasattr(model, 'begin_task') and not wandb.run.resumed:
             print(f'Start training task {t}')
             model.begin_task(dataset)
             num_params, num_neurons = model.net.count_params()
@@ -316,19 +340,23 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
         if 'all' in args.ablation:
-            mode = 'ets_all'
-            train_loop(model, args, train_loader, mode=mode)
-            num_params, num_neurons = model.net.count_params()
-            num_neurons = '-'.join(str(int(num)) for num in num_neurons)
-            print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
-            acc = model.evaluate(task=t, mode=mode)
-            print(f'Task {t}, {mode}: til {acc}')
+            modes = ['ets_all', 'kbts_all']
+            if wandb.run.resumed:
+                for mode in modes:
+                    if mode == checkpoint['mode']:
+                        break
+                    else:
+                        modes.remove(mode)
 
-            if 'kbts' not in args.ablation:
-                mode = 'kbts_all'
-                train_loop(model, args, train_loader, mode=mode)
+            for mode in modes:
+                if 'ets' in mode and 'ets' in args.ablation:
+                    continue
+                if 'kbts' in mode and 'kbts' in args.ablation:
+                    continue
+                train_loop(model, args, train_loader, mode=mode, checkpoint=checkpoint)
                 acc = model.evaluate(task=t, mode=mode)
                 print(f'Task {t}, {mode}: til {acc}')
+                checkpoint = None
 
         else:
             # ets training
@@ -361,12 +389,12 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
 
-        model.net.clear_memory()
-        torch.save(model.net, base_path_memory() + args.title + '.net')
-        model_size = os.path.getsize(base_path_memory() + args.title + '.net')
-        print('Model size:', model_size)
-        if args.verbose:
-            wandb.log({'model size':model_size, 'task': t})
+        # model.net.clear_memory()
+        # torch.save(model.net, base_path_memory() + args.title + '.net')
+        # model_size = os.path.getsize(base_path_memory() + args.title + '.net')
+        # print('Model size:', model_size)
+        # if args.verbose:
+        #     wandb.log({'model size':model_size, 'task': t})
 
         if args.verbose:
             if 'kbts' not in args.ablation:

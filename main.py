@@ -159,6 +159,7 @@ def main(args=None):
             # Set the project where this run will be logged
             project=model.NAME,
             name=args.title,
+            resume=args.resume,
             # Track hyperparameters and run metadata
             config={
                 'dataset': args.dataset,
@@ -172,7 +173,6 @@ def main(args=None):
                 'ablation': args.ablation,
                 'temperature': args.temperature
             })
-        args.run = run
     if args.eval:
         evaluate(model, dataset, args)
     elif args.cal:

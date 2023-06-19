@@ -257,7 +257,7 @@ class _DynamicLayer(nn.Module):
             mask = GetSubnet.apply(self.score.abs(), 1-self.kbts_sparsities[t])
             self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
             self.score = None
-        self.dummy_weight = None
+        # self.dummy_weight = None
         self.kb_weight = None
         self.masked_kb_weight = None
         
