@@ -301,7 +301,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     print(args)
     start_task = 0
     checkpoint = None
-    if wandb.run.resumed:
+    if wandb.run.resumed and args.resume:
         checkpoint = torch.load(wandb.restore(base_path_memory() + args.title + '.checkpoint'))
         start_task = checkpoint['task']
 
@@ -336,13 +336,14 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if hasattr(model, 'begin_task') and not wandb.run.resumed:
             print(f'Start training task {t}')
             model.begin_task(dataset)
+            model.net.to(model.device)
             num_params, num_neurons = model.net.count_params()
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
         if 'all' in args.ablation:
             modes = ['ets_all', 'kbts_all']
-            if wandb.run.resumed:
+            if checkpoint is not None:
                 for mode in modes:
                     if mode == checkpoint['mode']:
                         break

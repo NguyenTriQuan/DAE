@@ -159,7 +159,7 @@ def main(args=None):
             # Set the project where this run will be logged
             project=model.NAME,
             name=args.title,
-            resume=args.resume,
+            resume=True,
             # Track hyperparameters and run metadata
             config={
                 'dataset': args.dataset,
