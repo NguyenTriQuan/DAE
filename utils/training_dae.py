@@ -302,7 +302,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     start_task = 0
     checkpoint = None
     if wandb.run.resumed and args.resume:
-        checkpoint = torch.load(wandb.restore(base_path_memory() + args.title + '.checkpoint'))
+        # checkpoint = torch.load(wandb.restore(base_path_memory() + args.title + '.checkpoint'))
+        checkpoint = torch.load(wandb.restore('root/tmp/memory/' + args.title + '.checkpoint'))
         start_task = checkpoint['task']
 
     if 'sub' in args.ablation:
