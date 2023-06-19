@@ -470,10 +470,8 @@ class DynamicBlock(nn.Module):
             mask = torch.ones(self.layers[0].shape_out[-2], dtype=bool, device=device)
             mask = torch.cat([mask, self.mask_out])
             if self.ets_norm_layers[-1].affine:
-                self.ets_norm_layers[-1].weight.data = self.ets_norm_layers[-1].weight.data[mask]
-                self.ets_norm_layers[-1].bias.data = self.ets_norm_layers[-1].bias.data[mask]
-                # apply_mask_out(self.ets_norm_layers[-1].weight, mask, optim_state)
-                # apply_mask_out(self.ets_norm_layers[-1].bias, mask, optim_state)
+                apply_mask_out(self.ets_norm_layers[-1].weight, mask, optim_state)
+                apply_mask_out(self.ets_norm_layers[-1].bias, mask, optim_state)
                 self.ets_norm_layers[-1].num_features = self.ets_norm_layers[-1].weight.shape[0]
             
             if self.ets_norm_layers[-1].track_running_stats:
@@ -500,9 +498,6 @@ class DynamicBlock(nn.Module):
         
         if self.norm_type is not None:
             norm_layer = self.ets_norm_layers[-1]
-            # if norm_layer.track_running_stats:
-            #     norm_layer.running_mean[layer.shape_out[-2]:] *= aux
-            #     norm_layer.running_var[layer.shape_out[-2]:] *= (aux ** 2)
             temp = torch.ones(layer.shape_out[-2], dtype=float, device=device)
             temp = torch.cat([temp, aux], dim=0)
             if norm_layer.affine:
@@ -513,8 +508,8 @@ class DynamicBlock(nn.Module):
         params = []
         for layer in self.layers:
             params += [layer.weight[-1], layer.fwt_weight[-1], layer.bwt_weight[-1]]
-        if self.norm_type is not None and 'affine' in self.norm_type:
-            params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
+        # if self.norm_type is not None and 'affine' in self.norm_type:
+        #     params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
         return params
     
     def get_optim_kbts_params(self):
