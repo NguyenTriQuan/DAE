@@ -333,7 +333,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             break
         model.net.train()
         train_loader, test_loader = dataset.get_data_loaders()
-        if hasattr(model, 'begin_task') and not wandb.run.resumed:
+        if hasattr(model, 'begin_task') and checkpoint is None:
             print(f'Start training task {t}')
             model.begin_task(dataset)
             model.net.to(model.device)
