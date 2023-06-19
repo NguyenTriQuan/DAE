@@ -127,8 +127,8 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
             loss = model.train_contrast(train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment)
 
         checkpoint = {'net': model.net, 'opt': model.opt, 'scheduler': model.scheduler, 'epoch':epoch, 'mode':mode, 'task':model.task}
-        torch.save(checkpoint, base_path_memory() + args.title + '.tar')
-        wandb.save(base_path_memory() + args.title + '.tar')
+        torch.save(checkpoint, base_path_memory() + args.title + '.checkpoint')
+        # wandb.save(base_path_memory() + args.title + '.tar')
         if args.verbose:
             test_acc = 0
             if not feat:
@@ -152,6 +152,8 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
         num_params, num_neurons = model.net.count_params()
         num_neurons = '-'.join(str(int(num)) for num in num_neurons)
         print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+
+    wandb.save(base_path_memory() + args.title + '.checkpoint')
 
 
 def evaluate(model: ContinualModel, dataset: ContinualDataset,
@@ -302,8 +304,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     start_task = 0
     checkpoint = None
     if wandb.run.resumed and args.resume:
-        # checkpoint = torch.load(wandb.restore(base_path_memory() + args.title + '.checkpoint'))
-        checkpoint = torch.load(wandb.restore('tmp/memory/' + args.title + '.tar'))
+        checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
+        # checkpoint = torch.load(wandb.restore('tmp/memory/' + args.title + '.checkpoint'))
         start_task = checkpoint['task']
 
     if 'sub' in args.ablation:
