@@ -511,8 +511,8 @@ class DynamicBlock(nn.Module):
         params = []
         for layer in self.layers:
             params += [layer.weight[-1], layer.fwt_weight[-1], layer.bwt_weight[-1]]
-        # if self.norm_type is not None and 'affine' in self.norm_type:
-        #     params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
+        if self.norm_type is not None and 'affine' in self.norm_type:
+            params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
         return params
     
     def get_optim_kbts_params(self):
