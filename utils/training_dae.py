@@ -27,6 +27,7 @@ import wandb
 def train_loop(model, args, train_loader, mode, checkpoint=None):
     start_epoch = 0
     if checkpoint is not None:
+        model.net = checkpoint['net']
         start_epoch = checkpoint['epoch']+1
         mode = checkpoint['mode']
 
@@ -113,7 +114,6 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
 
     if checkpoint is not None:
-        model.net = checkpoint['net']
         model.opt = checkpoint['opt']
         model.scheduler = checkpoint['scheduler']
 
