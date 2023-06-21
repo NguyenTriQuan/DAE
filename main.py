@@ -133,8 +133,8 @@ def main(args=None):
     # setproctitle.setproctitle('{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
     if model.NAME == 'DAE':
         from utils.training_dae import train, evaluate, train_cal
-        args.title = '{}_{}_{}_lamb_{}_drop_{}_sparsity_{}_tem_{}_buf_{}_{}'.format(args.model, args.dataset, args.total_tasks,
-                                                                args.lamb, args.dropout, args.sparsity, args.temperature,
+        args.title = '{}_{}_{}_lamb_{}_drop_{}_sparsity_{}_buf_{}_{}'.format(args.model, args.dataset, args.total_tasks,
+                                                                args.lamb, args.dropout, args.sparsity,
                                                                  args.buffer_size, args.mode)
         print(args.title)
     elif model.NAME == 'ATA':
