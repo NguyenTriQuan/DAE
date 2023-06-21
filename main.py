@@ -135,7 +135,7 @@ def main(args=None):
         from utils.training_dae import train, evaluate, train_cal
         args.title = '{}_{}_{}_lamb_{}_drop_{}_sparsity_{}_tem_{}_buf_{}_{}'.format(args.model, args.dataset, args.total_tasks,
                                                                 args.lamb, args.dropout, args.sparsity, args.temperature,
-                                                                 args.buffer_size, args.ablation)
+                                                                 args.buffer_size, args.mode)
         print(args.title)
     elif model.NAME == 'ATA':
         from utils.training_ata import train

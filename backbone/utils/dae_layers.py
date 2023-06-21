@@ -110,16 +110,16 @@ class _DynamicLayer(nn.Module):
     def get_expand_shape(self, t, add_in, add_out=None, kbts=False):
         # expand from knowledge base weights of task t
         if add_in is None:
-            if 'fix' in self.args.ablation:
+            if 'fix' in self.args.mode:
                 add_in = self.base_in_features - self.shape_in[t]
             else:
                 add_in = self.base_in_features
         fan_in = self.shape_in[t] + add_in
         if add_out is None:
             # compute add_out
-            if 'fix' in self.args.ablation:
+            if 'fix' in self.args.mode:
                 add_out = self.base_out_features - self.shape_out[t]
-            elif 'op' in self.args.ablation and not kbts:
+            elif 'op' in self.args.mode and not kbts:
                 add_out = self.base_out_features
             else:
                 if kbts:
@@ -252,11 +252,11 @@ class _DynamicLayer(nn.Module):
         return output    
 
     def clear_memory(self):
-        if self.score is not None:
-            t = len(self.kbts_sparsities) - 1
-            mask = GetSubnet.apply(self.score.abs(), 1-self.kbts_sparsities[t])
-            self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
-            self.score = None
+        # if self.score is not None:
+        #     t = len(self.kbts_sparsities) - 1
+        #     mask = GetSubnet.apply(self.score.abs(), 1-self.kbts_sparsities[t])
+        #     self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
+        #     self.score = None
         # self.dummy_weight = None
         self.kb_weight = None
         self.masked_kb_weight = None

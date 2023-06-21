@@ -27,7 +27,6 @@ import wandb
 def train_loop(model, args, train_loader, mode, checkpoint=None):
     start_epoch = 0
     if checkpoint is not None:
-        model.net = checkpoint['net']
         start_epoch = checkpoint['epoch']+1
         mode = checkpoint['mode']
 
@@ -35,12 +34,12 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
     augment = True
     ets = 'ets' in mode
     kbts = 'kbts' in mode
-    buf_ood = 'buf_ood' not in args.ablation
-    clr_ood = 'clr_ood' not in args.ablation
+    buf_ood = 'buf_ood' in args.mode
+    clr_ood = 'clr_ood' in args.mode
     feat = 'feat' in mode
     cal = 'cal' in mode
-    all = 'all' in mode
-    if all: feat = False
+    # all = 'all' in mode
+    # if all: feat = False
     num_squeeze = 0
     num_augment = 1000
 
@@ -69,19 +68,19 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
     #     model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
     #     # model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
     elif ets:
-        if feat or all:
-            params = model.net.get_optim_ets_params()
-            n_epochs = 150
-            num_squeeze = 100
-            step_lr = [130, 145]
-            squeeze = 'squeeze' not in args.ablation
-            # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
-            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
-        else:
-            params = model.net.last.get_optim_ets_params()
-            n_epochs = 50
-            step_lr = [1, 35, 45]
-            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+        # if feat or all:
+        params = model.net.get_optim_ets_params()
+        n_epochs = 150
+        num_squeeze = 100
+        step_lr = [130, 145]
+        squeeze = 'squeeze' not in args.ablation
+        # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+        # else:
+        #     params = model.net.last.get_optim_ets_params()
+        #     n_epochs = 50
+        #     step_lr = [1, 35, 45]
+        #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         
         count = 0
         for param in params:
@@ -90,25 +89,25 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
         
     elif kbts:
-        if feat or all:
-            n_epochs = 120
-            step_lr = [100, 115]
-            params, scores = model.net.get_optim_kbts_params()
-            count = 0
-            for param in params + scores:
-                count += param.numel()
-            model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-                                        lr=args.lr, weight_decay=0, momentum=0.9)
+        # if feat or all:
+        n_epochs = 120
+        step_lr = [100, 115]
+        params, scores = model.net.get_optim_kbts_params()
+        count = 0
+        for param in params + scores:
+            count += param.numel()
+        model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+                                    lr=args.lr, weight_decay=0, momentum=0.9)
             # model.opt = LARC(torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
             #                                  lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
-        else:
-            n_epochs = 50
-            step_lr = [1, 35, 45]
-            params = model.net.last.get_optim_kbts_params()
-            count = 0
-            for param in params:
-                count += param.numel()
-            model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+        # else:
+        #     n_epochs = 50
+        #     step_lr = [1, 35, 45]
+        #     params = model.net.last.get_optim_kbts_params()
+        #     count = 0
+        #     for param in params:
+        #         count += param.numel()
+        #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
 
         print(f'Training mode: {mode}, Number of optim params: {count}')
         model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
@@ -124,25 +123,29 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
         if cal:
             loss = model.train_calibration(mode, ets, kbts)
         else:          
-            loss = model.train_contrast(train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment)
+            loss, train_acc = model.train_contrast(train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment)
 
-        checkpoint = {'net': model.net, 'opt': model.opt, 'scheduler': model.scheduler, 'epoch':epoch, 'mode':mode, 'task':model.task}
-        torch.save(checkpoint, base_path_memory() + args.title + '.checkpoint')
         # wandb.save(base_path_memory() + args.title + '.tar')
         if args.verbose:
             test_acc = 0
-            if not feat:
-                test_acc = model.evaluate(task=model.task, mode=mode)
-                wandb.log({f"Task {model.task} {mode} test acc": test_acc}, step=epoch)
+            # if not feat:
+            test_acc = model.evaluate(task=model.task, mode=mode)
             if squeeze:
                 num_params, num_neurons = model.net.count_params()
                 num_neurons = '-'.join(str(int(num)) for num in num_neurons)
                 num_params = sum(num_params)
-                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, test_acc, num_params, num_neurons)
-                wandb.log({f"Task {model.task} {mode} loss": loss, f"Task {model.task} params": num_params}, step=epoch)
+                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, train_acc, test_acc, num_params, num_neurons)
+                wandb.log({'epoch':epoch, f"Task {model.task} {mode} loss": loss, f"Task {model.task} {mode} train acc": train_acc,
+                           f"Task {model.task} {mode} test acc": test_acc, f"Task {model.task} params": num_params})
             else:
-                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, 0, test_acc)
-                wandb.log({f"Task {model.task} {mode} loss": loss}, step=epoch)
+                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, train_acc, test_acc)
+                wandb.log({'epoch':epoch, f"Task {model.task} {mode} loss": loss, f"Task {model.task} {mode} train acc": train_acc,
+                           f"Task {model.task} {mode} test acc": test_acc})
+
+        #save model
+        model.net.clear_memory()
+        checkpoint = {'net': model.net, 'opt': model.opt, 'scheduler': model.scheduler, 'epoch':epoch, 'mode':mode, 'task':model.task}
+        torch.save(checkpoint, base_path_memory() + args.title + '.checkpoint')
 
         if epoch >= num_squeeze:
             squeeze = False
@@ -153,7 +156,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
         num_neurons = '-'.join(str(int(num)) for num in num_neurons)
         print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
-    wandb.save(base_path_memory() + args.title + '.checkpoint')
+    # wandb.save(base_path_memory() + args.title + '.checkpoint')
 
 
 def evaluate(model: ContinualModel, dataset: ContinualDataset,
@@ -193,7 +196,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         mode = 'ets_kbts_ba'
         model.evaluate(task=None, mode=mode)
 
-        if 'cal' not in args.ablation:
+        if 'cal' in args.mode:
             mode = 'ets_kbts_cal'
             model.evaluate(task=None, mode=mode)
 
@@ -206,7 +209,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         mode = 'ets_ba'
         model.evaluate(task=None, mode=mode)
 
-        if 'cal' not in args.ablation:
+        if 'cal' in args.mode:
             mode = 'ets_cal'
             model.evaluate(task=None, mode=mode)
 
@@ -219,7 +222,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         mode = 'kbts_ba'
         model.evaluate(task=None, mode=mode)
 
-        if 'cal' not in args.ablation:
+        if 'cal' in args.mode:
             mode = 'kbts_cal'
             model.evaluate(task=None, mode=mode)
 
@@ -307,6 +310,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
         # checkpoint = torch.load(wandb.restore('tmp/memory/' + args.title + '.checkpoint'))
         start_task = checkpoint['task']
+        model.net = checkpoint['net']
 
     if 'sub' in args.ablation:
         ratio = 0.1
@@ -329,23 +333,24 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
     print(file=sys.stderr)
 
-    if 'cal' not in args.ablation:
+    if 'cal' in args.mode:
         model.net.set_cal_params(args.total_tasks)
-    for t in range(start_task, dataset.N_TASKS):
-        if t >= args.num_tasks:
-            break
+    for t in range(dataset.N_TASKS):
+        if t >= args.num_tasks: break
         model.net.train()
         train_loader, test_loader = dataset.get_data_loaders()
         if hasattr(model, 'begin_task') and checkpoint is None:
-            print(f'Start training task {t}')
             model.begin_task(dataset)
             model.net.to(model.device)
             num_params, num_neurons = model.net.count_params()
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+        else:
+            model.task += 1
 
-        if 'all' in args.ablation:
-            modes = ['ets_all', 'kbts_all']
+        print(f'Training task {model.task}')
+        if t >= start_task:
+            modes = ['ets', 'kbts']
             if checkpoint is not None:
                 for mode in modes:
                     if mode == checkpoint['mode']:
@@ -354,45 +359,43 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                         modes.remove(mode)
 
             for mode in modes:
-                if 'ets' in mode and 'ets' in args.ablation:
+                if 'ets' in mode and 'ets' not in args.mode:
                     continue
-                if 'kbts' in mode and 'kbts' in args.ablation:
+                if 'kbts' in mode and 'kbts' not in args.mode:
                     continue
                 train_loop(model, args, train_loader, mode=mode, checkpoint=checkpoint)
                 acc = model.evaluate(task=t, mode=mode)
                 print(f'Task {t}, {mode}: til {acc}')
                 checkpoint = None
 
-        else:
-            # ets training
-            mode = 'ets_feat'
-            train_loop(model, args, train_loader, mode=mode)
-            num_params, num_neurons = model.net.count_params()
-            num_neurons = '-'.join(str(int(num)) for num in num_neurons)
-            print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+            if hasattr(model, 'end_task'):
+                model.end_task(dataset)
+        # else:
+        #     # ets training
+        #     mode = 'ets_feat'
+        #     train_loop(model, args, train_loader, mode=mode)
+        #     num_params, num_neurons = model.net.count_params()
+        #     num_neurons = '-'.join(str(int(num)) for num in num_neurons)
+        #     print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
 
-            # kbts training
-            if 'kbts' not in args.ablation:
-                mode = 'kbts_feat'
-                train_loop(model, args, train_loader, mode=mode)
+        #     # kbts training
+        #     if 'kbts' not in args.ablation:
+        #         mode = 'kbts_feat'
+        #         train_loop(model, args, train_loader, mode=mode)
                 
-            model.net.freeze_feature()
-            model.net.clear_memory()
+        #     model.net.freeze_feature()
+        #     model.net.clear_memory()
 
-            mode = 'ets'
-            train_loop(model, args, train_loader, mode=mode)
-            acc = model.evaluate(task=t, mode=mode)
-            print(f'Task {t}, {mode}: til {acc}')
+        #     mode = 'ets'
+        #     train_loop(model, args, train_loader, mode=mode)
+        #     acc = model.evaluate(task=t, mode=mode)
+        #     print(f'Task {t}, {mode}: til {acc}')
 
-            if 'kbts' not in args.ablation:
-                mode = 'kbts'
-                train_loop(model, args, train_loader, mode=mode)
-                acc = model.evaluate(task=t, mode=mode)
-                print(f'Task {t}, {mode}: til {acc}')
-
-
-        if hasattr(model, 'end_task'):
-            model.end_task(dataset)
+        #     if 'kbts' not in args.ablation:
+        #         mode = 'kbts'
+        #         train_loop(model, args, train_loader, mode=mode)
+        #         acc = model.evaluate(task=t, mode=mode)
+        #         print(f'Task {t}, {mode}: til {acc}')
 
         # model.net.clear_memory()
         # torch.save(model.net, base_path_memory() + args.title + '.net')
@@ -402,21 +405,24 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         #     wandb.log({'model size':model_size, 'task': t})
 
         if args.verbose:
-            if 'kbts' not in args.ablation:
-                mode = 'ets_kbts'
-            else:
-                mode = 'ets'
+            mode = []
+            if 'kbts' in args.mode:
+                mode += ['kbts']
+            if 'ets' in args.mode:
+                mode += ['ets']
+            mode = '_'.join(mode)
             model.evaluate(task=None, mode=mode)
 
             mode += '_ba'
             model.evaluate(task=None, mode=mode)
-
-            mode = 'ets'
-            model.evaluate(task=None, mode=mode)
+            
+            if 'ets' in args.mode:
+                mode = 'ets'
+                model.evaluate(task=None, mode=mode)
 
             # mode = 'ets_ba'
             # model.evaluate(task=None, mode=mode)
-            if 'kbts' not in args.ablation:
+            if 'kbts' in args.mode:
                 mode = 'kbts'
                 model.evaluate(task=None, mode=mode)
 
@@ -427,11 +433,12 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         with torch.no_grad():
             model.get_rehearsal_logits(train_loader)
 
-        if 'cal' not in args.ablation:
+        if 'cal' in args.mode:
             model.net.set_cal_params(args.total_tasks)
             if t > 0:
-                train_loop(model, args, train_loader, mode='ets_cal')
-                if 'kbts' not in args.ablation:
+                if 'ets' in args.mode:
+                    train_loop(model, args, train_loader, mode='ets_cal')
+                if 'kbts' in args.mode:
                     train_loop(model, args, train_loader, mode='kbts_cal')
 
                 if args.verbose:

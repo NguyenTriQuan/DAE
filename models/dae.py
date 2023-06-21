@@ -39,6 +39,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--temperature", default=0.1, type=float, required=False, help="Supervised Contrastive loss temperature.")
     parser.add_argument("--negative_slope", default=0, type=float, required=False, help="leaky relu activation negative slope.")
     parser.add_argument("--ablation", type=str, required=False, help="Ablation study.", default="")
+    parser.add_argument("--mode", type=str, required=False, help="Ablation study.", default="")
     parser.add_argument("--norm_type", type=str, required=False, help="batch normalization layer", default="none")
     parser.add_argument("--debug", action="store_true", help="Quick test.")
     parser.add_argument("--verbose", action="store_true", help="compute test accuracy and number of params.")
@@ -293,7 +294,7 @@ class DAE(ContinualModel):
                 til_avg = round(np.mean(til_accs), 2)
                 print(f"Task {len(til_accs)-1}: {mode}: cil {cil_avg} {cil_accs}, til {til_avg} {til_accs}, tp {task_acc}")
                 if self.args.verbose:
-                    wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, f"{mode}_tp": task_acc}, step=len(til_accs) - 1)
+                    wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, f"{mode}_tp": task_acc, 'task':len(til_accs) - 1})
                 return til_accs, cil_accs, task_acc
             else:
                 return til_accs[0]
@@ -328,8 +329,8 @@ class DAE(ContinualModel):
                     buffer_data = [tmp.to(self.device) for tmp in buffer_data]
                     ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
 
-            if feat:
-                inputs = torch.cat([inputs, inputs], dim=0)
+            # if feat:
+            #     inputs = torch.cat([inputs, inputs], dim=0)
             if ood:
                 inputs = torch.cat([inputs, ood_inputs], dim=0)
             
@@ -338,32 +339,34 @@ class DAE(ContinualModel):
             # inputs = self.dataset.test_transforms[self.task](inputs)
             self.opt.zero_grad()
             if ets:
-                outputs = self.net.ets_forward(inputs, self.task, feat=feat)
+                outputs = self.net.ets_forward(inputs, self.task, feat=False)
             elif kbts:
-                outputs = self.net.kbts_forward(inputs, self.task, feat=feat)
+                outputs = self.net.kbts_forward(inputs, self.task, feat=False)
 
-            if feat:
-                outputs = F.normalize(outputs, p=2, dim=1)
-                if ood:
-                    ind_outputs = outputs[:bs*2]
-                    loss = sup_clr_ood_loss(ind_outputs, outputs, labels, self.args.temperature)
-                else:
-                    loss = sup_clr_loss(outputs, labels, self.args.temperature)
+            # if feat:
+            #     outputs = F.normalize(outputs, p=2, dim=1)
+            #     if ood:
+            #         ind_outputs = outputs[:bs*2]
+            #         loss = sup_clr_ood_loss(ind_outputs, outputs, labels, self.args.temperature)
+            #     else:
+            #         loss = sup_clr_loss(outputs, labels, self.args.temperature)
+            # else:
+            if ood and (ood_inputs.numel() > 0):
+                ind_outputs = outputs[:bs]
+                ood_outputs = outputs[bs:]
+                # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
+                ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
+                loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
+                outputs = ind_outputs
+                # loss = self.loss(ind_outputs, labels) / (entropy(ood_outputs.exp()).mean()+1e-9)
             else:
-                if ood and (ood_inputs.numel() > 0):
-                    ind_outputs = outputs[:bs]
-                    ood_outputs = outputs[bs:]
-                    # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
-                    ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
-                    loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
-                    # loss = self.loss(ind_outputs, labels) / (entropy(ood_outputs.exp()).mean()+1e-9)
-                else:
-                    loss = self.loss(outputs, labels)
+                loss = self.loss(outputs, labels)
             assert not math.isnan(loss)
             loss.backward()
             self.opt.step()
             total += bs
             total_loss += loss.item() * bs
+            correct += (outputs.argmax(1) == labels).sum().item()
             if squeeze:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
                 
@@ -371,7 +374,7 @@ class DAE(ContinualModel):
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
 
-        return total_loss / total
+        return total_loss / total, round(correct * 100 / total, 2)
 
     def train_calibration(self, mode, ets, kbts):
         self.net.train()
