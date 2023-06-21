@@ -34,8 +34,8 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
     augment = True
     ets = 'ets' in mode
     kbts = 'kbts' in mode
-    buf_ood = 'buf_ood' in args.mode
-    clr_ood = 'clr_ood' in args.mode
+    buf = 'buf' in args.mode
+    rot = 'rot' in args.mode
     feat = 'feat' in mode
     cal = 'cal' in mode
     # all = 'all' in mode
@@ -123,7 +123,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
         if cal:
             loss = model.train_calibration(mode, ets, kbts)
         else:          
-            loss, train_acc = model.train_contrast(train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment)
+            loss, train_acc = model.train_contrast(train_loader, mode, ets, kbts, rot, buf, feat, squeeze, augment)
 
         # wandb.save(base_path_memory() + args.title + '.tar')
         if args.verbose:

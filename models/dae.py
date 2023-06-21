@@ -299,13 +299,13 @@ class DAE(ContinualModel):
             else:
                 return til_accs[0]
 
-    def train_contrast(self, train_loader, mode, ets, kbts, clr_ood, buf_ood, feat, squeeze, augment):
+    def train_contrast(self, train_loader, mode, ets, kbts, rot, buf, feat, squeeze, augment):
         total = 0
         correct = 0
         total_loss = 0
 
         self.net.train()
-        ood = clr_ood or buf_ood
+        ood = buf or rot
 
         if self.buffer is not None:
             buffer = iter(self.buffer)
@@ -315,10 +315,10 @@ class DAE(ContinualModel):
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
             ood_inputs = torch.empty(0).to(self.device)
-            if clr_ood:
+            if rot:
                 rot = random.randint(1, 3)
                 ood_inputs = torch.rot90(inputs, rot, dims=(2, 3))
-            if buf_ood:
+            if buf:
                 if self.buffer is not None:
                     try:
                         buffer_data = next(buffer)
