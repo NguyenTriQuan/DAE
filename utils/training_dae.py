@@ -74,8 +74,8 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
         num_squeeze = 100
         step_lr = [130, 145]
         squeeze = 'squeeze' not in args.ablation
-        model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
-        # model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+        # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         # else:
         #     params = model.net.last.get_optim_ets_params()
         #     n_epochs = 50
@@ -96,10 +96,10 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
         count = 0
         for param in params + scores:
             count += param.numel()
-        # model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-        #                             lr=args.lr, weight_decay=0, momentum=0.9)
-        model.opt = LARC(torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-                                         lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+        model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+                                    lr=args.lr, weight_decay=0, momentum=0.9)
+        # model.opt = LARC(torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+        #                                  lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
         # else:
         #     n_epochs = 50
         #     step_lr = [1, 35, 45]
