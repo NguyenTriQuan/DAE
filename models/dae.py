@@ -337,6 +337,7 @@ class DAE(ContinualModel):
                 loss.backward()
                 adv_inputs = fgsm_attack(inputs, self.eps, inputs.grad.data)
                 ood_inputs = torch.cat([ood_inputs, adv_inputs], dim=0)
+                inputs.requires_grad = False
             if rot:
                 rot = random.randint(1, 3)
                 ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
