@@ -360,9 +360,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                         modes.remove(mode)
 
             for mode in modes:
-                if 'ets' in mode and 'ets' not in args.mode:
+                if 'ets' in mode and 'ets' in args.ablation:
                     continue
-                if 'kbts' in mode and 'kbts' not in args.mode:
+                if 'kbts' in mode and 'kbts' in args.ablation:
                     continue
                 train_loop(model, args, train_loader, mode=mode, checkpoint=checkpoint)
                 acc = model.evaluate(task=t, mode=mode)
