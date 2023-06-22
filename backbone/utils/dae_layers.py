@@ -91,7 +91,7 @@ class _DynamicLayer(nn.Module):
         # self.num_out = []
         # self.num_in = []
         self.kbts_sparsities = []
-        self.old_std = []
+        self.bound_std = []
         self.total_masked_kb = []
 
         self.jr_sparsity = 0
@@ -157,7 +157,7 @@ class _DynamicLayer(nn.Module):
         
         bound_std = self.gain / math.sqrt(fan_in * self.ks)
         # bound_std = self.gain / math.sqrt(fan_out * self.ks)
-        self.old_std.append(bound_std)
+        self.bound_std.append(bound_std)
         if isinstance(self, DynamicConv2D):
             self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
             self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2] // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
@@ -186,11 +186,7 @@ class _DynamicLayer(nn.Module):
             bwt_weight_scale = getattr(self, f'bwt_weight_scale_{i}')
             self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i] / bwt_weight_scale], dim=1), 
                                 torch.cat([self.fwt_weight[i] / fwt_weight_scale, self.weight[i] / weight_scale], dim=1)], dim=0)
-        #     self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i]], dim=1), 
-        #                         torch.cat([self.fwt_weight[i], self.weight[i]], dim=1)], dim=0)
-        # if self.kb_weight.numel() != 0:
-        #     old_bound_std = self.gain / math.sqrt(self.kb_weight.shape[1] * self.ks)
-        #     self.kb_weight = self.kb_weight / old_bound_std
+            del weight_scale, fwt_weight_scale, bwt_weight_scale
 
     
     def get_masked_kb_params(self, t, add_in, add_out=None):
@@ -212,18 +208,14 @@ class _DynamicLayer(nn.Module):
             dummy_weight_0 = dummy_weight[:n_0].view(add_out, (fan_in-add_in))
             dummy_weight_1 = dummy_weight[n_0:n_0+n_1].view(fan_out, add_in)
         self.masked_kb_weight = torch.cat([torch.cat([self.kb_weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
-        
+        del dummy_weight, dummy_weight_0, dummy_weight_1
         bound_std = self.gain / math.sqrt(fan_in * self.ks)
-        # bound_std = self.gain / math.sqrt(fan_out * self.ks)
         self.masked_kb_weight = self.masked_kb_weight * bound_std
         return add_out * self.s * self.s
 
     def ets_forward(self, x, t):
         # get expanded task specific model
-        # bound_std = self.gain / math.sqrt(self.shape_in[t+1] * self.ks)
-        # bound_std = self.gain / math.sqrt(self.shape_out[t+1] * self.ks)
-        weight = self.kb_weight
-        weight = weight * self.old_std[t]
+        weight = self.kb_weight * self.bound_std[t]
         weight = F.dropout(weight, self.dropout, self.training)
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)

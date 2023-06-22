@@ -54,6 +54,15 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--task", type=int, required=False, help="Specify task for eval or cal.", default=-1)
     return parser
 
+def fgsm_attack(image, epsilon, data_grad):
+    # Collect the element-wise sign of the data gradient
+    sign_data_grad = data_grad.sign()
+    # Create the perturbed image by adjusting each pixel of the input image
+    perturbed_image = image + epsilon*sign_data_grad
+    # Adding clipping to maintain [0,1] range
+    perturbed_image = torch.clamp(perturbed_image, 0, 1)
+    # Return the perturbed image
+    return perturbed_image
 
 def smooth(logits, temp, dim):
     log = logits ** (1 / temp)
@@ -318,7 +327,15 @@ class DAE(ContinualModel):
             ood_inputs = torch.empty(0).to(self.device)
             if adv:
                 inputs.requires_grad = True
-                adv_inputs = fgsm_attack(inputs, self.eps, inputs_grad)
+                if ets:
+                    outputs = self.net.ets_forward(inputs, self.task, feat=False)
+                elif kbts:
+                    outputs = self.net.kbts_forward(inputs, self.task, feat=False)
+                outputs = ensemble_outputs(outputs.unsqueeze(0)) 
+                loss = F.nll_loss(outputs, labels) - self.alpha * entropy(outputs.exp()).mean()
+                self.opt.zero_grad()
+                loss.backward()
+                adv_inputs = fgsm_attack(inputs, self.eps, inputs.grad.data)
                 ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
             if rot:
                 rot = random.randint(1, 3)
