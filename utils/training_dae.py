@@ -414,8 +414,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             mode = '_'.join(mode)
             model.evaluate(task=None, mode=mode)
 
-            mode += '_ba'
-            model.evaluate(task=None, mode=mode)
+            if 'ba' not in args.ablation:
+                mode += '_ba'
+                model.evaluate(task=None, mode=mode)
             
             if 'ets' not in args.ablation:
                 mode = 'ets'
