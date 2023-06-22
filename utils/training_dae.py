@@ -434,32 +434,32 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         with torch.no_grad():
             model.get_rehearsal_logits(train_loader)
 
-        if 'cal' in args.mode:
-            model.net.set_cal_params(args.total_tasks)
-            if t > 0:
-                if 'ets' in args.mode:
-                    train_loop(model, args, train_loader, mode='ets_cal')
-                if 'kbts' in args.mode:
-                    train_loop(model, args, train_loader, mode='kbts_cal')
+        # if 'cal' in args.mode:
+        #     model.net.set_cal_params(args.total_tasks)
+        #     if t > 0:
+        #         if 'ets' in args.mode:
+        #             train_loop(model, args, train_loader, mode='ets_cal')
+        #         if 'kbts' in args.mode:
+        #             train_loop(model, args, train_loader, mode='kbts_cal')
 
-                if args.verbose:
-                    mode = 'ets_kbts_cal'
-                    model.evaluate(task=None, mode=mode)
+        #         if args.verbose:
+        #             mode = 'ets_kbts_cal'
+        #             model.evaluate(task=None, mode=mode)
 
-                    mode = 'ets_kbts_cal_ba'
-                    model.evaluate(task=None, mode=mode)
+        #             mode = 'ets_kbts_cal_ba'
+        #             model.evaluate(task=None, mode=mode)
 
-                    mode = 'ets_cal'
-                    model.evaluate(task=None, mode=mode)
+        #             mode = 'ets_cal'
+        #             model.evaluate(task=None, mode=mode)
 
-                    mode = 'ets_cal_ba'
-                    model.evaluate(task=None, mode=mode)
+        #             mode = 'ets_cal_ba'
+        #             model.evaluate(task=None, mode=mode)
 
-                    mode = 'kbts_cal'
-                    model.evaluate(task=None, mode=mode)
+        #             mode = 'kbts_cal'
+        #             model.evaluate(task=None, mode=mode)
 
-                    mode = 'kbts_cal_ba'
-                    model.evaluate(task=None, mode=mode)
+        #             mode = 'kbts_cal_ba'
+        #             model.evaluate(task=None, mode=mode)
 
         with torch.no_grad():
             model.fill_buffer(train_loader)
