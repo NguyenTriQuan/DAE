@@ -407,9 +407,9 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         if args.verbose:
             mode = []
-            if 'kbts' in args.mode:
+            if 'kbts' not in args.ablation:
                 mode += ['kbts']
-            if 'ets' in args.mode:
+            if 'ets' not in args.ablation:
                 mode += ['ets']
             mode = '_'.join(mode)
             model.evaluate(task=None, mode=mode)
@@ -417,13 +417,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             mode += '_ba'
             model.evaluate(task=None, mode=mode)
             
-            if 'ets' in args.mode:
+            if 'ets' not in args.ablation:
                 mode = 'ets'
                 model.evaluate(task=None, mode=mode)
 
             # mode = 'ets_ba'
             # model.evaluate(task=None, mode=mode)
-            if 'kbts' in args.mode:
+            if 'kbts' not in args.ablation:
                 mode = 'kbts'
                 model.evaluate(task=None, mode=mode)
 
