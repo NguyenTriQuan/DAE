@@ -49,7 +49,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--lr_score", type=float, required=False, help="score learning rate.", default=0.1)
     parser.add_argument("--num_tasks", type=int, required=False, help="number of tasks to run.", default=100)
     parser.add_argument("--total_tasks", type=int, required=True, help="total number of tasks.", default=10)
-    parser.add_argument("--factor", type=float, required=False, help="entropy scale factor.", default=1)
+    parser.add_argument("--eps", type=float, required=False, help="FGSM epsilon.", default=0.1)
     parser.add_argument("--num_aug", type=int, required=False, help="number of augument samples used when evaluation.", default=16)
     parser.add_argument("--task", type=int, required=False, help="Specify task for eval or cal.", default=-1)
     return parser
@@ -179,6 +179,7 @@ class DAE(ContinualModel):
         print("lambda tasks", self.lamb)
         self.soft = torch.nn.Softmax(dim=1)
         self.alpha = args.alpha
+        self.eps = args.eps
         self.buffer = None
 
     def forward(self, inputs, t=None, ets=True, kbts=False, cal=True, ba=True):
@@ -299,7 +300,7 @@ class DAE(ContinualModel):
             else:
                 return til_accs[0]
 
-    def train_contrast(self, train_loader, mode, ets, kbts, rot, buf, feat, squeeze, augment):
+    def train_contrast(self, train_loader, mode, ets, kbts, rot, buf, adv, squeeze, augment):
         total = 0
         correct = 0
         total_loss = 0
@@ -315,9 +316,13 @@ class DAE(ContinualModel):
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
             ood_inputs = torch.empty(0).to(self.device)
+            if adv:
+                inputs.requires_grad = True
+                adv_inputs = fgsm_attack(inputs, self.eps, inputs_grad)
+                ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
             if rot:
                 rot = random.randint(1, 3)
-                ood_inputs = torch.rot90(inputs, rot, dims=(2, 3))
+                ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
             if buf:
                 if self.buffer is not None:
                     try:
