@@ -309,6 +309,35 @@ class DAE(ContinualModel):
                 return til_accs, cil_accs, task_acc
             else:
                 return til_accs[0]
+            
+    def gen_adv_ood(self, train_loader, ets, kbts):
+        self.net.freeze(False)
+        all_adv_inputs = []
+        for data in train_loader:
+            inputs, labels = data
+            inputs.requires_grad = True
+            if ets:
+                outputs = self.net.ets_forward(inputs, self.task, feat=False)
+            elif kbts:
+                outputs = self.net.kbts_forward(inputs, self.task, feat=False)
+            outputs = ensemble_outputs(outputs.unsqueeze(0)) 
+            self.opt.zero_grad()
+            loss = F.nll_loss(outputs, labels, reduce=False) - self.alpha * entropy(outputs.exp())
+            grads = []
+            for i, l in enumerate(loss):
+                grad = torch.autograd.grad(l, inputs, retain_graph=True)[0]
+                grads.append(grad[i])
+            adv_inputs = fgsm_attack(inputs, self.eps, torch.stack(grads, dim=0))
+            if ets:
+                outputs = self.net.ets_forward(adv_inputs, self.task, feat=False)
+            elif kbts:
+                outputs = self.net.kbts_forward(adv_inputs, self.task, feat=False)
+            incorrect = outputs.argmax(1) != labels
+            all_adv_inputs += [adv_inputs[incorrect]]
+        
+        all_adv_inputs = torch.cat(all_adv_inputs, dim=0)
+        self.adv_loader = DataLoader(TensorDataset(all_adv_inputs), batch_size=self.args.batch_size, shuffle=True)
+        self.net.freeze(True)
 
     def train_contrast(self, train_loader, mode, ets, kbts, rot, buf, adv, squeeze, augment):
         total = 0
@@ -317,7 +346,9 @@ class DAE(ContinualModel):
 
         self.net.train()
         ood = buf or rot
-
+        if adv:
+            self.gen_adv_ood(train_loader, ets, kbts)
+            adv_loader = iter(self.adv_loader)
         if self.buffer is not None:
             buffer = iter(self.buffer)
         for i, data in enumerate(train_loader):
@@ -326,22 +357,18 @@ class DAE(ContinualModel):
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
             ood_inputs = torch.empty(0).to(self.device)
-            if adv:
-                inputs.requires_grad = True
-                if ets:
-                    outputs = self.net.ets_forward(inputs, self.task, feat=False)
-                elif kbts:
-                    outputs = self.net.kbts_forward(inputs, self.task, feat=False)
-                outputs = ensemble_outputs(outputs.unsqueeze(0)) 
-                loss = F.nll_loss(outputs, labels) - self.alpha * entropy(outputs.exp()).mean()
-                self.opt.zero_grad()
-                loss.backward()
-                adv_inputs = fgsm_attack(inputs, self.eps, inputs.grad.data)
-                ood_inputs = torch.cat([ood_inputs, adv_inputs], dim=0)
-                inputs.requires_grad = False
+                
             if rot:
                 rot = random.randint(1, 3)
                 ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
+            if adv:
+                try:
+                    adv_data = next(adv_loader)
+                except StopIteration:
+                    # restart the generator if the previous generator is exhausted.
+                    adv_loader = iter(self.adv_loader)
+                    adv_data = next(adv_loader)
+                ood_inputs = torch.cat([ood_inputs, adv_data], dim=0)
             if buf:
                 if self.buffer is not None:
                     try:
@@ -361,6 +388,7 @@ class DAE(ContinualModel):
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             # inputs = self.dataset.test_transforms[self.task](inputs)
+
             self.opt.zero_grad()
             if ets:
                 outputs = self.net.ets_forward(inputs, self.task, feat=False)
@@ -445,8 +473,9 @@ class DAE(ContinualModel):
             m.kbts_sparsities += [m.sparsity]
 
     def end_task(self, dataset) -> None:
-        self.net.freeze_feature()
-        self.net.freeze_classifier()
+        # self.net.freeze_feature()
+        # self.net.freeze_classifier()
+        self.net.freeze(False)
         self.net.clear_memory()
 
     def get_rehearsal_logits(self, train_loader):

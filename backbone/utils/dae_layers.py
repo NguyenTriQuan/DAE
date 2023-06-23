@@ -510,19 +510,19 @@ class DynamicBlock(nn.Module):
             params += [self.kbts_norm_layers[-1].weight, self.kbts_norm_layers[-1].bias]
         return params, [layer.score for layer in self.layers]
     
-    def freeze(self):
+    def freeze(self, state=False):
         for layer in self.layers:
-            layer.weight[-1].requires_grad = False
-            layer.fwt_weight[-1].requires_grad = False
-            layer.bwt_weight[-1].requires_grad = False
+            layer.weight[-1].requires_grad = state
+            layer.fwt_weight[-1].requires_grad = state
+            layer.bwt_weight[-1].requires_grad = state
         if self.norm_type is not None:
             if 'affine' in self.norm_type:
-                self.ets_norm_layers[-1].weight.requires_grad = False
-                self.kbts_norm_layers[-1].weight.requires_grad = False
-                self.ets_norm_layers[-1].bias.requires_grad = False
-                self.kbts_norm_layers[-1].bias.requires_grad = False
-            self.ets_norm_layers[-1].track_running_stats = False
-            self.kbts_norm_layers[-1].track_running_stats = False
+                self.ets_norm_layers[-1].weight.requires_grad = state
+                self.kbts_norm_layers[-1].weight.requires_grad = state
+                self.ets_norm_layers[-1].bias.requires_grad = state
+                self.kbts_norm_layers[-1].bias.requires_grad = state
+            self.ets_norm_layers[-1].track_running_stats = state
+            self.kbts_norm_layers[-1].track_running_stats = state
 
 class DynamicClassifier(DynamicLinear):
 
@@ -579,12 +579,12 @@ class DynamicClassifier(DynamicLinear):
             self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device)))
         
     
-    def freeze(self):
-        self.weight_ets[-1].requires_grad = False
-        self.weight_kbts[-1].requires_grad = False
+    def freeze(self, state=False):
+        self.weight_ets[-1].requires_grad = state
+        self.weight_kbts[-1].requires_grad = state
         if self.use_bias:
-            self.bias_ets[-1].requires_grad = False
-            self.bias_kbts[-1].requires_grad = False
+            self.bias_ets[-1].requires_grad = state
+            self.bias_kbts[-1].requires_grad = state
         
 
     def get_optim_ets_params(self):

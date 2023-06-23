@@ -67,14 +67,19 @@ class _DynamicModel(nn.Module):
             num_params.append(m.count_params(t))
             num_neurons.append(m.shape_out[t+1])
         return num_params, num_neurons
-
-    def freeze_feature(self):
+    
+    def freeze(self, state=False):
         for m in self.DB:
-            m.freeze()
+            m.freeze(state)
+        self.last.freeze(state)
+
+    def freeze_feature(self, state=False):
+        for m in self.DB:
+            m.freeze(state)
         # self.mid.freeze()
 
-    def freeze_classifier(self):
-        self.last.freeze()
+    def freeze_classifier(self, state=False):
+        self.last.freeze(state)
 
     def proximal_gradient_descent(self, lr=0, lamb=0):
         with torch.no_grad():
