@@ -412,8 +412,8 @@ class DAE(ContinualModel):
                 kbts_ood_outputs = kbts_outputs[bs:]
                 ets_outputs = ets_outputs[:bs]
                 kbts_outputs = kbts_outputs[:bs]
-                loss += self.loss(ets_outputs, labels) - entropy(F.softmax(ets_ood_outputs)).mean()
-                loss += self.loss(kbts_outputs, labels) - entropy(F.softmax(kbts_ood_outputs)).mean()
+                loss += self.loss(ets_outputs, labels) - entropy(F.softmax(ets_ood_outputs, dim=1)).mean()
+                loss += self.loss(kbts_outputs, labels) - entropy(F.softmax(kbts_ood_outputs, dim=1)).mean()
             else:
                 loss = sup_clr_loss(features, labels, self.args.temperature, ood=False)
                 loss += self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
