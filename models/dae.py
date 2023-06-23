@@ -372,8 +372,7 @@ class DAE(ContinualModel):
                         # restart the generator if the previous generator is exhausted.
                         buffer = iter(self.buffer)
                         buffer_data = next(buffer)
-                    buffer_data = [tmp.to(self.device) for tmp in buffer_data]
-                    ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
+                    ood_inputs = torch.cat([ood_inputs, buffer_data[0].to(self.device)], dim=0)
 
             inputs = torch.cat([inputs, ood_inputs], dim=0)
             inputs = torch.cat([inputs, inputs], dim=0)
