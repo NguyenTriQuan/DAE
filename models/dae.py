@@ -144,6 +144,7 @@ def sup_clr_loss(features, labels, temperature):
     # for numerical stability
     logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
     logits = anchor_dot_contrast - logits_max.detach()
+    # Remove self contrast
     logits = logits * (1 - torch.eye(features.shape[0]).to(device))
 
     # compute log_prob
