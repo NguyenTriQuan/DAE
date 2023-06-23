@@ -410,8 +410,9 @@ class DAE(ContinualModel):
                 loss = sup_clr_loss(features, torch.cat([labels, ood_labels]), self.args.temperature, ood=True) 
                 ets_outputs, ets_ood_outputs = ets_outputs.split((bs, ood_inputs.shape[0]), dim=0)
                 kbts_outputs, kbts_ood_outputs = kbts_outputs.split((bs, ood_inputs.shape[0]), dim=0)
-                loss += self.loss(ets_outputs, labels) - entropy(F.softmax(ets_ood_outputs, dim=1)).mean()
-                loss += self.loss(kbts_outputs, labels) - entropy(F.softmax(kbts_ood_outputs, dim=1)).mean()
+                # loss += self.loss(ets_outputs, labels) - entropy(F.softmax(ets_ood_outputs, dim=1)).mean()
+                # loss += self.loss(kbts_outputs, labels) - entropy(F.softmax(kbts_ood_outputs, dim=1)).mean()
+                loss += self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
             else:
                 loss = sup_clr_loss(features, labels, self.args.temperature, ood=False)
                 loss += self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
