@@ -312,6 +312,7 @@ class DAE(ContinualModel):
             
     def gen_adv_ood(self, train_loader, ets, kbts):
         self.net.freeze(False)
+        self.net.eval()
         all_adv_inputs = []
         for data in train_loader:
             inputs, labels = data
@@ -346,13 +347,14 @@ class DAE(ContinualModel):
         correct = 0
         total_loss = 0
 
-        self.net.train()
-        ood = buf or rot
+        ood = buf or rot or rot
         if adv:
             self.gen_adv_ood(train_loader, ets, kbts)
             adv_loader = iter(self.adv_loader)
         if self.buffer is not None:
             buffer = iter(self.buffer)
+        
+        self.net.train()
         for i, data in enumerate(train_loader):
             inputs, labels = data
             bs = labels.shape[0]
@@ -385,7 +387,7 @@ class DAE(ContinualModel):
 
             # if feat:
             #     inputs = torch.cat([inputs, inputs], dim=0)
-            if ood:
+            if (ood_inputs.numel() > 0):
                 inputs = torch.cat([inputs, ood_inputs], dim=0)
             
             if augment:
