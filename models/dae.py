@@ -370,7 +370,7 @@ class DAE(ContinualModel):
                     # restart the generator if the previous generator is exhausted.
                     adv_loader = iter(self.adv_loader)
                     adv_data = next(adv_loader)
-                adv_data = adv_data.to(self.device)
+                adv_data = adv_data[0].to(self.device)
                 ood_inputs = torch.cat([ood_inputs, adv_data], dim=0)
             if buf:
                 if self.buffer is not None:
