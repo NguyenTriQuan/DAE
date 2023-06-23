@@ -315,6 +315,8 @@ class DAE(ContinualModel):
         all_adv_inputs = []
         for data in train_loader:
             inputs, labels = data
+            inputs, labels = inputs.to(self.device), labels.to(self.device)
+            labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
             inputs.requires_grad = True
             if ets:
                 outputs = self.net.ets_forward(inputs, self.task, feat=False)
@@ -333,7 +335,7 @@ class DAE(ContinualModel):
             elif kbts:
                 outputs = self.net.kbts_forward(adv_inputs, self.task, feat=False)
             incorrect = outputs.argmax(1) != labels
-            all_adv_inputs += [adv_inputs[incorrect]]
+            all_adv_inputs += [adv_inputs[incorrect].detach().cpu()]
         
         all_adv_inputs = torch.cat(all_adv_inputs, dim=0)
         self.adv_loader = DataLoader(TensorDataset(all_adv_inputs), batch_size=self.args.batch_size, shuffle=True)
@@ -368,6 +370,7 @@ class DAE(ContinualModel):
                     # restart the generator if the previous generator is exhausted.
                     adv_loader = iter(self.adv_loader)
                     adv_data = next(adv_loader)
+                adv_data = adv_data.to(self.device)
                 ood_inputs = torch.cat([ood_inputs, adv_data], dim=0)
             if buf:
                 if self.buffer is not None:
