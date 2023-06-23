@@ -380,7 +380,7 @@ class DAE(ContinualModel):
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             # inputs = self.dataset.test_transforms[self.task](inputs)
-            ets_inputs, kbts_inputs = inputs.split(inputs.shape[0]//2)
+            ets_inputs, kbts_inputs = inputs.split(inputs.shape[0]//2, dim=0)
 
             # if adv:
             #     inputs.requires_grad = True
@@ -408,10 +408,8 @@ class DAE(ContinualModel):
             if ood_inputs.numel() > 0:
                 ood_labels = -torch.ones(ood_inputs.shape[0], dtype=torch.long).to(self.device)
                 loss = sup_clr_loss(features, torch.cat([labels, ood_labels]), self.args.temperature, ood=True) 
-                ets_ood_outputs = ets_outputs[bs:]
-                kbts_ood_outputs = kbts_outputs[bs:]
-                ets_outputs = ets_outputs[:bs]
-                kbts_outputs = kbts_outputs[:bs]
+                ets_outputs, ets_ood_outputs = ets_outputs.split((bs, ood_inputs.shape[0]), dim=0)
+                kbts_outputs, kbts_ood_outputs = kbts_outputs.split((bs, ood_inputs.shape[0]), dim=0)
                 loss += self.loss(ets_outputs, labels) - entropy(F.softmax(ets_ood_outputs, dim=1)).mean()
                 loss += self.loss(kbts_outputs, labels) - entropy(F.softmax(kbts_ood_outputs, dim=1)).mean()
             else:
