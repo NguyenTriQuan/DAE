@@ -400,21 +400,28 @@ class DAE(ContinualModel):
 
             self.opt.zero_grad()
 
-            ets_features, ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=True)
-            kbts_features, kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=True)
-            features = torch.cat([ets_features, kbts_features], dim=0)
-            features = F.normalize(features, p=2, dim=1)
+            if feat:
+                ets_features, ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=True)
+                kbts_features, kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=True)
+                features = torch.cat([ets_features, kbts_features], dim=0)
+                features = F.normalize(features, p=2, dim=1)
+            else:
+                ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=False)
+                kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=False)
 
+            loss = 0
             if ood_inputs.numel() > 0:
-                ood_labels = -torch.ones(ood_inputs.shape[0], dtype=torch.long).to(self.device)
-                loss = sup_clr_loss(features, torch.cat([labels, ood_labels]), self.args.temperature, ood=True) 
+                if feat:
+                    ood_labels = -torch.ones(ood_inputs.shape[0], dtype=torch.long).to(self.device)
+                    loss += sup_clr_loss(features, torch.cat([labels, ood_labels]), self.args.temperature, ood=True) 
                 ets_outputs, ets_ood_outputs = ets_outputs.split((bs, ood_inputs.shape[0]), dim=0)
                 kbts_outputs, kbts_ood_outputs = kbts_outputs.split((bs, ood_inputs.shape[0]), dim=0)
                 loss += self.loss(ets_outputs, labels) - entropy(F.softmax(ets_ood_outputs, dim=1)).mean()
                 loss += self.loss(kbts_outputs, labels) - entropy(F.softmax(kbts_ood_outputs, dim=1)).mean()
                 # loss += self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
             else:
-                loss = sup_clr_loss(features, labels, self.args.temperature, ood=False)
+                if feat:
+                    loss += sup_clr_loss(features, labels, self.args.temperature, ood=False)
                 loss += self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
             
             # else:
