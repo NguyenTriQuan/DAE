@@ -111,7 +111,7 @@ def sup_clr_ood_loss(ind_features, features, labels, temperature):
     labels = labels.contiguous().view(-1, 1)
     mask = torch.eq(labels, labels.T).float().to(device)
     # compute logits
-    anchor_dot_contrast = torch.div(torch.matmul(ind_features, features.T), temperature)
+    anchor_dot_contrast = torch.div(torch.matmul(ind_features, features.T), temperature) # shape [num ind, num ind + num ood]
     # for numerical stability
     logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
     logits = anchor_dot_contrast - logits_max.detach()

@@ -32,7 +32,7 @@ class _DynamicModel(nn.Module):
     def __init__(self):
         super(_DynamicModel, self).__init__()
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
-        self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
+        self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer) if not isinstance(m, DynamicClassifier)]
         self.total_strength = 1
         self.ets_temp = -1
         self.kbts_temp = -1
@@ -231,7 +231,7 @@ class ResNet(_DynamicModel):
         self.last = DynamicClassifier(feat_dim, num_classes, norm_type=None, args=args, s=1, bias=True)
         self.projector = DynamicClassifier(feat_dim, 128, norm_type=None, args=args, s=1, bias=True)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
-        self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
+        self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer) if not isinstance(m, DynamicClassifier)]
 
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
