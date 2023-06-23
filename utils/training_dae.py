@@ -44,74 +44,90 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
     num_squeeze = 0
     num_augment = 1000
 
-    if cal:
-        # calibration outputs
-        n_epochs = 50
-        tc = 'tc' not in args.ablation
-        params = model.net.get_optim_cal_params(tc)
-        count = 0
-        for param in params:
-            count += param.numel()
-        print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
-    # elif 'tc' in mode:
-    #     # tasks contrast:
-    #     n_epochs = 100
-    #     params = model.net.get_optim_tc_params()
+    # if cal:
+    #     # calibration outputs
+    #     n_epochs = 50
+    #     tc = 'tc' not in args.ablation
+    #     params = model.net.get_optim_cal_params(tc)
     #     count = 0
     #     for param in params:
     #         count += param.numel()
     #     print(f'Training mode: {mode}, Number of optim params: {count}')
-    #     from utils.lars_optimizer import LARC
-    #     # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9), trust_coefficient=0.001)
-    #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
-    #     model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
-    #     # model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
-    elif ets:
-        # if feat or all:
-        params = model.net.get_optim_ets_params()
-        n_epochs = 150
-        num_squeeze = 100
-        step_lr = [130, 145]
-        squeeze = 'squeeze' not in args.ablation
-        # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
-        model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
-        # else:
-        #     params = model.net.last.get_optim_ets_params()
-        #     n_epochs = 50
-        #     step_lr = [1, 35, 45]
-        #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+    #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+    #     model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [35, 45], gamma=0.1, verbose=False)
+    # # elif 'tc' in mode:
+    # #     # tasks contrast:
+    # #     n_epochs = 100
+    # #     params = model.net.get_optim_tc_params()
+    # #     count = 0
+    # #     for param in params:
+    # #         count += param.numel()
+    # #     print(f'Training mode: {mode}, Number of optim params: {count}')
+    # #     from utils.lars_optimizer import LARC
+    # #     # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=5e-3, momentum=0.9), trust_coefficient=0.001)
+    # #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=args.optim_mom)
+    # #     model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, [85, 95], gamma=0.1, verbose=False)
+    # #     # model.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model.opt, T_max=n_epochs)
+    # elif ets:
+    #     # if feat or all:
+    #     params = model.net.get_optim_ets_params()
+    #     n_epochs = 150
+    #     num_squeeze = 100
+    #     step_lr = [130, 145]
+    #     squeeze = 'squeeze' not in args.ablation
+    #     # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+    #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+    #     # else:
+    #     #     params = model.net.last.get_optim_ets_params()
+    #     #     n_epochs = 50
+    #     #     step_lr = [1, 35, 45]
+    #     #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         
-        count = 0
-        for param in params:
-            count += param.numel()
-        print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
+    #     count = 0
+    #     for param in params:
+    #         count += param.numel()
+    #     print(f'Training mode: {mode}, Number of optim params: {count}')
+    #     model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
         
-    elif kbts:
-        # if feat or all:
-        n_epochs = 120
-        step_lr = [100, 115]
-        params, scores = model.net.get_optim_kbts_params()
-        count = 0
-        for param in params + scores:
-            count += param.numel()
-        model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-                                    lr=args.lr, weight_decay=0, momentum=0.9)
-        # model.opt = LARC(torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-        #                                  lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
-        # else:
-        #     n_epochs = 50
-        #     step_lr = [1, 35, 45]
-        #     params = model.net.last.get_optim_kbts_params()
-        #     count = 0
-        #     for param in params:
-        #         count += param.numel()
-        #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
+    # elif kbts:
+    #     # if feat or all:
+    #     n_epochs = 120
+    #     step_lr = [100, 115]
+    #     params, scores = model.net.get_optim_kbts_params()
+    #     count = 0
+    #     for param in params + scores:
+    #         count += param.numel()
+    #     model.opt = torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+    #                                 lr=args.lr, weight_decay=0, momentum=0.9)
+    #     # model.opt = LARC(torch.optim.SGD([{'params':params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+    #     #                                  lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+    #     # else:
+    #     #     n_epochs = 50
+    #     #     step_lr = [1, 35, 45]
+    #     #     params = model.net.last.get_optim_kbts_params()
+    #     #     count = 0
+    #     #     for param in params:
+    #     #         count += param.numel()
+    #     #     model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
 
-        print(f'Training mode: {mode}, Number of optim params: {count}')
-        model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
+    #     print(f'Training mode: {mode}, Number of optim params: {count}')
+    #     model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
+
+    ets_params = model.net.get_optim_ets_params()
+    kbts_params, scores = model.net.get_optim_kbts_params()
+    n_epochs = 150
+    num_squeeze = 100
+    step_lr = [130, 145]
+    squeeze = 'squeeze' not in args.ablation
+    # model.opt = LARC(torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+    model.opt = torch.optim.SGD([{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+                                lr=args.lr, weight_decay=0, momentum=0.9)
+    
+    count = 0
+    for param in ets_params+kbts_params+scores:
+        count += param.numel()
+    print(f'Training mode: {mode}, Number of optim params: {count}')
+    model.scheduler = torch.optim.lr_scheduler.MultiStepLR(model.opt, step_lr, gamma=0.1, verbose=False)
 
     if checkpoint is not None:
         model.opt = checkpoint['opt']
@@ -124,7 +140,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
         if cal:
             loss = model.train_calibration(mode, ets, kbts)
         else:          
-            loss, train_acc = model.train_contrast(train_loader, mode, ets, kbts, rot, buf, adv, squeeze, augment)
+            loss, train_acc = model.train_contrast(train_loader, mode, ets, kbts, rot, buf, adv, feat, squeeze, augment)
 
         # wandb.save(base_path_memory() + args.title + '.tar')
         if args.verbose:
@@ -351,7 +367,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         print(f'Training task {model.task}')
         if t >= start_task:
-            modes = ['ets', 'kbts']
+            # modes = ['ets', 'kbts']
+            modes = ['ets_kbts']
             if checkpoint is not None:
                 for mode in modes:
                     if mode == checkpoint['mode']:

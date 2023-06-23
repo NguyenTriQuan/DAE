@@ -41,9 +41,8 @@ class _DynamicModel(nn.Module):
         params = []
         for m in self.DB:
             params += m.get_optim_ets_params()
-        # params += self.mid.get_optim_ets_params()
+        params += self.projector.get_optim_ets_params()
         params += self.last.get_optim_ets_params()
-        params += self.projector.parameters()
         return params
     
     def get_optim_kbts_params(self):
@@ -53,9 +52,8 @@ class _DynamicModel(nn.Module):
             p, s = m.get_optim_kbts_params()
             params += p
             scores += s
-        # params += self.mid.get_optim_kbts_params()
+        params += self.projector.get_optim_kbts_params()
         params += self.last.get_optim_kbts_params()
-        params += self.projector.parameters()
         return params, scores
 
     def count_params(self, t=-1):
@@ -228,18 +226,15 @@ class ResNet(_DynamicModel):
         self.layers += self._make_layer(block, nf * 8, num_blocks[3], stride=2, norm_type=norm_type, args=args)
 
         feat_dim = nf * 8 * block.expansion
-        self.mid = DynamicBlock([DynamicLinear(feat_dim, feat_dim, bias=False, args=args, s=1)], None, args)
-        # self.mid = DynamicClassifier(feat_dim, feat_dim, norm_type=norm_type, args=args, s=1, bias=False)
-        self.last = DynamicClassifier(feat_dim, num_classes, norm_type=norm_type, args=args, s=1, bias=True)
+        self.mid = DynamicBlock([DynamicLinear(feat_dim, feat_dim, bias=True, args=args, s=1)], None, args)
+        # self.mid = DynamicClassifier(feat_dim, feat_dim, norm_type=None, args=args, s=1, bias=False)
+        self.last = DynamicClassifier(feat_dim, num_classes, norm_type=None, args=args, s=1, bias=True)
+        self.projector = DynamicClassifier(feat_dim, 128, norm_type=None, args=args, s=1, bias=True)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer)]
 
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
-        
-        self.projector = nn.Sequential(
-            nn.Linear(feat_dim, 128)
-        ).to(device)
         self.feat_dim = feat_dim
         
         
@@ -277,7 +272,7 @@ class ResNet(_DynamicModel):
         # feature = F.relu(feature)
 
         if feat:
-            return self.projector(feature)
+            return self.projector.ets_forward(feature, t), self.last.ets_forward(feature, t)
         else:
             out = self.last.ets_forward(feature, t)
             if cal:
@@ -306,7 +301,7 @@ class ResNet(_DynamicModel):
         # feature = self.mid.kbts_forward(feature, t)
         # feature = F.relu(feature)
         if feat:
-            return self.projector(feature)
+            return self.projector.kbts_forward(feature, t), self.last.kbts_forward(feature, t)
         else:
             out = self.last.kbts_forward(feature, t)
             if cal:
@@ -348,10 +343,11 @@ class ResNet(_DynamicModel):
 
         add_in = self.mid.expand([add_in], [(None, None)])
         self.last.expand(add_in, (new_classes, new_classes))
+        self.projector.expand(add_in, (128, 128))
+
         self.total_strength = 1
         for m in self.DB:
             self.total_strength += m.strength
-
 
     def squeeze(self, optim_state):
         mask_in = None
@@ -368,6 +364,7 @@ class ResNet(_DynamicModel):
         # self.linear.squeeze(optim_state, mask_in, None)
         self.mid.squeeze(optim_state, [mask_in])
         self.last.squeeze(optim_state, self.mid.mask_out, None)
+        self.projector.squeeze(optim_state, self.mid.mask_out, None)
 
         self.total_strength = 1
         for m in self.DB:

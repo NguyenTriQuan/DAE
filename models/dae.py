@@ -342,7 +342,7 @@ class DAE(ContinualModel):
         self.adv_loader = DataLoader(TensorDataset(all_adv_inputs), batch_size=self.args.batch_size, shuffle=True)
         self.net.freeze(True)
 
-    def train_contrast(self, train_loader, mode, ets, kbts, rot, buf, adv, squeeze, augment):
+    def train_contrast(self, train_loader, mode, ets, kbts, rot, buf, adv, feat, squeeze, augment):
         total = 0
         correct = 0
         total_loss = 0
@@ -372,61 +372,57 @@ class DAE(ContinualModel):
                     buffer_data = [tmp.to(self.device) for tmp in buffer_data]
                     ood_inputs = torch.cat([ood_inputs, buffer_data[0]], dim=0)
 
-            # if feat:
-            #     inputs = torch.cat([inputs, inputs], dim=0)
             inputs = torch.cat([inputs, ood_inputs], dim=0)
+            inputs = torch.cat([inputs, inputs], dim=0)
             
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             # inputs = self.dataset.test_transforms[self.task](inputs)
+            ets_inputs, kbts_inputs = inputs.split(inputs.shape[0]//2)
 
-            if adv:
-                inputs.requires_grad = True
-                self.net.freeze(False)
-                if ets:
-                    outputs = self.net.ets_forward(inputs, self.task, feat=False)
-                elif kbts:
-                    outputs = self.net.kbts_forward(inputs, self.task, feat=False)
-                outputs = ensemble_outputs(outputs.unsqueeze(0)) 
-                self.opt.zero_grad()
-                loss = F.nll_loss(outputs, labels) - self.alpha * entropy(outputs.exp()).mean()
-                loss.backward()
-                adv_inputs = fgsm_attack(inputs, self.eps, inputs.grad.data)
-                inputs.requires_grad = False
-                self.net.freeze(True)
-                inputs = torch.cat([inputs, adv_inputs], dim=0)
+            # if adv:
+            #     inputs.requires_grad = True
+            #     self.net.freeze(False)
+            #     if ets:
+            #         outputs = self.net.ets_forward(inputs, self.task, feat=False)
+            #     elif kbts:
+            #         outputs = self.net.kbts_forward(inputs, self.task, feat=False)
+            #     outputs = ensemble_outputs(outputs.unsqueeze(0)) 
+            #     self.opt.zero_grad()
+            #     loss = F.nll_loss(outputs, labels) - self.alpha * entropy(outputs.exp()).mean()
+            #     loss.backward()
+            #     adv_inputs = fgsm_attack(inputs, self.eps, inputs.grad.data)
+            #     inputs.requires_grad = False
+            #     self.net.freeze(True)
+            #     inputs = torch.cat([inputs, adv_inputs], dim=0)
 
             self.opt.zero_grad()
-            if ets:
-                outputs = self.net.ets_forward(inputs, self.task, feat=False)
-            elif kbts:
-                outputs = self.net.kbts_forward(inputs, self.task, feat=False)
 
-            # if feat:
-            #     outputs = F.normalize(outputs, p=2, dim=1)
-            #     if ood:
-            #         ind_outputs = outputs[:bs*2]
-            #         loss = sup_clr_ood_loss(ind_outputs, outputs, labels, self.args.temperature)
-            #     else:
-            #         loss = sup_clr_loss(outputs, labels, self.args.temperature)
+            ets_features, ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=True)
+            kbts_features, kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=True)
+            features = torch.cat([ets_features, kbts_features], dim=0)
+            features = F.normalize(features, p=2, dim=1)
+            loss = sup_clr_loss(features, labels, self.args.temperature) + self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
+            
             # else:
-            ood_outputs = outputs[bs:]
-            ind_outputs = outputs[:bs]
-            if adv:
-                incorrect = ood_outputs.argmax(1) != labels
-                ood_outputs = ood_outputs[incorrect]
-            if ood_outputs.numel() > 0 and self.alpha > 0:
-                ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
-                loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
-            else:
-                loss = self.loss(ind_outputs, labels)
+            # ood_outputs = outputs[bs:]
+            # ind_outputs = outputs[:bs]
+            # if adv:
+            #     incorrect = ood_outputs.argmax(1) != labels
+            #     ood_outputs = ood_outputs[incorrect]
+            # if ood_outputs.numel() > 0 and self.alpha > 0:
+            #     ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
+            #     loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
+            # else:
+            #     loss = self.loss(ind_outputs, labels)
             
             assert not math.isnan(loss)
             loss.backward()
             self.opt.step()
             total += bs
             total_loss += loss.item() * bs
-            correct += (ind_outputs.argmax(1) == labels).sum().item()
+            outputs = ensemble_outputs(torch.stack([ets_outputs, kbts_outputs], dim=0))
+            correct += (outputs.argmax(1) == labels).sum().item()
             if squeeze and self.lamb[self.task] > 0:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
                 
