@@ -394,9 +394,10 @@ class DAE(ContinualModel):
                 loss = F.nll_loss(outputs, labels) - self.alpha * entropy(outputs.exp()).mean()
                 loss.backward()
                 adv_inputs = fgsm_attack(inputs, self.eps, inputs.grad.data)
-                ood_inputs = torch.cat([ood_inputs, adv_inputs], dim=0)
                 inputs.requires_grad = False
                 self.net.freeze(True)
+                inputs = torch.cat([inputs, adv_inputs], dim=0)
+                ood = True
 
             self.opt.zero_grad()
             if ets:
