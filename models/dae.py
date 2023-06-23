@@ -347,7 +347,6 @@ class DAE(ContinualModel):
         correct = 0
         total_loss = 0
 
-        ood = buf or rot or rot
         if adv:
             self.gen_adv_ood(train_loader, ets, kbts)
             adv_loader = iter(self.adv_loader)
@@ -408,7 +407,7 @@ class DAE(ContinualModel):
             #     else:
             #         loss = sup_clr_loss(outputs, labels, self.args.temperature)
             # else:
-            if ood and (ood_inputs.numel() > 0):
+            if (ood_inputs.numel() > 0):
                 ind_outputs = outputs[:bs]
                 ood_outputs = outputs[bs:]
                 # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
