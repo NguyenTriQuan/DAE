@@ -347,9 +347,6 @@ class DAE(ContinualModel):
         correct = 0
         total_loss = 0
 
-        if adv:
-            self.gen_adv_ood(train_loader, ets, kbts)
-            adv_loader = iter(self.adv_loader)
         if self.buffer is not None:
             buffer = iter(self.buffer)
         
@@ -364,15 +361,6 @@ class DAE(ContinualModel):
             if rot:
                 rot = random.randint(1, 3)
                 ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
-            if adv:
-                try:
-                    adv_data = next(adv_loader)
-                except StopIteration:
-                    # restart the generator if the previous generator is exhausted.
-                    adv_loader = iter(self.adv_loader)
-                    adv_data = next(adv_loader)
-                adv_data = adv_data[0].to(self.device)
-                ood_inputs = torch.cat([ood_inputs, adv_data], dim=0)
             if buf:
                 if self.buffer is not None:
                     try:
@@ -386,12 +374,29 @@ class DAE(ContinualModel):
 
             # if feat:
             #     inputs = torch.cat([inputs, inputs], dim=0)
-            if (ood_inputs.numel() > 0):
+            ood = (ood_inputs.numel() > 0)
+            if ood:
                 inputs = torch.cat([inputs, ood_inputs], dim=0)
             
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             # inputs = self.dataset.test_transforms[self.task](inputs)
+
+            if adv:
+                inputs.requires_grad = True
+                self.net.freeze(False)
+                if ets:
+                    outputs = self.net.ets_forward(inputs, self.task, feat=False)
+                elif kbts:
+                    outputs = self.net.kbts_forward(inputs, self.task, feat=False)
+                outputs = ensemble_outputs(outputs.unsqueeze(0)) 
+                self.opt.zero_grad()
+                loss = F.nll_loss(outputs, labels) - self.alpha * entropy(outputs.exp()).mean()
+                loss.backward()
+                adv_inputs = fgsm_attack(inputs, self.eps, inputs.grad.data)
+                ood_inputs = torch.cat([ood_inputs, adv_inputs], dim=0)
+                inputs.requires_grad = False
+                self.net.freeze(True)
 
             self.opt.zero_grad()
             if ets:
@@ -407,10 +412,13 @@ class DAE(ContinualModel):
             #     else:
             #         loss = sup_clr_loss(outputs, labels, self.args.temperature)
             # else:
-            if (ood_inputs.numel() > 0):
+            if ood:
                 ind_outputs = outputs[:bs]
                 ood_outputs = outputs[bs:]
                 # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
+                if adv:
+                    incorrect = ood_outputs.argmax(1) != labels
+                    ood_outputs = ood_outputs[incorrect]
                 ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
                 loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
                 outputs = ind_outputs
