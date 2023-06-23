@@ -374,9 +374,7 @@ class DAE(ContinualModel):
 
             # if feat:
             #     inputs = torch.cat([inputs, inputs], dim=0)
-            ood = (ood_inputs.numel() > 0)
-            if ood:
-                inputs = torch.cat([inputs, ood_inputs], dim=0)
+            inputs = torch.cat([inputs, ood_inputs], dim=0)
             
             if augment:
                 inputs = self.dataset.train_transform(inputs)
@@ -397,7 +395,6 @@ class DAE(ContinualModel):
                 inputs.requires_grad = False
                 self.net.freeze(True)
                 inputs = torch.cat([inputs, adv_inputs], dim=0)
-                ood = True
 
             self.opt.zero_grad()
             if ets:
@@ -413,29 +410,27 @@ class DAE(ContinualModel):
             #     else:
             #         loss = sup_clr_loss(outputs, labels, self.args.temperature)
             # else:
-            if ood:
-                ind_outputs = outputs[:bs]
-                ood_outputs = outputs[bs:]
-                # loss = (self.loss(ind_outputs, labels) + self.loss(ood_outputs, ood_labels)) / 2
-                if adv:
-                    incorrect = ood_outputs.argmax(1) != labels
-                    ood_outputs = ood_outputs[incorrect]
+            ood_outputs = outputs[bs:]
+            ind_outputs = outputs[:bs]
+            if adv:
+                incorrect = ood_outputs.argmax(1) != labels
+                ood_outputs = ood_outputs[incorrect]
+            if ood_outputs.numel() > 0 and self.alpha > 0:
                 ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
                 loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
-                outputs = ind_outputs
-                # loss = self.loss(ind_outputs, labels) / (entropy(ood_outputs.exp()).mean()+1e-9)
             else:
-                loss = self.loss(outputs, labels)
+                loss = self.loss(ind_outputs, labels)
+            
             assert not math.isnan(loss)
             loss.backward()
             self.opt.step()
             total += bs
             total_loss += loss.item() * bs
-            correct += (outputs.argmax(1) == labels).sum().item()
-            if squeeze:
+            correct += (ind_outputs.argmax(1) == labels).sum().item()
+            if squeeze and self.lamb[self.task] > 0:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
                 
-        if squeeze:
+        if squeeze and self.lamb[self.task] > 0:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
 
