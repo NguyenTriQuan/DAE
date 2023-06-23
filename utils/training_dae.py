@@ -422,7 +422,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         # if args.verbose:
         #     wandb.log({'model size':model_size, 'task': t})
 
-        if args.verbose:
+        if args.verbose and t >= start_task:
             mode = []
             if 'kbts' not in args.ablation:
                 mode += ['kbts']

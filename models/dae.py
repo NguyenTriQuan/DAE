@@ -432,7 +432,8 @@ class DAE(ContinualModel):
             # else:
             #     loss = self.loss(ind_outputs, labels)
             
-            assert not math.isnan(loss), (sup_clr_loss(features, labels, self.args.temperature), self.loss(ets_outputs, labels), self.loss(kbts_outputs, labels))
+            assert not math.isnan(loss), (sup_clr_loss(features, labels, self.args.temperature), self.loss(ets_outputs, labels), self.loss(kbts_outputs, labels), 
+                                          ets_features.sum(), ets_outputs.sum(), kbts_features.sum(), kbts_outputs.sum())
             loss.backward()
             self.opt.step()
             total += bs
