@@ -106,36 +106,57 @@ def weighted_ensemble(outputs, weights, temperature):
     return log_outputs.squeeze(-1)
 
 
-def sup_clr_ood_loss(ind_features, features, labels, temperature):
+# def sup_clr_ood_loss(ind_features, features, labels, temperature):
+#     labels = labels.repeat(2)
+#     labels = labels.contiguous().view(-1, 1)
+#     mask = torch.eq(labels, labels.T).float().to(device)
+#     # compute logits
+#     anchor_dot_contrast = torch.div(torch.matmul(ind_features, features.T), temperature) # shape [num ind, num ind + num ood]
+#     # for numerical stability
+#     logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
+#     logits = anchor_dot_contrast - logits_max.detach()
+
+#     logits_mask = (1 - torch.eye(ind_features.shape[0]).to(device))  # remove diagonal shape: num ind, num ind
+#     mask = mask * logits_mask
+#     extend_mask = torch.ones(ind_features.shape[0], features.shape[0] - ind_features.shape[0]).to(device)
+#     logits_mask = torch.cat([logits_mask, extend_mask], dim=1) # shape num ind, num ind + ood
+#     mask = torch.cat([mask, 1-extend_mask], dim=1)
+
+#     # compute log_prob
+#     exp_logits = torch.exp(logits) * logits_mask
+#     log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True))
+
+#     # compute mean of log-likelihood over positive
+#     mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
+
+#     # loss
+#     loss = -mean_log_prob_pos
+#     loss = loss.mean()
+
+#     return loss
+
+def sup_clr_loss(features, labels, temperature):
     labels = labels.repeat(2)
     labels = labels.contiguous().view(-1, 1)
-    mask = torch.eq(labels, labels.T).float().to(device)
+    mask = torch.eq(labels, labels.T) 
     # compute logits
-    anchor_dot_contrast = torch.div(torch.matmul(ind_features, features.T), temperature) # shape [num ind, num ind + num ood]
+    anchor_dot_contrast = torch.div(torch.matmul(features, features.T), temperature)
     # for numerical stability
     logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
     logits = anchor_dot_contrast - logits_max.detach()
-
-    logits_mask = (1 - torch.eye(ind_features.shape[0]).to(device))  # remove diagonal shape: num ind, num ind
-    mask = mask * logits_mask
-    extend_mask = torch.ones(ind_features.shape[0], features.shape[0] - ind_features.shape[0]).to(device)
-    logits_mask = torch.cat([logits_mask, extend_mask], dim=1) # shape num ind, num ind + ood
-    mask = torch.cat([mask, 1-extend_mask], dim=1)
+    logits = logits * (1 - torch.eye(features.shape[0]).to(device))
 
     # compute log_prob
-    exp_logits = torch.exp(logits) * logits_mask
-    log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True))
-
+    log_prob = logits - torch.log(torch.exp(logits).sum(1, keepdim=True))
     # compute mean of log-likelihood over positive
     mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
-
     # loss
     loss = -mean_log_prob_pos
     loss = loss.mean()
 
     return loss
 
-def sup_clr_loss(features, labels, temperature):
+def sup_clr_ood_loss(features, labels, temperature):
     labels = labels.repeat(2)
     labels = labels.contiguous().view(-1, 1)
     mask = torch.eq(labels, labels.T).float().to(device)
@@ -144,17 +165,12 @@ def sup_clr_loss(features, labels, temperature):
     # for numerical stability
     logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
     logits = anchor_dot_contrast - logits_max.detach()
-
-    logits_mask = (1 - torch.eye(features.shape[0]).to(device))  # remove diagonal shape: num ind, num ind
-    mask = mask * logits_mask
+    logits = logits * (1 - torch.eye(features.shape[0]).to(device))
 
     # compute log_prob
-    exp_logits = torch.exp(logits) * logits_mask
-    log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True))
-
+    log_prob = logits - torch.log(torch.exp(logits).sum(1, keepdim=True))
     # compute mean of log-likelihood over positive
     mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
-
     # loss
     loss = -mean_log_prob_pos
     loss = loss.mean()
@@ -416,7 +432,7 @@ class DAE(ContinualModel):
             # else:
             #     loss = self.loss(ind_outputs, labels)
             
-            assert not math.isnan(loss)
+            assert not math.isnan(loss), (sup_clr_loss(features, labels, self.args.temperature), self.loss(ets_outputs, labels), self.loss(kbts_outputs, labels))
             loss.backward()
             self.opt.step()
             total += bs
