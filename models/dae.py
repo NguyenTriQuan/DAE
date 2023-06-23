@@ -135,10 +135,10 @@ def weighted_ensemble(outputs, weights, temperature):
 
 #     return loss
 
-def sup_clr_loss(features, labels, temperature):
+def sup_clr_loss(features, labels, temperature, ood=False):
     labels = labels.repeat(2)
     labels = labels.contiguous().view(-1, 1)
-    mask = torch.eq(labels, labels.T) 
+    mask = torch.eq(labels, labels.T).float()
     # compute logits
     anchor_dot_contrast = torch.div(torch.matmul(features, features.T), temperature)
     # for numerical stability
@@ -153,28 +153,14 @@ def sup_clr_loss(features, labels, temperature):
     mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
     # loss
     loss = -mean_log_prob_pos
-    loss = loss.mean()
-
-    return loss
-
-def sup_clr_ood_loss(features, labels, temperature):
-    labels = labels.repeat(2)
-    labels = labels.contiguous().view(-1, 1)
-    mask = torch.eq(labels, labels.T).float().to(device)
-    # compute logits
-    anchor_dot_contrast = torch.div(torch.matmul(features, features.T), temperature)
-    # for numerical stability
-    logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
-    logits = anchor_dot_contrast - logits_max.detach()
-    logits = logits * (1 - torch.eye(features.shape[0]).to(device))
-
-    # compute log_prob
-    log_prob = logits - torch.log(torch.exp(logits).sum(1, keepdim=True))
-    # compute mean of log-likelihood over positive
-    mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
-    # loss
-    loss = -mean_log_prob_pos
-    loss = loss.mean()
+    if ood:
+        # remove ood anchors
+        ood_mask = (labels != -1).float()
+        loss = loss * ood_mask
+        num = ood_mask.sum()
+    else:
+        num = loss.shape[0]
+    loss = loss.sum() / num
 
     return loss
 
@@ -419,7 +405,19 @@ class DAE(ContinualModel):
             kbts_features, kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=True)
             features = torch.cat([ets_features, kbts_features], dim=0)
             features = F.normalize(features, p=2, dim=1)
-            loss = sup_clr_loss(features, labels, self.args.temperature) + self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
+
+            if ood_inputs.numel() > 0:
+                ood_labels = -torch.ones(ood_inputs.shape[0], dtype=torch.long).to(self.device)
+                loss = sup_clr_loss(features, torch.cat([labels, ood_labels]), self.args.temperature, ood=True) 
+                ets_ood_outputs = ets_outputs[bs:]
+                kbts_ood_outputs = kbts_outputs[bs:]
+                ets_outputs = ets_outputs[:bs]
+                kbts_outputs = kbts_outputs[:bs]
+                loss += self.loss(ets_outputs, labels) - entropy(F.softmax(ets_ood_outputs)).mean()
+                loss += self.loss(kbts_outputs, labels) - entropy(F.softmax(kbts_ood_outputs)).mean()
+            else:
+                loss = sup_clr_loss(features, labels, self.args.temperature, ood=False)
+                loss += self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
             
             # else:
             # ood_outputs = outputs[bs:]
@@ -433,8 +431,7 @@ class DAE(ContinualModel):
             # else:
             #     loss = self.loss(ind_outputs, labels)
             
-            assert not math.isnan(loss), (sup_clr_loss(features, labels, self.args.temperature), self.loss(ets_outputs, labels), self.loss(kbts_outputs, labels), 
-                                          ets_features.sum(), ets_outputs.sum(), kbts_features.sum(), kbts_outputs.sum())
+            assert not math.isnan(loss)
             loss.backward()
             self.opt.step()
             total += bs
