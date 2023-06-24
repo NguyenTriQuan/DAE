@@ -324,10 +324,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     start_task = 0
     checkpoint = None
     if args.resume:
-        checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
-        # checkpoint = torch.load(wandb.restore('tmp/memory/' + args.title + '.checkpoint'))
-        start_task = checkpoint['task']
-        model.net = checkpoint['net']
+        try:
+            checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
+            # checkpoint = torch.load(wandb.restore('tmp/memory/' + args.title + '.checkpoint'))
+            start_task = checkpoint['task']
+            model.net = checkpoint['net']
+        except:
+            print('no checkpoint to resume')
 
     if 'sub' in args.ablation:
         ratio = 0.1
