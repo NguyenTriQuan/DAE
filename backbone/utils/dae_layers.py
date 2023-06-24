@@ -224,7 +224,6 @@ class _DynamicLayer(nn.Module):
             output = F.conv2d(x, weight, None, self.stride, self.padding, self.dilation, self.groups)
         else:
             output = F.linear(x, weight, None)
-
         return output
     
     def kbts_forward(self, x, t):
@@ -233,14 +232,12 @@ class _DynamicLayer(nn.Module):
             weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
             self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
         else:
-            mask = getattr(self, 'kbts_mask'+f'_{t}')
-            weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
+            weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.kbts_sparsities[t])
         
         if isinstance(self, DynamicConv2D):
             output = F.conv2d(x, weight, None, self.stride, self.padding, self.dilation, self.groups)
         else:
             output = F.linear(x, weight, None)
-        
         return output    
 
     def clear_memory(self):
@@ -378,7 +375,7 @@ class DynamicBlock(nn.Module):
         self.ets_norm_layers = nn.ModuleList([])
         self.kbts_norm_layers = nn.ModuleList([])
         if act == 'relu':
-            self.activation = nn.LeakyReLU(args.negative_slope)
+            self.activation = nn.LeakyReLU(args.negative_slope, inplace=True)
             self.gain = torch.nn.init.calculate_gain('leaky_relu', args.negative_slope) ** 2
         else:
             self.activation = nn.Identity()
@@ -495,6 +492,8 @@ class DynamicBlock(nn.Module):
             if norm_layer.affine:
                 norm_layer.weight.data *= temp
                 norm_layer.bias.data *= temp
+            del temp
+        del aux
 
     def get_optim_ets_params(self):
         params = []

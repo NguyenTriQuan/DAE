@@ -370,6 +370,7 @@ class ResNet(_DynamicModel):
         self.total_strength = 1
         for m in self.DB:
             self.total_strength += m.strength
+            m.mask_out = None
 
     def get_masked_kb_params(self, t):
         if t == 0:

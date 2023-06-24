@@ -196,24 +196,21 @@ class DAE(ContinualModel):
         self.buffer = None
 
     def forward(self, inputs, t=None, ets=True, kbts=False, cal=True, ba=True):
+        torch.cuda.empty_cache()
         bs = inputs.shape[0]
         if ba:
             # batch augmentation
             N = self.args.num_aug
             # aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N * inputs.shape[0], *inputs.shape[1:])
             inputs = inputs.repeat(N, 1, 1, 1)
-            x = self.dataset.train_transform(inputs)
-        else:
-            x = inputs
+            inputs = self.dataset.train_transform(inputs)
 
         if t is not None:
             outputs = []
             if ets:
-                out = self.net.ets_forward(x, t)
-                outputs.append(out)
+                outputs.append(self.net.ets_forward(inputs, t))
             if kbts:
-                out = self.net.kbts_forward(x, t)
-                outputs.append(out)
+                outputs.append(self.net.kbts_forward(inputs, t))
 
             if ba:
                 outputs = [out.view(N, bs, -1) for out in outputs]
@@ -226,7 +223,7 @@ class DAE(ContinualModel):
                 outputs = ensemble_outputs(outputs)
 
             predicts = outputs.argmax(1)
-            del x, outputs
+            del inputs, outputs
             return predicts + t * (self.dataset.N_CLASSES_PER_TASK)
         else:
             joint_entropy_tasks = []
@@ -234,11 +231,9 @@ class DAE(ContinualModel):
             for i in range(self.task + 1):
                 outputs = []
                 if ets:
-                    out = self.net.ets_forward(x, i, cal=cal)
-                    outputs.append(out)
+                    outputs.append(self.net.ets_forward(inputs, i, cal=cal))
                 if kbts:
-                    out = self.net.kbts_forward(x, i, cal=cal)
-                    outputs.append(out)
+                    outputs.append(self.net.kbts_forward(inputs, i, cal=cal))
 
                 if ba:
                     outputs = [out.view(N, bs, -1) for out in outputs]
@@ -262,7 +257,7 @@ class DAE(ContinualModel):
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             cil_predicts = predicted_outputs.argmax(1)
             cil_predicts = cil_predicts + predicted_task * (self.dataset.N_CLASSES_PER_TASK)
-            del x, joint_entropy_tasks, predicted_outputs
+            del inputs, joint_entropy_tasks, predicted_outputs
             return cil_predicts, outputs_tasks, predicted_task
 
     def evaluate(self, task=None, mode="ets_kbts_cal_ba"):
@@ -349,6 +344,7 @@ class DAE(ContinualModel):
         total = 0
         correct = 0
         total_loss = 0
+        torch.cuda.empty_cache()
 
         if self.buffer is not None:
             buffer = iter(self.buffer)
@@ -445,11 +441,14 @@ class DAE(ContinualModel):
             correct += (outputs.argmax(1) == labels).sum().item()
             if squeeze and self.lamb[self.task] > 0:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
+
+            del inputs, labels, outputs, ets_outputs, kbts_outputs
+            if feat:
+                del features, ets_features, kbts_features
                 
         if squeeze and self.lamb[self.task] > 0:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
-
         return total_loss / total, round(correct * 100 / total, 2)
 
     def train_calibration(self, mode, ets, kbts):
