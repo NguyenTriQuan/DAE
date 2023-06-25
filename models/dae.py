@@ -388,7 +388,7 @@ class DAE(ContinualModel):
                 ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=False)
                 kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=False)
                 self.opt.zero_grad()
-                loss = self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
+                loss = F.cross_entropy(ets_outputs, labels) + F.cross_entropy(kbts_outputs, labels)
                 loss.backward()
                 ets_inputs = torch.cat([ets_inputs, fgsm_attack(ets_inputs, self.eps, ets_inputs.grad.data)], dim=0).detach()
                 kbts_inputs = torch.cat([kbts_inputs, fgsm_attack(kbts_inputs, self.eps, kbts_inputs.grad.data)], dim=0).detach()
