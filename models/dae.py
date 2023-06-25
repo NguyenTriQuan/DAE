@@ -56,8 +56,8 @@ def get_parser() -> ArgumentParser:
 
 def fgsm_attack(image, epsilon, data_grad):
     # Collect the element-wise sign of the data gradient
-    # sign_data_grad = data_grad.sign()
-    sign_data_grad = data_grad / data_grad.norm(2)
+    sign_data_grad = data_grad.sign()
+    # sign_data_grad = data_grad / data_grad.norm(2)
     # Create the perturbed image by adjusting each pixel of the input image
     perturbed_image = image + epsilon*sign_data_grad
     # Adding clipping to maintain [0,1] range
@@ -356,10 +356,11 @@ class DAE(ContinualModel):
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
             ood_inputs = torch.empty(0).to(self.device)
-                
+            num_ood = 0
             if rot:
                 rot = random.randint(1, 3)
                 ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
+                num_ood += inputs.shape[0]
             if buf:
                 if self.buffer is not None:
                     try:
@@ -369,6 +370,7 @@ class DAE(ContinualModel):
                         buffer = iter(self.buffer)
                         buffer_data = next(buffer)
                     ood_inputs = torch.cat([ood_inputs, buffer_data[0].to(self.device)], dim=0)
+                    num_ood += buffer_data[0].shape[0]
 
             inputs = torch.cat([inputs, ood_inputs], dim=0)
             inputs = torch.cat([inputs, inputs], dim=0)
@@ -379,20 +381,20 @@ class DAE(ContinualModel):
             ets_inputs, kbts_inputs = inputs.split(inputs.shape[0]//2, dim=0)
 
             if adv:
-                inputs.requires_grad = True
+                num_ood += ets_inputs.shape[0]
+                ets_inputs.requires_grad = True
+                kbts_inputs.requires_grad = True
                 self.net.freeze(False)
-                if ets:
-                    outputs = self.net.ets_forward(inputs, self.task, feat=False)
-                elif kbts:
-                    outputs = self.net.kbts_forward(inputs, self.task, feat=False)
-                outputs = ensemble_outputs(outputs.unsqueeze(0)) 
+                ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=False)
+                kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=False)
                 self.opt.zero_grad()
-                loss = F.nll_loss(outputs, labels) - self.alpha * entropy(outputs.exp()).mean()
+                loss = self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
                 loss.backward()
-                adv_inputs = fgsm_attack(inputs, self.eps, inputs.grad.data)
-                inputs.requires_grad = False
+                ets_inputs = torch.cat([ets_inputs, fgsm_attack(ets_inputs, self.eps, ets_inputs.grad.data).detach()], dim=0)
+                kbts_inputs = torch.cat([kbts_inputs, fgsm_attack(kbts_inputs, self.eps, kbts_inputs.grad.data).detach()], dim=0)
+                ets_inputs.requires_grad = False
+                kbts_inputs.requires_grad = False
                 self.net.freeze(True)
-                inputs = torch.cat([inputs, adv_inputs], dim=0)
 
             self.opt.zero_grad()
 
@@ -406,19 +408,28 @@ class DAE(ContinualModel):
                 kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=False)
 
             loss = 0
-            if ood_inputs.numel() > 0:
+            if num_ood > 0:
                 if feat:
                     ood_labels = -torch.ones(ood_inputs.shape[0], dtype=torch.long).to(self.device)
                     loss += sup_clr_loss(features, torch.cat([labels, ood_labels]), self.args.temperature, ood=True) 
-                ets_outputs, ets_ood_outputs = ets_outputs.split((bs, ood_inputs.shape[0]), dim=0)
-                kbts_outputs, kbts_ood_outputs = kbts_outputs.split((bs, ood_inputs.shape[0]), dim=0)
-                loss += self.loss(ets_outputs, labels) - entropy(F.softmax(ets_ood_outputs, dim=1)).mean()
-                loss += self.loss(kbts_outputs, labels) - entropy(F.softmax(kbts_ood_outputs, dim=1)).mean()
-                # loss += self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
+                ets_outputs = F.log_softmax(ets_outputs, dim=1)
+                kbts_outputs = F.log_softmax(kbts_outputs, dim=1)
+                ets_outputs, ets_ood_outputs = ets_outputs.split((bs, num_ood), dim=0)
+                kbts_outputs, kbts_ood_outputs = kbts_outputs.split((bs, num_ood), dim=0)
+                
+                ets_ood_ent = entropy(ets_ood_outputs.exp())
+                kbts_ood_ent = entropy(kbts_ood_outputs.exp())
+                if adv:
+                    ets_incorrect = (ets_ood_outputs.argmax(1) != labels) & (ets_ood_ent <= entropy(ets_outputs.exp()))
+                    kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels) & (kbts_ood_ent <= entropy(kbts_outputs.exp()))
+                    ets_ood_ent = ets_ood_ent[ets_incorrect]
+                    kbts_ood_ent = kbts_ood_ent[kbts_incorrect]
+                loss += F.nll_loss(ets_outputs, labels) - ets_ood_ent.mean()
+                loss += F.nll_loss(kbts_outputs, labels) - kbts_ood_ent.mean()
             else:
                 if feat:
                     loss += sup_clr_loss(features, labels, self.args.temperature, ood=False)
-                loss += self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
+                loss += F.cross_entropy(ets_outputs, labels) + F.cross_entropy(kbts_outputs, labels)
             
             # else:
             # ood_outputs = outputs[bs:]
