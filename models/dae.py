@@ -390,8 +390,8 @@ class DAE(ContinualModel):
                 self.opt.zero_grad()
                 loss = self.loss(ets_outputs, labels) + self.loss(kbts_outputs, labels)
                 loss.backward()
-                ets_inputs = torch.cat([ets_inputs, fgsm_attack(ets_inputs, self.eps, ets_inputs.grad.data).detach()], dim=0)
-                kbts_inputs = torch.cat([kbts_inputs, fgsm_attack(kbts_inputs, self.eps, kbts_inputs.grad.data).detach()], dim=0)
+                ets_inputs = torch.cat([ets_inputs, fgsm_attack(ets_inputs, self.eps, ets_inputs.grad.data)], dim=0).detach()
+                kbts_inputs = torch.cat([kbts_inputs, fgsm_attack(kbts_inputs, self.eps, kbts_inputs.grad.data)], dim=0).detach()
                 ets_inputs.requires_grad = False
                 kbts_inputs.requires_grad = False
                 self.net.freeze(True)
