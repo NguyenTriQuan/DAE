@@ -194,9 +194,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
             break
-        if args.task >= 0 :
-            if t != args.task:
-                continue
+        
         model.task += 1
         train_loader, test_loader = dataset.get_data_loaders()   
         print(f'Task {t}:')
@@ -206,6 +204,10 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         print(f'Num params :{num_params}, num neurons: {num_neurons}')
         if args.verbose:
             wandb.log({'params': num_params, 'task': t})
+
+        if args.task >= 0 :
+            if t != args.task:
+                continue
         
         mode = 'ets_kbts'
         model.evaluate(task=None, mode=mode)
