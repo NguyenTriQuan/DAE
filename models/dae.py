@@ -422,8 +422,8 @@ class DAE(ContinualModel):
                 if adv:
                     ets_incorrect = (ets_ood_outputs.argmax(1) != labels) & (ets_ood_ent <= entropy(ets_outputs.exp()))
                     kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels) & (kbts_ood_ent <= entropy(kbts_outputs.exp()))
-                    ets_ood_ent = ets_ood_ent[ets_incorrect]
-                    kbts_ood_ent = kbts_ood_ent[kbts_incorrect]
+                    ets_ood_ent = ets_ood_ent[ets_incorrect] if ets_incorrect.sum() > 0 else 0
+                    kbts_ood_ent = kbts_ood_ent[kbts_incorrect] if kbts_incorrect.sum() > 0 else 0
                 loss += F.nll_loss(ets_outputs, labels) - ets_ood_ent.mean()
                 loss += F.nll_loss(kbts_outputs, labels) - kbts_ood_ent.mean()
             else:
