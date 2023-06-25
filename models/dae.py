@@ -378,21 +378,21 @@ class DAE(ContinualModel):
             # inputs = self.dataset.test_transforms[self.task](inputs)
             ets_inputs, kbts_inputs = inputs.split(inputs.shape[0]//2, dim=0)
 
-            # if adv:
-            #     inputs.requires_grad = True
-            #     self.net.freeze(False)
-            #     if ets:
-            #         outputs = self.net.ets_forward(inputs, self.task, feat=False)
-            #     elif kbts:
-            #         outputs = self.net.kbts_forward(inputs, self.task, feat=False)
-            #     outputs = ensemble_outputs(outputs.unsqueeze(0)) 
-            #     self.opt.zero_grad()
-            #     loss = F.nll_loss(outputs, labels) - self.alpha * entropy(outputs.exp()).mean()
-            #     loss.backward()
-            #     adv_inputs = fgsm_attack(inputs, self.eps, inputs.grad.data)
-            #     inputs.requires_grad = False
-            #     self.net.freeze(True)
-            #     inputs = torch.cat([inputs, adv_inputs], dim=0)
+            if adv:
+                inputs.requires_grad = True
+                self.net.freeze(False)
+                if ets:
+                    outputs = self.net.ets_forward(inputs, self.task, feat=False)
+                elif kbts:
+                    outputs = self.net.kbts_forward(inputs, self.task, feat=False)
+                outputs = ensemble_outputs(outputs.unsqueeze(0)) 
+                self.opt.zero_grad()
+                loss = F.nll_loss(outputs, labels) - self.alpha * entropy(outputs.exp()).mean()
+                loss.backward()
+                adv_inputs = fgsm_attack(inputs, self.eps, inputs.grad.data)
+                inputs.requires_grad = False
+                self.net.freeze(True)
+                inputs = torch.cat([inputs, adv_inputs], dim=0)
 
             self.opt.zero_grad()
 

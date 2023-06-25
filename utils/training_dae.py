@@ -185,7 +185,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     # artifact_dir = artifact.download()
     # model.net = torch.load(artifact_dir)
     # if wandb.run.resumed:
-    checkpoint = torch.load(base_path_memory() + args.title + '.tar')
+    checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
     model.net = checkpoint['net']
 
     num_params, num_neurons = model.net.count_params()
@@ -213,12 +213,12 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         mode = 'ets_kbts_ba'
         model.evaluate(task=None, mode=mode)
 
-        if 'cal' in args.mode:
-            mode = 'ets_kbts_cal'
-            model.evaluate(task=None, mode=mode)
+        # if 'cal' in args.mode:
+        #     mode = 'ets_kbts_cal'
+        #     model.evaluate(task=None, mode=mode)
 
-            mode = 'ets_kbts_ba_cal'
-            model.evaluate(task=None, mode=mode)
+        #     mode = 'ets_kbts_ba_cal'
+        #     model.evaluate(task=None, mode=mode)
 
         mode = 'ets'
         model.evaluate(task=None, mode=mode)
@@ -226,12 +226,12 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         mode = 'ets_ba'
         model.evaluate(task=None, mode=mode)
 
-        if 'cal' in args.mode:
-            mode = 'ets_cal'
-            model.evaluate(task=None, mode=mode)
+        # if 'cal' in args.mode:
+        #     mode = 'ets_cal'
+        #     model.evaluate(task=None, mode=mode)
 
-            mode = 'ets_ba_cal'
-            model.evaluate(task=None, mode=mode)
+        #     mode = 'ets_ba_cal'
+        #     model.evaluate(task=None, mode=mode)
 
         mode = 'kbts'
         model.evaluate(task=None, mode=mode)
@@ -239,12 +239,12 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         mode = 'kbts_ba'
         model.evaluate(task=None, mode=mode)
 
-        if 'cal' in args.mode:
-            mode = 'kbts_cal'
-            model.evaluate(task=None, mode=mode)
+        # if 'cal' in args.mode:
+        #     mode = 'kbts_cal'
+        #     model.evaluate(task=None, mode=mode)
 
-            mode = 'kbts_ba_cal'
-            model.evaluate(task=None, mode=mode)
+        #     mode = 'kbts_ba_cal'
+        #     model.evaluate(task=None, mode=mode)
 
 def train_cal(model: ContinualModel, dataset: ContinualDataset,
           args: Namespace) -> None:
