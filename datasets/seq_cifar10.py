@@ -26,13 +26,15 @@ class SequentialCIFAR10(ContinualDataset):
     SETTING = 'class-il'
     N_CLASSES_PER_TASK = 2
     N_TASKS = 5
+    INPUT_SHAPE = (3, 32, 32)
     
     train_transform = torch.nn.Sequential(
-                K.augmentation.RandomCrop((32, 32), padding=4, same_on_batch=False),
-                K.augmentation.RandomHorizontalFlip(same_on_batch=False),
-                K.augmentation.Normalize((0.4914, 0.4822, 0.4465),
-                                        (0.2470, 0.2435, 0.2615)),
+                K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
+                K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
+                K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
+                # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
             )
+    
     test_transform = torch.nn.Sequential(
                 K.augmentation.Normalize((0.4914, 0.4822, 0.4465),
                                         (0.2470, 0.2435, 0.2615)),
@@ -45,6 +47,7 @@ class SequentialCIFAR10(ContinualDataset):
 
     train_data = train_data.permute(0, 3, 1, 2)/255.0
     test_data = test_data.permute(0, 3, 1, 2)/255.0
+    N_CLASSES = len(train_targets.unique())
 
     def get_data_loaders(self):
         train_mask = (self.train_targets >= self.i) & (self.train_targets < self.i + self.N_CLASSES_PER_TASK)

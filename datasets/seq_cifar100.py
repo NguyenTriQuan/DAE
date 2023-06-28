@@ -37,6 +37,13 @@ class SequentialCIFAR100(ContinualDataset):
                 # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
             )
     
+    # train_transform = torch.nn.Sequential(
+    #             K.augmentation.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1, p=0.8, same_on_batch=False),
+    #             K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
+    #             K.augmentation.RandomResizedCrop(scale=(0.08, 1.0), size=(32, 32), same_on_batch=False),
+    #             K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
+    #         )
+    
     test_transform = torch.nn.Sequential(
                 K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
                                         (0.2675, 0.2565, 0.2761)),
