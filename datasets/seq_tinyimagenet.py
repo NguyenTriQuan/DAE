@@ -131,19 +131,20 @@ class SequentialTinyImagenet(ContinualDataset):
     N_TASKS = 10
     INPUT_SHAPE = (3, 32, 32)
 
-    train_transform = torch.nn.Sequential(
-                K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
-                K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
-                K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
-                # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
-            )
-    
-    train_set = TinyImagenet(base_path() + 'TINYIMG', train=True, download=True)
-    test_set = TinyImagenet(base_path() + 'TINYIMG', train=False, download=True)
-    train_data, train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
-    test_data, test_targets = torch.FloatTensor(test_set.data), torch.LongTensor(test_set.targets)
-    
-    N_CLASSES = len(train_targets.unique())
+    def download(self):
+        self.train_transform = torch.nn.Sequential(
+                    K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
+                    K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
+                    K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
+                    # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
+                )
+        
+        train_set = TinyImagenet(base_path() + 'TINYIMG', train=True, download=True)
+        test_set = TinyImagenet(base_path() + 'TINYIMG', train=False, download=True)
+        self.train_data, self.train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
+        self.test_data, self.test_targets = torch.FloatTensor(test_set.data), torch.LongTensor(test_set.targets)
+        
+        N_CLASSES = len(self.train_targets.unique())
 
     def get_data_loaders(self):
         train_mask = (self.train_targets >= self.i) & (self.train_targets < self.i + self.N_CLASSES_PER_TASK)
