@@ -373,12 +373,12 @@ class DAE(ContinualModel):
                     num_ood += buffer_data[0].shape[0]
 
             inputs = torch.cat([inputs, ood_inputs], dim=0)
-            inputs = torch.cat([inputs, inputs], dim=0)
+            # inputs = torch.cat([inputs, inputs], dim=0)
             
             if augment:
                 inputs = self.dataset.train_transform(inputs)
             # inputs = self.dataset.test_transforms[self.task](inputs)
-            ets_inputs, kbts_inputs = inputs.split(inputs.shape[0]//2, dim=0)
+            # ets_inputs, kbts_inputs = inputs.split(inputs.shape[0]//2, dim=0)
 
             # if adv:
             #     num_ood += ets_inputs.shape[0]
@@ -399,13 +399,13 @@ class DAE(ContinualModel):
             self.opt.zero_grad()
 
             if feat:
-                ets_features = self.net.ets_forward(ets_inputs, self.task, feat=True)
-                kbts_features = self.net.kbts_forward(kbts_inputs, self.task, feat=True)
+                ets_features = self.net.ets_forward(inputs, self.task, feat=True)
+                kbts_features = self.net.kbts_forward(inputs, self.task, feat=True)
                 features = torch.cat([ets_features, kbts_features], dim=0)
                 features = F.normalize(features, p=2, dim=1)
             else:
-                ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=False)
-                kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=False)
+                ets_outputs = self.net.ets_forward(inputs, self.task, feat=False)
+                kbts_outputs = self.net.kbts_forward(inputs, self.task, feat=False)
 
             loss = 0
             if num_ood > 0:
