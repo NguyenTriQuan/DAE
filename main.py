@@ -159,7 +159,6 @@ def main(args=None):
             # Set the project where this run will be logged
             project=model.NAME,
             name=args.title,
-            resume=True,
             # Track hyperparameters and run metadata
             config=args
             # config={
