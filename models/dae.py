@@ -440,17 +440,13 @@ class DAE(ContinualModel):
             self.opt.step()
             total += bs
             total_loss += loss.item() * bs
-            
+
             if not feat:
                 outputs = ensemble_outputs(torch.stack([ets_outputs, kbts_outputs], dim=0))
                 correct += (outputs.argmax(1) == labels).sum().item()
 
             if squeeze and self.lamb[self.task] > 0:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
-
-            del inputs, labels, outputs, ets_outputs, kbts_outputs
-            if feat:
-                del features, ets_features, kbts_features
                 
         if squeeze and self.lamb[self.task] > 0:
             self.net.squeeze(self.opt.state)
