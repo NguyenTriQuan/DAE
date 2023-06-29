@@ -57,7 +57,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
         for param in ets_params+kbts_params+scores:
             count += param.numel()
     elif head:
-        model.freeze_feature()
+        model.net.freeze_feature()
         params = model.net.last.get_optim_ets_params() + model.net.last.get_optim_kbts_params()
         n_epochs = 50
         num_squeeze = 0
