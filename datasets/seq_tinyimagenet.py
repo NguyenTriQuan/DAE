@@ -19,7 +19,9 @@ from datasets.utils.continual_dataset import (ContinualDataset,
                                               store_masked_loaders)
 from datasets.utils.validation import get_train_val
 from utils.conf import base_path_dataset as base_path
-
+import torch
+from torch.utils.data import DataLoader, Dataset, TensorDataset
+import kornia as K
 
 class TinyImagenet(Dataset):
     """
@@ -126,6 +128,15 @@ class SequentialTinyImagenet(ContinualDataset):
          transforms.ToTensor(),
          transforms.Normalize((0.4802, 0.4480, 0.3975),
                               (0.2770, 0.2691, 0.2821))])
+    
+    train_set = TinyImagenet(base_path() + 'TINYIMG', train=True, download=True)
+    test_set = TinyImagenet(base_path() + 'TINYIMG', train=False, download=True)
+    train_data, train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
+    test_data, test_targets = torch.FloatTensor(test_set.data), torch.LongTensor(test_set.targets)
+
+    train_data = train_data.permute(0, 3, 1, 2)/255.0
+    test_data = test_data.permute(0, 3, 1, 2)/255.0
+    N_CLASSES = len(train_targets.unique())
 
     def get_data_loaders(self):
         transform = self.TRANSFORM
