@@ -47,18 +47,22 @@ class TinyImagenet(Dataset):
                 ln = "https://unimore365-my.sharepoint.com/:u:/g/personal/263133_unimore_it/EVKugslStrtNpyLGbgrhjaABqRHcE3PB_r2OEaV7Jy94oQ?e=9K29aD"
                 download(ln, filename=os.path.join(root, 'tiny-imagenet-processed.zip'), unzip=True, unzip_path=root, clean=True)
 
+        resize = K.augmentation.Resize(size=(32, 32))
         self.data = []
         for num in range(20):
-            self.data.append(np.load(os.path.join(
+            sub_data = np.load(os.path.join(
                 root, 'processed/x_%s_%02d.npy' %
-                      ('train' if self.train else 'val', num + 1))))
+                      ('train' if self.train else 'val', num + 1)))
+            sub_data = torch.FloatTensor(sub_data)
+            sub_data = sub_data.permute(0, 3, 1, 2)/255.0
         self.data = np.concatenate(np.array(self.data))
 
         self.targets = []
         for num in range(20):
-            self.targets.append(np.load(os.path.join(
+            sub_targets = np.load(os.path.join(
                 root, 'processed/y_%s_%02d.npy' %
-                      ('train' if self.train else 'val', num + 1))))
+                      ('train' if self.train else 'val', num + 1)))
+            sub_targets = torch.LongTensor(sub_targets)
         self.targets = np.concatenate(np.array(self.targets))
 
     def __len__(self):
