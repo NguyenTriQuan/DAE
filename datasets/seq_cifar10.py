@@ -28,26 +28,27 @@ class SequentialCIFAR10(ContinualDataset):
     N_TASKS = 5
     INPUT_SHAPE = (3, 32, 32)
     
-    train_transform = torch.nn.Sequential(
-                K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
-                K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
-                K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
-                # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
-            )
-    
-    test_transform = torch.nn.Sequential(
-                K.augmentation.Normalize((0.4914, 0.4822, 0.4465),
-                                        (0.2470, 0.2435, 0.2615)),
-            )
-    
-    train_set=CIFAR10(base_path() + 'CIFAR10',train=True,download=True)
-    test_set=CIFAR10(base_path() + 'CIFAR10',train=False,download=True)
-    train_data, train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
-    test_data, test_targets = torch.FloatTensor(test_set.data), torch.LongTensor(test_set.targets)
+    def download(self):
+        self.train_transform = torch.nn.Sequential(
+                    K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
+                    K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
+                    K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
+                    # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
+                )
+        
+        self.test_transform = torch.nn.Sequential(
+                    K.augmentation.Normalize((0.4914, 0.4822, 0.4465),
+                                            (0.2470, 0.2435, 0.2615)),
+                )
+        
+        train_set=CIFAR10(base_path() + 'CIFAR10',train=True,download=True)
+        test_set=CIFAR10(base_path() + 'CIFAR10',train=False,download=True)
+        self.train_data, self.train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
+        self.test_data, self.test_targets = torch.FloatTensor(test_set.data), torch.LongTensor(test_set.targets)
 
-    train_data = train_data.permute(0, 3, 1, 2)/255.0
-    test_data = test_data.permute(0, 3, 1, 2)/255.0
-    N_CLASSES = len(train_targets.unique())
+        self.train_data = self.train_data.permute(0, 3, 1, 2)/255.0
+        self.test_data = self.test_data.permute(0, 3, 1, 2)/255.0
+        self.N_CLASSES = len(self.train_targets.unique())
 
     def get_data_loaders(self):
         train_mask = (self.train_targets >= self.i) & (self.train_targets < self.i + self.N_CLASSES_PER_TASK)

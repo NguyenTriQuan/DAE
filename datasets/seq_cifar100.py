@@ -30,35 +30,29 @@ class SequentialCIFAR100(ContinualDataset):
     N_TASKS = 5
     INPUT_SHAPE = (3, 32, 32)
 
-    train_transform = torch.nn.Sequential(
-                K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
-                K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
-                K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
-                # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
-            )
-    
-    # train_transform = torch.nn.Sequential(
-    #             K.augmentation.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1, p=0.8, same_on_batch=False),
-    #             K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
-    #             K.augmentation.RandomResizedCrop(scale=(0.08, 1.0), size=(32, 32), same_on_batch=False),
-    #             K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
-    #         )
-    
-    test_transform = torch.nn.Sequential(
-                K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
-                                        (0.2675, 0.2565, 0.2761)),
-            )
-    test_transforms = []
-    
-    train_set=CIFAR100(base_path() + 'CIFAR100',train=True,download=True)
-    test_set=CIFAR100(base_path() + 'CIFAR100',train=False,download=True)
-    train_data, train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
-    test_data, test_targets = torch.FloatTensor(test_set.data), torch.LongTensor(test_set.targets)
+    def download(self):
+        self.train_transform = torch.nn.Sequential(
+                    K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
+                    K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
+                    K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
+                    # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
+                )
+        
+        self.test_transform = torch.nn.Sequential(
+                    K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
+                                            (0.2675, 0.2565, 0.2761)),
+                )
+        self.test_transforms = []
+        
+        train_set=CIFAR100(base_path() + 'CIFAR100',train=True,download=True)
+        test_set=CIFAR100(base_path() + 'CIFAR100',train=False,download=True)
+        self.train_data, self.train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
+        self.test_data, self.test_targets = torch.FloatTensor(test_set.data), torch.LongTensor(test_set.targets)
 
-    train_data = train_data.permute(0, 3, 1, 2)/255.0
-    test_data = test_data.permute(0, 3, 1, 2)/255.0
-    N_CLASSES = len(train_targets.unique())
-    # print(train_data.mean((0, 2, 3)), train_data.std((0, 2, 3), unbiased=False))
+        self.train_data = self.train_data.permute(0, 3, 1, 2)/255.0
+        self.test_data = self.test_data.permute(0, 3, 1, 2)/255.0
+        self.N_CLASSES = len(self.train_targets.unique())
+        # print(train_data.mean((0, 2, 3)), train_data.std((0, 2, 3), unbiased=False))
 
 
     def get_data_loaders(self):
@@ -69,16 +63,6 @@ class SequentialCIFAR100(ContinualDataset):
         test_loader = DataLoader(TensorDataset(self.test_data[test_mask], self.test_targets[test_mask]), batch_size=self.args.val_batch_size, shuffle=False)
         self.test_loaders.append(test_loader)
         self.train_loader = train_loader
-        # if 'dis' in self.args.ablation:
-        #     mean = train_loader.dataset.tensors[0].mean((0, 2, 3))
-        #     std = train_loader.dataset.tensors[0].std((0, 2, 3), unbiased=False)
-        #     print(f'Classes: {self.i} - {self.i+self.N_CLASSES_PER_TASK}, mean = {mean}, std = {std}')
-        #     self.test_transforms += [torch.nn.Sequential(
-        #             K.augmentation.Normalize(mean, std)
-        #         )]
-        # else:
-        #     # self.test_transforms += [self.test_transform]
-        #     self.test_transforms += [torch.nn.Sequential()]
         self.i += self.N_CLASSES_PER_TASK
         return train_loader, test_loader
     
