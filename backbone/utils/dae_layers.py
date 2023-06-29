@@ -241,11 +241,6 @@ class _DynamicLayer(nn.Module):
         return output    
 
     def clear_memory(self):
-        # if self.score is not None:
-        #     t = len(self.kbts_sparsities) - 1
-        #     mask = GetSubnet.apply(self.score.abs(), 1-self.kbts_sparsities[t])
-        #     self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
-        #     self.score = None
         # self.dummy_weight = None
         self.kb_weight = None
         self.masked_kb_weight = None
@@ -514,6 +509,11 @@ class DynamicBlock(nn.Module):
             layer.weight[-1].requires_grad = state
             layer.fwt_weight[-1].requires_grad = state
             layer.bwt_weight[-1].requires_grad = state
+            if layer.score is not None:
+                t = len(layer.kbts_sparsities) - 1
+                mask = GetSubnet.apply(layer.score.abs(), 1-layer.kbts_sparsities[t])
+                layer.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
+                layer.score = None
         if self.norm_type is not None:
             if 'affine' in self.norm_type:
                 self.ets_norm_layers[-1].weight.requires_grad = state

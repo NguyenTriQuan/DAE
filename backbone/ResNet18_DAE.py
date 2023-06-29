@@ -75,7 +75,6 @@ class _DynamicModel(nn.Module):
     def freeze_feature(self, state=False):
         for m in self.DB:
             m.freeze(state)
-        # self.mid.freeze()
 
     def freeze_classifier(self, state=False):
         self.last.freeze(state)
@@ -273,7 +272,7 @@ class ResNet(_DynamicModel):
         # feature = F.relu(feature)
 
         if feat:
-            return self.projector.ets_forward(feature, t), self.last.ets_forward(feature, t)
+            return self.projector.ets_forward(feature, t)
         else:
             out = self.last.ets_forward(feature, t)
             if cal:
@@ -302,7 +301,7 @@ class ResNet(_DynamicModel):
         # feature = self.mid.kbts_forward(feature, t)
         # feature = F.relu(feature)
         if feat:
-            return self.projector.kbts_forward(feature, t), self.last.kbts_forward(feature, t)
+            return self.projector.kbts_forward(feature, t)
         else:
             out = self.last.kbts_forward(feature, t)
             if cal:
