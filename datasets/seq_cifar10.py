@@ -58,6 +58,8 @@ class SequentialCIFAR10(ContinualDataset):
         test_loader = DataLoader(TensorDataset(self.test_data[test_mask], self.test_targets[test_mask]), batch_size=self.args.val_batch_size, shuffle=False)
         self.test_loaders.append(test_loader)
         self.train_loader = train_loader
+        print(f'Data info: Classes: {self.i}-{self.i+self.N_CLASSES_PER_TASK}, Size: {train_loader.dataset.tensors[0].shape[0]}, Mean: {train_loader.dataset.tensors[0].mean((0,2,3))}, STD: {train_loader.dataset.tensors[0].std((0,2,3))}')
+        
         self.i += self.N_CLASSES_PER_TASK
         return train_loader, test_loader
 
