@@ -47,9 +47,9 @@ def train_loop(model, args, train_loader, mode, checkpoint=None):
     if feat:
         ets_params = model.net.get_optim_ets_params()
         kbts_params, scores = model.net.get_optim_kbts_params()
-        n_epochs = 150
+        n_epochs = 200
         num_squeeze = 100
-        step_lr = [130, 145]
+        step_lr = [160, 190]
         squeeze = 'squeeze' not in args.ablation
         model.opt = torch.optim.SGD([{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
                                     lr=args.lr, weight_decay=0, momentum=0.9)
