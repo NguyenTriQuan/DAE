@@ -143,8 +143,7 @@ class SequentialTinyImagenet(ContinualDataset):
         test_set = TinyImagenet(base_path() + 'TINYIMG', train=False, download=True)
         self.train_data, self.train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
         self.test_data, self.test_targets = torch.FloatTensor(test_set.data), torch.LongTensor(test_set.targets)
-        
-        N_CLASSES = len(self.train_targets.unique())
+        self.N_CLASSES = len(self.train_targets.unique())
 
     def get_data_loaders(self):
         train_mask = (self.train_targets >= self.i) & (self.train_targets < self.i + self.N_CLASSES_PER_TASK)
