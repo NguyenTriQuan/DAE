@@ -55,7 +55,9 @@ class TinyImagenet(Dataset):
                       ('train' if self.train else 'val', num + 1)))
             sub_data = torch.FloatTensor(sub_data)
             sub_data = sub_data.permute(0, 3, 1, 2)/255.0
-        self.data = np.concatenate(np.array(self.data))
+            sub_data = resize(sub_data)
+            self.data.append(sub_data)
+        self.data = torch.cat(self.data, dim=0)
 
         self.targets = []
         for num in range(20):
@@ -63,7 +65,8 @@ class TinyImagenet(Dataset):
                 root, 'processed/y_%s_%02d.npy' %
                       ('train' if self.train else 'val', num + 1)))
             sub_targets = torch.LongTensor(sub_targets)
-        self.targets = np.concatenate(np.array(self.targets))
+            self.targets.append(sub_targets)
+        self.targets = torch.cat(self.targets, dim=0)
 
     def __len__(self):
         return len(self.data)
@@ -140,11 +143,6 @@ class SequentialTinyImagenet(ContinualDataset):
     train_data, train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
     test_data, test_targets = torch.FloatTensor(test_set.data), torch.LongTensor(test_set.targets)
     
-    resize = K.augmentation.Resize(size=(32, 32))
-    train_data = train_data.permute(0, 3, 1, 2)/255.0
-    test_data = test_data.permute(0, 3, 1, 2)/255.0
-    train_data = resize(train_data)
-    test_data = resize(test_data)
     N_CLASSES = len(train_targets.unique())
 
     def get_data_loaders(self):
