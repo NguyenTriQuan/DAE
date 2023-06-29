@@ -122,39 +122,37 @@ class SequentialTinyImagenet(ContinualDataset):
     SETTING = 'class-il'
     N_CLASSES_PER_TASK = 20
     N_TASKS = 10
-    TRANSFORM = transforms.Compose(
-        [transforms.RandomCrop(64, padding=4),
-         transforms.RandomHorizontalFlip(),
-         transforms.ToTensor(),
-         transforms.Normalize((0.4802, 0.4480, 0.3975),
-                              (0.2770, 0.2691, 0.2821))])
+    INPUT_SHAPE = (3, 32, 32)
+
+    train_transform = torch.nn.Sequential(
+                K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
+                K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
+                K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
+                # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
+            )
     
     train_set = TinyImagenet(base_path() + 'TINYIMG', train=True, download=True)
     test_set = TinyImagenet(base_path() + 'TINYIMG', train=False, download=True)
     train_data, train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
     test_data, test_targets = torch.FloatTensor(test_set.data), torch.LongTensor(test_set.targets)
-
+    
+    resize = K.augmentation.Resize(size=(32, 32))
     train_data = train_data.permute(0, 3, 1, 2)/255.0
     test_data = test_data.permute(0, 3, 1, 2)/255.0
+    train_data = resize(train_data)
+    test_data = resize(test_data)
     N_CLASSES = len(train_targets.unique())
 
     def get_data_loaders(self):
-        transform = self.TRANSFORM
+        train_mask = (self.train_targets >= self.i) & (self.train_targets < self.i + self.N_CLASSES_PER_TASK)
+        test_mask = (self.test_targets >= self.i) & (self.test_targets < self.i + self.N_CLASSES_PER_TASK)
 
-        test_transform = transforms.Compose(
-            [transforms.ToTensor(), self.get_normalization_transform()])
-
-        train_dataset = MyTinyImagenet(base_path() + 'TINYIMG',
-                                       train=True, download=True, transform=transform)
-        if self.args.validation:
-            train_dataset, test_dataset = get_train_val(train_dataset,
-                                                        test_transform, self.NAME)
-        else:
-            test_dataset = TinyImagenet(base_path() + 'TINYIMG',
-                                        train=False, download=True, transform=test_transform)
-
-        train, test = store_masked_loaders(train_dataset, test_dataset, self)
-        return train, test
+        train_loader = DataLoader(TensorDataset(self.train_data[train_mask], self.train_targets[train_mask]), batch_size=self.args.batch_size, shuffle=True)
+        test_loader = DataLoader(TensorDataset(self.test_data[test_mask], self.test_targets[test_mask]), batch_size=self.args.val_batch_size, shuffle=False)
+        self.test_loaders.append(test_loader)
+        self.train_loader = train_loader
+        self.i += self.N_CLASSES_PER_TASK
+        return train_loader, test_loader
 
     @staticmethod
     def get_backbone():
