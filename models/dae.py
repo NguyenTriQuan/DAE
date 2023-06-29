@@ -380,27 +380,27 @@ class DAE(ContinualModel):
             # inputs = self.dataset.test_transforms[self.task](inputs)
             ets_inputs, kbts_inputs = inputs.split(inputs.shape[0]//2, dim=0)
 
-            if adv:
-                num_ood += ets_inputs.shape[0]
-                ets_inputs.requires_grad = True
-                kbts_inputs.requires_grad = True
-                self.net.freeze(False)
-                ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=False)
-                kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=False)
-                self.opt.zero_grad()
-                loss = F.cross_entropy(ets_outputs, labels) + F.cross_entropy(kbts_outputs, labels)
-                loss.backward()
-                ets_inputs = torch.cat([ets_inputs, fgsm_attack(ets_inputs, self.eps, ets_inputs.grad.data)], dim=0).detach()
-                kbts_inputs = torch.cat([kbts_inputs, fgsm_attack(kbts_inputs, self.eps, kbts_inputs.grad.data)], dim=0).detach()
-                ets_inputs.requires_grad = False
-                kbts_inputs.requires_grad = False
-                self.net.freeze(True)
+            # if adv:
+            #     num_ood += ets_inputs.shape[0]
+            #     ets_inputs.requires_grad = True
+            #     kbts_inputs.requires_grad = True
+            #     self.net.freeze(False)
+            #     ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=False)
+            #     kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=False)
+            #     self.opt.zero_grad()
+            #     loss = F.cross_entropy(ets_outputs, labels) + F.cross_entropy(kbts_outputs, labels)
+            #     loss.backward()
+            #     ets_inputs = torch.cat([ets_inputs, fgsm_attack(ets_inputs, self.eps, ets_inputs.grad.data)], dim=0).detach()
+            #     kbts_inputs = torch.cat([kbts_inputs, fgsm_attack(kbts_inputs, self.eps, kbts_inputs.grad.data)], dim=0).detach()
+            #     ets_inputs.requires_grad = False
+            #     kbts_inputs.requires_grad = False
+            #     self.net.freeze(True)
 
             self.opt.zero_grad()
 
             if feat:
-                ets_features, ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=True)
-                kbts_features, kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=True)
+                ets_features = self.net.ets_forward(ets_inputs, self.task, feat=True)
+                kbts_features = self.net.kbts_forward(kbts_inputs, self.task, feat=True)
                 features = torch.cat([ets_features, kbts_features], dim=0)
                 features = F.normalize(features, p=2, dim=1)
             else:
@@ -412,39 +412,28 @@ class DAE(ContinualModel):
                 if feat:
                     ood_labels = -torch.ones(ood_inputs.shape[0], dtype=torch.long).to(self.device)
                     loss += sup_clr_loss(features, torch.cat([labels, ood_labels]), self.args.temperature, ood=True) 
-
-                ets_outputs = F.log_softmax(ets_outputs, dim=1)
-                kbts_outputs = F.log_softmax(kbts_outputs, dim=1)
-                ets_outputs, ets_ood_outputs = ets_outputs.split((bs, num_ood), dim=0)
-                kbts_outputs, kbts_ood_outputs = kbts_outputs.split((bs, num_ood), dim=0)
-                
-                ets_ood_ent = entropy(ets_ood_outputs.exp()).mean()
-                kbts_ood_ent = entropy(kbts_ood_outputs.exp()).mean()
-                # if adv:
-                #     # ets_incorrect = (ets_ood_outputs.argmax(1) != labels) & (ets_ood_ent <= entropy(ets_outputs.exp()))
-                #     # kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels) & (kbts_ood_ent <= entropy(kbts_outputs.exp()))
-                #     ets_incorrect = (ets_ood_outputs.argmax(1) != labels)
-                #     kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels)
-                #     ets_ood_ent = ets_ood_ent[ets_incorrect].mean() if ets_incorrect.sum() > 0 else 0
-                #     kbts_ood_ent = kbts_ood_ent[kbts_incorrect].mean() if kbts_incorrect.sum() > 0 else 0
-                loss += F.nll_loss(ets_outputs, labels) - ets_ood_ent
-                loss += F.nll_loss(kbts_outputs, labels) - kbts_ood_ent
+                else:
+                    ets_outputs = F.log_softmax(ets_outputs, dim=1)
+                    kbts_outputs = F.log_softmax(kbts_outputs, dim=1)
+                    ets_outputs, ets_ood_outputs = ets_outputs.split((bs, num_ood), dim=0)
+                    kbts_outputs, kbts_ood_outputs = kbts_outputs.split((bs, num_ood), dim=0)
+                    
+                    ets_ood_ent = entropy(ets_ood_outputs.exp()).mean()
+                    kbts_ood_ent = entropy(kbts_ood_outputs.exp()).mean()
+                    # if adv:
+                    #     # ets_incorrect = (ets_ood_outputs.argmax(1) != labels) & (ets_ood_ent <= entropy(ets_outputs.exp()))
+                    #     # kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels) & (kbts_ood_ent <= entropy(kbts_outputs.exp()))
+                    #     ets_incorrect = (ets_ood_outputs.argmax(1) != labels)
+                    #     kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels)
+                    #     ets_ood_ent = ets_ood_ent[ets_incorrect].mean() if ets_incorrect.sum() > 0 else 0
+                    #     kbts_ood_ent = kbts_ood_ent[kbts_incorrect].mean() if kbts_incorrect.sum() > 0 else 0
+                    loss += F.nll_loss(ets_outputs, labels) - ets_ood_ent
+                    loss += F.nll_loss(kbts_outputs, labels) - kbts_ood_ent
             else:
                 if feat:
                     loss += sup_clr_loss(features, labels, self.args.temperature, ood=False)
-                loss += F.cross_entropy(ets_outputs, labels) + F.cross_entropy(kbts_outputs, labels)
-            
-            # else:
-            # ood_outputs = outputs[bs:]
-            # ind_outputs = outputs[:bs]
-            # if adv:
-            #     incorrect = ood_outputs.argmax(1) != labels
-            #     ood_outputs = ood_outputs[incorrect]
-            # if ood_outputs.numel() > 0 and self.alpha > 0:
-            #     ood_outputs = ensemble_outputs(ood_outputs.unsqueeze(0))
-            #     loss = self.loss(ind_outputs, labels) - self.alpha * entropy(ood_outputs.exp()).mean()
-            # else:
-            #     loss = self.loss(ind_outputs, labels)
+                else:
+                    loss += F.cross_entropy(ets_outputs, labels) + F.cross_entropy(kbts_outputs, labels)
             
             assert not math.isnan(loss)
             loss.backward()

@@ -331,7 +331,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             # checkpoint = torch.load(wandb.restore('tmp/memory/' + args.title + '.checkpoint'))
             start_task = checkpoint['task']
             model.net = checkpoint['net']
-        except:
+        except Exception as e:
+            print(e)
             print('no checkpoint to resume')
 
     if 'sub' in args.ablation:
