@@ -319,6 +319,7 @@ class ResNet(_DynamicModel):
                 return out
             
     def get_representation_matrix(self, train_loader, t):
+        threshold = 0.95
         with torch.no_grad():
             ets_feature = []
             kbts_feature = []
@@ -334,7 +335,7 @@ class ResNet(_DynamicModel):
             U, S, Vh = torch.linalg.svd(ets_feature, full_matrices=False)
             S = S**2
             S = S/S.sum()
-            S = torch.sum(torch.cumsum(S, dim=0)<0.9)
+            S = torch.sum(torch.cumsum(S, dim=0)<threshold)
             ets_feature = U[:, 0:S]
             print('GPM ets dim', ets_feature.shape)
             self.ets_proj_mat.append(torch.mm(ets_feature, ets_feature.T))
@@ -343,7 +344,7 @@ class ResNet(_DynamicModel):
             U, S, Vh = torch.linalg.svd(kbts_feature, full_matrices=False)
             S = S**2
             S = S/S.sum()
-            S = torch.sum(torch.cumsum(S, dim=0)<0.999)
+            S = torch.sum(torch.cumsum(S, dim=0)<threshold)
             kbts_feature = U[:, 0:S]
             print('GPM kbts dim', kbts_feature.shape)
             self.kbts_proj_mat.append(torch.mm(kbts_feature, kbts_feature.T))
