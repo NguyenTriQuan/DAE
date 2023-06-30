@@ -319,7 +319,7 @@ class ResNet(_DynamicModel):
                 return out
             
     def get_representation_matrix(self, train_loader, t):
-        threshold = 0.99
+        threshold = 0.95
         N = train_loader.dataset.tensors[0].shape[0]
         with torch.no_grad():
             ets_feature = []
