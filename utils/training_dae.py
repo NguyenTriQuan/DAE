@@ -224,7 +224,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     start_task = checkpoint['task']
     model.net = checkpoint['net']
     model.net.to(model.device)
-    print(model.net.kbts_sparsities)
+    print(model.net.last.num_out)
 
     print(file=sys.stderr)
 
