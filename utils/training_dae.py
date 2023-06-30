@@ -225,6 +225,8 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     model.net = checkpoint['net']
     model.net.to(model.device)
     model.net.freeze(False)
+    model.net.ets_proj_mat = []
+    model.net.kbts_proj_mat = []
 
     print(file=sys.stderr)
 
