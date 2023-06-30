@@ -224,7 +224,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     start_task = checkpoint['task']
     model.net = checkpoint['net']
     model.net.to(model.device)
-    print(model.net.last.num_out)
+    model.net.freeze(False)
 
     print(file=sys.stderr)
 
