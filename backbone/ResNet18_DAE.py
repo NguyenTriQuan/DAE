@@ -322,7 +322,7 @@ class ResNet(_DynamicModel):
         with torch.no_grad():
             ets_feature = []
             kbts_feature = []
-            N = 2000
+            N = 500
             n = 0
             for data in train_loader:
                 ets_feature.append(self.ets_forward(data[0].to(device), t, feat=True).detach())
