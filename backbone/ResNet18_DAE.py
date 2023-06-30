@@ -334,7 +334,7 @@ class ResNet(_DynamicModel):
             U, S, Vh = torch.linalg.svd(ets_feature, full_matrices=False)
             S = S**2
             S = S/S.sum()
-            S = torch.sum(torch.cumsum(S, dim=0)<0.99)
+            S = torch.sum(torch.cumsum(S, dim=0)<0.9)
             ets_feature = U[:, 0:S]
             print('GPM ets dim', ets_feature.shape)
             self.ets_proj_mat.append(torch.mm(ets_feature, ets_feature.T))
