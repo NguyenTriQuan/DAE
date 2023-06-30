@@ -285,7 +285,7 @@ class ResNet(_DynamicModel):
                 beta = scales[:, 1].view(-1, 1)
                 return out * alpha + beta
             else:
-                return out
+                return out / self.args.eps
     
     def kbts_forward(self, x: torch.Tensor, t, feat=False, cal=False) -> torch.Tensor:
         if t != self.kbts_temp:
@@ -316,10 +316,10 @@ class ResNet(_DynamicModel):
                 beta = scales[:, 1].view(-1, 1)
                 return out * alpha + beta
             else:
-                return out
+                return out / self.args.eps
             
     def get_representation_matrix(self, train_loader, t):
-        threshold = 0.99
+        threshold = 1
         N = train_loader.dataset.tensors[0].shape[0]
         with torch.no_grad():
             ets_feature = []

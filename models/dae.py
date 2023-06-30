@@ -49,7 +49,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--lr_score", type=float, required=False, help="score learning rate.", default=0.1)
     parser.add_argument("--num_tasks", type=int, required=False, help="number of tasks to run.", default=100)
     parser.add_argument("--total_tasks", type=int, required=True, help="total number of tasks.", default=10)
-    parser.add_argument("--eps", type=float, required=False, help="FGSM epsilon.", default=0.1)
+    parser.add_argument("--eps", type=float, required=False, help="FGSM epsilon.", default=5)
     parser.add_argument("--num_aug", type=int, required=False, help="number of augument samples used when evaluation.", default=16)
     parser.add_argument("--task", type=int, required=False, help="Specify task for eval or cal.", default=-1)
     return parser

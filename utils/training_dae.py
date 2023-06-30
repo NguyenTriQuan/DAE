@@ -49,9 +49,9 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
         model.net.last.weight_ets[t].requires_grad = True
         model.net.last.weight_kbts[t].requires_grad = True
         params = [model.net.last.weight_ets[t], model.net.last.weight_kbts[t]]
-        n_epochs = 50
+        n_epochs = 20
         num_squeeze = 0
-        step_lr = [35, 45]
+        step_lr = [10, 15]
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         count = 0
         feat = False
@@ -237,8 +237,9 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
         model.task += 1
         print(f'Training task {model.task}')
         model.net.get_representation_matrix(train_loader, t)
-        for i in range(t):
-            train_loop(model, args, train_loader, mode='ets_kbts_cal', t=i)
+        # for i in range(t):
+        if t > 0:
+            train_loop(model, args, train_loader, mode='ets_kbts_cal', t=t-1)
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
