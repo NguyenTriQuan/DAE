@@ -350,8 +350,8 @@ class ResNet(_DynamicModel):
         def proj(params, mat):
             sz =  params.grad.data.size(0)
             params.grad.data = params.grad.data - torch.mm(params.grad.data.view(sz,-1), mat).view(params.size())
-        proj(self.last.weight_ets, self.ets_proj_mat[t])
-        proj(self.last.weight_kbts, self.kbts_proj_mat[t])
+        proj(self.last.weight_ets[t], self.ets_proj_mat[t])
+        proj(self.last.weight_kbts[t], self.kbts_proj_mat[t])
 
     
     def expand(self, new_classes, t):
