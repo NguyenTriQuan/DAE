@@ -481,7 +481,7 @@ class DAE(ContinualModel):
             total_loss += loss.item() * bs
 
         self.scheduler.step()
-        return total_loss / total
+        return total_loss / total, 0
 
     def train_calibration(self, mode, ets, kbts):
         self.net.train()
@@ -518,7 +518,7 @@ class DAE(ContinualModel):
             total_loss += loss.item()
 
         self.scheduler.step()
-        return total_loss / total
+        return total_loss / total, 0
 
     def begin_task(self, dataset):
         self.task += 1

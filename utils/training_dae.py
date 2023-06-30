@@ -105,7 +105,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     progress_bar = ProgressBar()
     for epoch in range(start_epoch, n_epochs):
         if cal:
-            loss = model.back_updating(train_loader, t)
+            loss, train_acc = model.back_updating(train_loader, t)
         else:          
             loss, train_acc = model.train_contrast(train_loader, mode, ets, kbts, rot, buf, adv, feat, squeeze, augment)
 
