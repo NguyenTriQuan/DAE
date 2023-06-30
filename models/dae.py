@@ -452,6 +452,36 @@ class DAE(ContinualModel):
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
         return total_loss / total, round(correct * 100 / total, 2)
+    
+    def back_updating(self, train_loader, t):
+        total = 0
+        correct = 0
+        total_loss = 0
+        torch.cuda.empty_cache()
+        
+        self.net.train()
+        for i, data in enumerate(train_loader):
+            inputs, labels = data
+            bs = labels.shape[0]
+            inputs, labels = inputs.to(self.device), labels.to(self.device)
+            inputs = self.dataset.train_transform(inputs)
+
+            self.opt.zero_grad()
+
+            ets_outputs = self.net.ets_forward(inputs, t) 
+            kbts_outputs = self.net.kbts_forward(inputs, t)
+
+            loss = - entropy(F.softmax(ets_outputs, dim=1)).mean() - entropy(F.softmax(kbts_outputs, dim=1)).mean()
+            
+            assert not math.isnan(loss)
+            loss.backward()
+            self.net.proj_grad(t)
+            self.opt.step()
+            total += bs
+            total_loss += loss.item() * bs
+
+        self.scheduler.step()
+        return total_loss / total
 
     def train_calibration(self, mode, ets, kbts):
         self.net.train()

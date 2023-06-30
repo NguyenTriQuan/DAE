@@ -236,6 +236,8 @@ class ResNet(_DynamicModel):
         self.ets_cal_layers = nn.ModuleList([])
         self.kbts_cal_layers = nn.ModuleList([])
         self.feat_dim = feat_dim
+        self.ets_proj_mat = []
+        self.kbts_proj_mat = []
         
         
     def _make_layer(self, block: BasicBlock, planes: int,
@@ -272,10 +274,12 @@ class ResNet(_DynamicModel):
         # feature = F.relu(feature)
 
         if feat:
-            return self.projector.ets_forward(feature, t)
+            # return self.projector.ets_forward(feature, t)
+            return feature
         else:
             out = self.last.ets_forward(feature, t)
             if cal:
+                feature = self.projector.ets_forward(feature, t)
                 scales = self.ets_cal_layers[t](feature)
                 alpha = scales[:, 0].view(-1, 1)
                 beta = scales[:, 1].view(-1, 1)
@@ -301,16 +305,54 @@ class ResNet(_DynamicModel):
         # feature = self.mid.kbts_forward(feature, t)
         # feature = F.relu(feature)
         if feat:
-            return self.projector.kbts_forward(feature, t)
+            # return self.projector.kbts_forward(feature, t)
+            return feature
         else:
             out = self.last.kbts_forward(feature, t)
             if cal:
+                feature = self.projector.kbts_forward(feature, t)
                 scales = self.kbts_cal_layers[t](feature)
                 alpha = scales[:, 0].view(-1, 1)
                 beta = scales[:, 1].view(-1, 1)
                 return out * alpha + beta
             else:
                 return out
+            
+    def get_representation_matrix(self, train_loader, t):
+        with torch.no_grad():
+            ets_feature = []
+            kbts_feature = []
+            N = 2000
+            n = 0
+            for data in train_loader:
+                ets_feature.append(self.ets_forward(data[0].to(device), t, feat=True).detach())
+                kbts_feature.append(self.kbts_forward(data[0].to(device), t, feat=True).detach())
+                n += data[0].shape[0]
+                if n >= N: break
+
+            ets_feature = torch.cat(ets_feature, dim=0).T
+            U, S, Vh = torch.linalg.svd(ets_feature, full_matrices=False)
+            S = S**2
+            S = S/S.sum()
+            S = torch.sum(torch.cumsum(S)<0.999)
+            ets_feature = U[:, 0:S]
+            self.ets_proj_mat.append(torch.mm(ets_feature, ets_feature.T))
+
+            kbts_feature = torch.cat(kbts_feature, dim=0).T
+            U, S, Vh = torch.linalg.svd(kbts_feature, full_matrices=False)
+            S = S**2
+            S = S/S.sum()
+            S = torch.sum(torch.cumsum(S)<0.999)
+            kbts_feature = U[:, 0:S]
+            self.kbts_proj_mat.append(torch.mm(kbts_feature, kbts_feature.T))
+
+    def proj_grad(self, t):
+        def proj(params, mat):
+            sz =  params.grad.data.size(0)
+            params.grad.data = params.grad.data - torch.mm(params.grad.data.view(sz,-1), mat).view(params.size())
+        proj(self.last.weight_ets, self.ets_proj_mat[t])
+        proj(self.last.weight_kbts, self.kbts_proj_mat[t])
+
     
     def expand(self, new_classes, t):
         if t == 0:
@@ -407,24 +449,24 @@ class ResNet(_DynamicModel):
             # kbts_dim = self.linear.weight_kbts[i].shape[1]
             self.ets_cal_layers.append(
                 nn.Sequential(
-                    nn.Linear(self.feat_dim, hidden_dim),
+                    nn.Linear(128, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
-                    # nn.Linear(hidden_dim, hidden_dim),
-                    # nn.ReLU(),
-                    # nn.Dropout(0.2),
+                    nn.Linear(hidden_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
                     nn.Sigmoid()
                 ).to(device)
             )
             self.kbts_cal_layers.append(
                 nn.Sequential(
-                    nn.Linear(self.feat_dim, hidden_dim),
+                    nn.Linear(128, hidden_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2),
-                    # nn.Linear(hidden_dim, hidden_dim),
-                    # nn.ReLU(),
-                    # nn.Dropout(0.2),
+                    nn.Linear(hidden_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
                     nn.Sigmoid()
                 ).to(device)
