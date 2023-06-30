@@ -51,7 +51,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
         params = [model.net.last.weight_ets[t], model.net.last.weight_kbts[t]]
         n_epochs = 20
         num_squeeze = 0
-        step_lr = [10, 15]
+        step_lr = [13, 17]
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         count = 0
         feat = False
@@ -64,8 +64,9 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
         num_squeeze = 100
         step_lr = [160, 190]
         squeeze = 'squeeze' not in args.ablation
-        model.opt = torch.optim.SGD([{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-                                    lr=args.lr, weight_decay=0, momentum=0.9)
+        model.opt = LARC(torch.optim.SGD([{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
+                                    lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
+        
         count = 0
         for param in ets_params+kbts_params+scores:
             count += param.numel()
@@ -237,9 +238,8 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
         model.task += 1
         print(f'Training task {model.task}')
         model.net.get_representation_matrix(train_loader, t)
-        # for i in range(t):
-        if t > 0:
-            train_loop(model, args, train_loader, mode='ets_kbts_cal', t=t-1)
+        for i in range(t):
+            train_loop(model, args, train_loader, mode='ets_kbts_cal', t=i)
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)
