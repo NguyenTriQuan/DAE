@@ -342,7 +342,7 @@ class ResNet(_DynamicModel):
             U, S, Vh = torch.linalg.svd(kbts_feature, full_matrices=False)
             S = S**2
             S = S/S.sum()
-            S = torch.sum(torch.cumsum(S)<0.999)
+            S = torch.sum(torch.cumsum(S, dim=0)<0.999)
             kbts_feature = U[:, 0:S]
             self.kbts_proj_mat.append(torch.mm(kbts_feature, kbts_feature.T))
 
