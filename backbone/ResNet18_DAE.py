@@ -320,10 +320,10 @@ class ResNet(_DynamicModel):
             
     def get_representation_matrix(self, train_loader, t):
         threshold = 0.99
+        N = 2000
         with torch.no_grad():
             ets_feature = []
             kbts_feature = []
-            N = 2000
             n = 0
             for data in train_loader:
                 ets_feature.append(self.ets_forward(data[0].to(device), t, feat=True).detach())
