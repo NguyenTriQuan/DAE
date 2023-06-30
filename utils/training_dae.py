@@ -60,9 +60,9 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     elif feat:
         ets_params = model.net.get_optim_ets_params()
         kbts_params, scores = model.net.get_optim_kbts_params()
-        n_epochs = 200
-        num_squeeze = 100
-        step_lr = [160, 190]
+        n_epochs = 700
+        num_squeeze = 200
+        step_lr = [600, 675]
         squeeze = 'squeeze' not in args.ablation
         model.opt = LARC(torch.optim.SGD([{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
                                     lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
