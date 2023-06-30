@@ -336,6 +336,7 @@ class ResNet(_DynamicModel):
             S = S/S.sum()
             S = torch.sum(torch.cumsum(S, dim=0)<0.99)
             ets_feature = U[:, 0:S]
+            print('GPM ets dim', ets_feature.shape)
             self.ets_proj_mat.append(torch.mm(ets_feature, ets_feature.T))
 
             kbts_feature = torch.cat(kbts_feature, dim=0).T
@@ -344,6 +345,7 @@ class ResNet(_DynamicModel):
             S = S/S.sum()
             S = torch.sum(torch.cumsum(S, dim=0)<0.999)
             kbts_feature = U[:, 0:S]
+            print('GPM kbts dim', kbts_feature.shape)
             self.kbts_proj_mat.append(torch.mm(kbts_feature, kbts_feature.T))
 
     def proj_grad(self, t):
