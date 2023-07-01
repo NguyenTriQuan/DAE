@@ -403,7 +403,7 @@ class DAE(ContinualModel):
                 ets_features = self.net.ets_forward(ets_inputs, self.task, feat=True)
                 kbts_features = self.net.kbts_forward(kbts_inputs, self.task, feat=True)
                 features = torch.cat([ets_features, kbts_features], dim=0)
-                features = F.normalize(features, p=2, dim=1)
+                # features = F.normalize(features, p=2, dim=1)
             else:
                 ets_outputs = self.net.ets_forward(inputs, self.task, feat=False)
                 kbts_outputs = self.net.kbts_forward(inputs, self.task, feat=False)
