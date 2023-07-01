@@ -49,9 +49,9 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
         model.net.last.weight_ets[t].requires_grad = True
         model.net.last.weight_kbts[t].requires_grad = True
         params = [model.net.last.weight_ets[t], model.net.last.weight_kbts[t]]
-        n_epochs = 20
+        n_epochs = 50
         num_squeeze = 0
-        step_lr = [13, 17]
+        step_lr = [40, 47]
         model.opt = torch.optim.SGD(params, lr=args.lr, weight_decay=0, momentum=0.9)
         count = 0
         feat = False
