@@ -237,9 +237,10 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
         train_loader, test_loader = dataset.get_data_loaders()
         model.task += 1
         print(f'Training task {model.task}')
-        model.net.get_representation_matrix(train_loader, t)
         for i in range(t):
             train_loop(model, args, train_loader, mode='ets_kbts_cal', t=i)
+            model.net.get_representation_matrix(train_loader, buffer=None, t=i)
+        model.net.get_representation_matrix(train_loader, buffer=model.buffer, t=t)
 
         if hasattr(model, 'end_task'):
             model.end_task(dataset)

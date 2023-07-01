@@ -276,8 +276,8 @@ class ResNet(_DynamicModel):
         # feature = F.relu(feature)
 
         if feat:
-            return self.projector.ets_forward(feature, t)
-            # return feature
+            # return self.projector.ets_forward(feature, t)
+            return feature
         else:
             out = self.last.ets_forward(feature, t)
             if cal:
@@ -307,8 +307,8 @@ class ResNet(_DynamicModel):
         # feature = self.mid.kbts_forward(feature, t)
         # feature = F.relu(feature)
         if feat:
-            return self.projector.kbts_forward(feature, t)
-            # return feature
+            # return self.projector.kbts_forward(feature, t)
+            return feature
         else:
             out = self.last.kbts_forward(feature, t)
             if cal:
@@ -320,7 +320,7 @@ class ResNet(_DynamicModel):
             else:
                 return out
             
-    def get_representation_matrix(self, train_loader, t):
+    def get_representation_matrix(self, train_loader, buffer, t):
         def get_feature(feature, pre_feature, threshold):
             U, S, V = torch.linalg.svd(feature, full_matrices=False)
             if pre_feature is None:
@@ -328,7 +328,6 @@ class ResNet(_DynamicModel):
                 S = S/S.sum()
                 S = torch.sum(torch.cumsum(S, dim=0)<threshold)
                 U = U[:, 0:S]
-                print('GPM ets dim', U.shape)
             else:
                 sval_total = (S**2).sum()
                 # Projected Representation (Eq-8)
@@ -351,6 +350,7 @@ class ResNet(_DynamicModel):
                 U=torch.cat([pre_feature, U[:, 0:r]], dim=1)  
                 if U.shape[1] > U.shape[0] :
                     U = U[:, 0:U.shape[0]]
+            print('GPM dim', U.shape)
             return U
         
         threshold = 0.99
@@ -363,32 +363,28 @@ class ResNet(_DynamicModel):
                 ets_feature.append(self.ets_forward(data[0].to(device), t, feat=True).detach())
                 kbts_feature.append(self.kbts_forward(data[0].to(device), t, feat=True).detach())
                 n += data[0].shape[0]
-                if n >= N: break
+                # if n >= N: break
+
+            if buffer is not None:
+                for data in buffer:
+                    ets_feature.append(self.ets_forward(data[0].to(device), t, feat=True).detach())
+                    kbts_feature.append(self.kbts_forward(data[0].to(device), t, feat=True).detach())
+
 
             ets_feature = torch.cat(ets_feature, dim=0).T
             kbts_feature = torch.cat(kbts_feature, dim=0).T
 
-            pre_feat = self.ets_feat[t-1] if t > 0 else None
-            self.ets_feat.append(get_feature(ets_feature, pre_feat, threshold))
+            if len(self.ets_feat) > t:
+                self.ets_feat[t] = get_feature(ets_feature, self.ets_feat[t], threshold)
+                self.kbts_feat[t] = get_feature(kbts_feature, self.kbts_feat[t], threshold)
+                self.ets_proj_mat[t] = torch.mm(self.ets_feat[t], self.ets_feat[t].T)
+                self.kbts_proj_mat[t] = torch.mm(self.kbts_feat[t], self.kbts_feat[t].T)
+            else:
+                self.ets_feat.append(get_feature(ets_feature, None, threshold))
+                self.kbts_feat.append(get_feature(kbts_feature, None, threshold))
+                self.ets_proj_mat.append(torch.mm(self.ets_feat[t], self.ets_feat[t].T))
+                self.kbts_proj_mat.append(torch.mm(self.kbts_feat[t], self.kbts_feat[t].T))
 
-            pre_feat = self.kbts_feat[t-1] if t > 0 else None
-            self.kbts_feat.append(get_feature(kbts_feature, pre_feat, threshold))
-
-            U, S, Vh = torch.linalg.svd(ets_feature, full_matrices=False)
-            S = S**2
-            S = S/S.sum()
-            S = torch.sum(torch.cumsum(S, dim=0)<threshold)
-            ets_feature = U[:, 0:S]
-            print('GPM ets dim', ets_feature.shape)
-            self.ets_proj_mat.append(torch.mm(ets_feature, ets_feature.T))
-
-            U, S, Vh = torch.linalg.svd(kbts_feature, full_matrices=False)
-            S = S**2
-            S = S/S.sum()
-            S = torch.sum(torch.cumsum(S, dim=0)<threshold)
-            kbts_feature = U[:, 0:S]
-            print('GPM kbts dim', kbts_feature.shape)
-            self.kbts_proj_mat.append(torch.mm(kbts_feature, kbts_feature.T))
 
     def proj_grad(self, t):
         def proj(params, mat):
