@@ -228,6 +228,8 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     model.net.freeze(False)
     model.net.ets_proj_mat = []
     model.net.kbts_proj_mat = []
+    model.net.ets_feat = []
+    model.net.kbts_feat = []
 
     print(file=sys.stderr)
 
