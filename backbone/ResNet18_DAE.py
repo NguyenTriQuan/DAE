@@ -275,13 +275,15 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         # feature = self.mid.ets_forward([feature], t)
         feature = self.projector.ets_forward(feature, t)
-        feature = F.normalize(feature, p=2, dim=1)
+        # feature = F.normalize(feature, p=2, dim=1)
         # feature = F.relu(feature)
 
         if feat:
+            feature = F.normalize(feature, p=2, dim=1)
             # return self.projector.ets_forward(feature, t)
             return feature
         else:
+            feature = F.relu(feature)
             out = self.last.ets_forward(feature, t)
             if cal:
                 feature = self.projector.ets_forward(feature, t)
@@ -308,12 +310,14 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         # feature = self.mid.kbts_forward([feature], t)
         feature = self.projector.kbts_forward(feature, t)
-        feature = F.normalize(feature, p=2, dim=1)
+        # feature = F.normalize(feature, p=2, dim=1)
         # feature = F.relu(feature)
         if feat:
             # return self.projector.kbts_forward(feature, t)
+            feature = F.normalize(feature, p=2, dim=1)
             return feature
         else:
+            feature = F.relu(feature)
             out = self.last.kbts_forward(feature, t)
             if cal:
                 feature = self.projector.kbts_forward(feature, t)
@@ -357,7 +361,7 @@ class ResNet(_DynamicModel):
             print('GPM dim', U.shape)
             return U
         
-        threshold = 0.9
+        threshold = 0.99
         N = train_loader.dataset.tensors[0].shape[0]
         with torch.no_grad():
             ets_feature = []
