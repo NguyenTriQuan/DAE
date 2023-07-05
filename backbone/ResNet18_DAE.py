@@ -407,14 +407,14 @@ class ResNet(_DynamicModel):
             add_in_1 = block.conv1.expand([add_in], [(None, None)])
             add_in = block.conv2.expand([add_in, add_in_1], [(None, None), (None, None)])
 
-        self.projector.expand(add_in, (self.feat_dim, self.feat_dim))
-        if t == 0:
-            self.last.expand((self.feat_dim, self.feat_dim), (new_classes, new_classes))
-        else:
-            self.last.expand((0, 0), (new_classes, new_classes))
+        # self.projector.expand(add_in, (self.feat_dim, self.feat_dim))
+        # if t == 0:
+        #     self.last.expand((self.feat_dim, self.feat_dim), (new_classes, new_classes))
+        # else:
+        #     self.last.expand((0, 0), (new_classes, new_classes))
 
         # add_in = self.mid.expand([add_in], [(None, None)])
-        # self.last.expand(add_in, (new_classes, new_classes))
+        self.last.expand(add_in, (new_classes, new_classes))
         # self.projector.expand(add_in, (128, 128))
 
         self.total_strength = 1
@@ -439,7 +439,8 @@ class ResNet(_DynamicModel):
         # self.last.squeeze(optim_state, self.mid.mask_out, None)
         # self.projector.squeeze(optim_state, self.mid.mask_out, None)
 
-        self.projector.squeeze(optim_state, mask_in, None)
+        # self.projector.squeeze(optim_state, mask_in, None)
+        self.last.squeeze(optim_state, mask_in, None)
 
         self.total_strength = 1
         for m in self.DB:
