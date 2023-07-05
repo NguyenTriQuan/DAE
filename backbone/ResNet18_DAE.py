@@ -310,7 +310,7 @@ class ResNet(_DynamicModel):
         feature = self.projector.kbts_forward(feature, t)
         feature = F.relu(feature)
         feature = F.normalize(feature, p=2, dim=1)
-        
+
         if feat:
             return feature
         else:
@@ -357,7 +357,7 @@ class ResNet(_DynamicModel):
             print('GPM dim', U.shape)
             return U
         
-        threshold = 0.99
+        threshold = 0.9
         N = train_loader.dataset.tensors[0].shape[0]
         with torch.no_grad():
             ets_feature = []
