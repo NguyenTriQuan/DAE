@@ -407,7 +407,7 @@ class ResNet(_DynamicModel):
             add_in_1 = block.conv1.expand([add_in], [(None, None)])
             add_in = block.conv2.expand([add_in, add_in_1], [(None, None), (None, None)])
 
-        # self.projector.expand(add_in, (self.feat_dim, self.feat_dim))
+        self.projector.expand(add_in, (self.feat_dim, self.feat_dim))
         # if t == 0:
         #     self.last.expand((self.feat_dim, self.feat_dim), (new_classes, new_classes))
         # else:
