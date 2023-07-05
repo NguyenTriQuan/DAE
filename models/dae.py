@@ -465,7 +465,7 @@ class DAE(ContinualModel):
             inputs, labels = data
             bs = labels.shape[0]
             inputs, labels = inputs.to(self.device), labels.to(self.device)
-            inputs = self.dataset.train_transform(inputs)
+            # inputs = self.dataset.train_transform(inputs)
 
             self.opt.zero_grad()
 
