@@ -275,12 +275,10 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         # feature = self.mid.ets_forward([feature], t)
         feature = self.projector.ets_forward(feature, t)
-        # feature = F.normalize(feature, p=2, dim=1)
-        # feature = F.relu(feature)
+        feature = F.relu(feature)
+        feature = F.normalize(feature, p=2, dim=1)
 
         if feat:
-            feature = F.normalize(feature, p=2, dim=1)
-            # return self.projector.ets_forward(feature, t)
             return feature
         else:
             feature = F.relu(feature)
@@ -310,14 +308,12 @@ class ResNet(_DynamicModel):
         feature = out.view(out.size(0), -1)
         # feature = self.mid.kbts_forward([feature], t)
         feature = self.projector.kbts_forward(feature, t)
-        # feature = F.normalize(feature, p=2, dim=1)
-        # feature = F.relu(feature)
+        feature = F.relu(feature)
+        feature = F.normalize(feature, p=2, dim=1)
+        
         if feat:
-            # return self.projector.kbts_forward(feature, t)
-            feature = F.normalize(feature, p=2, dim=1)
             return feature
         else:
-            feature = F.relu(feature)
             out = self.last.kbts_forward(feature, t)
             if cal:
                 feature = self.projector.kbts_forward(feature, t)
