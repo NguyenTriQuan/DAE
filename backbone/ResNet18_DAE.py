@@ -356,7 +356,7 @@ class ResNet(_DynamicModel):
             print('GPM dim', U.shape)
             return U
         
-        threshold = 0.95
+        threshold = 0.99
         N = train_loader.dataset.tensors[0].shape[0]
         with torch.no_grad():
             ets_feature = []
