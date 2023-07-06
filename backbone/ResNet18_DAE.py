@@ -374,8 +374,9 @@ class ResNet(_DynamicModel):
 
             if buffer is not None and model_id == data_id:
                 for data in buffer:
-                    ets_feature.append(self.ets_forward(data[0].to(device), model_id, feat=True).detach())
-                    kbts_feature.append(self.kbts_forward(data[0].to(device), model_id, feat=True).detach())
+                    images = train_transform(data[0].to(device))
+                    ets_feature.append(self.ets_forward(images, model_id, feat=True).detach())
+                    kbts_feature.append(self.kbts_forward(images, model_id, feat=True).detach())
 
 
             ets_feature = torch.cat(ets_feature, dim=0).T
