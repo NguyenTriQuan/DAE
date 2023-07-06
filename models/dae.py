@@ -52,6 +52,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--eps", type=float, required=False, help="FGSM epsilon.", default=5)
     parser.add_argument("--num_aug", type=int, required=False, help="number of augument samples used when evaluation.", default=16)
     parser.add_argument("--task", type=int, required=False, help="Specify task for eval or cal.", default=-1)
+    parser.add_argument("--threshold", type=float, required=False, help="GPM threshold.", default=0.97)
     return parser
 
 def fgsm_attack(image, epsilon, data_grad):

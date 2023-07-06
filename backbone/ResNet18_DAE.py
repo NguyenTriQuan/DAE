@@ -355,7 +355,7 @@ class ResNet(_DynamicModel):
             print(f'Model: {model_id}, Data: {data_id}, GPM dim: {U.shape}, Threshold: {threshold}')
             return U
         
-        threshold = 0.97 + (data_id - model_id) * 0.03/self.args.total_tasks
+        threshold = self.args.threshold + (data_id - model_id) * (1 - self.args.threshold)/self.args.total_tasks
         N = train_loader.dataset.tensors[0].shape[0]
         with torch.no_grad():
             ets_feature = []
