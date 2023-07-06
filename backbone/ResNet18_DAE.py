@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.functional import avg_pool2d, relu
+import random
 
 # from backbone import MammothBackbone, _DynamicModel
 from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
@@ -361,7 +362,11 @@ class ResNet(_DynamicModel):
             kbts_feature = []
             n = 0
             for data in train_loader:
-                images = train_transform(data[0].to(device))
+                images = data[0].to(device)
+                if rot:
+                    rot = random.randint(1, 3)
+                    images = torch.cat([images, torch.rot90(images, rot, dims=(2, 3))], dim=0)
+                images = train_transform(images)
                 ets_feature.append(self.ets_forward(images, t, feat=True).detach())
                 kbts_feature.append(self.kbts_forward(images, t, feat=True).detach())
                 n += data[0].shape[0]
