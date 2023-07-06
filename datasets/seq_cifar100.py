@@ -32,7 +32,7 @@ class SequentialCIFAR100(ContinualDataset):
 
     def download(self):
         self.train_transform = torch.nn.Sequential(
-                    K.augmentation.RandomResizedCrop(size=(32, 32), scale=(0.2, 1.0), p=1, same_on_batch=False),
+                    K.augmentation.RandomResizedCrop(size=(32, 32), scale=self.args.scale, p=1, same_on_batch=False),
                     K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
                     K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
                     # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
