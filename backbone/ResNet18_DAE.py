@@ -362,7 +362,8 @@ class ResNet(_DynamicModel):
             kbts_feature = []
             n = 0
             for data in train_loader:
-                images = train_transform(data[0].to(device))
+                images = data[0].to(device)
+                # images = train_transform(images)
                 ets_feature.append(self.ets_forward(images, model_id, feat=True).detach())
                 kbts_feature.append(self.kbts_forward(images, model_id, feat=True).detach())
                 n += data[0].shape[0]
@@ -370,7 +371,8 @@ class ResNet(_DynamicModel):
 
             if buffer is not None and model_id == data_id:
                 for data in buffer:
-                    images = train_transform(data[0].to(device))
+                    images = data[0].to(device)
+                    # images = train_transform(images)
                     ets_feature.append(self.ets_forward(images, model_id, feat=True).detach())
                     kbts_feature.append(self.kbts_forward(images, model_id, feat=True).detach())
 
