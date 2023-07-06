@@ -231,7 +231,7 @@ class ResNet(_DynamicModel):
         feat_dim = nf * 8 * block.expansion
         # self.mid = DynamicBlock([DynamicLinear(feat_dim, feat_dim, bias=True, args=args, s=1)], None, args)
         # self.mid = DynamicClassifier(feat_dim, feat_dim, norm_type=None, args=args, s=1, bias=False)
-        self.last = DynamicClassifier(feat_dim, num_classes, norm_type=None, args=args, s=1, bias=True)
+        self.last = DynamicClassifier(feat_dim, num_classes, norm_type=None, args=args, s=1, bias=False)
         self.projector = DynamicClassifier(feat_dim, feat_dim, norm_type=None, args=args, s=1, bias=True)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer) if not isinstance(m, DynamicClassifier)]
