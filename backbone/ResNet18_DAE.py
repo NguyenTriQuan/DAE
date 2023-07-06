@@ -363,9 +363,9 @@ class ResNet(_DynamicModel):
             n = 0
             for data in train_loader:
                 images = data[0].to(device)
-                if 'rot' in self.args.mode and model_id == data_id:
-                    rot = random.randint(1, 3)
-                    images = torch.cat([images, torch.rot90(images, rot, dims=(2, 3))], dim=0)
+                # if 'rot' in self.args.mode and model_id == data_id:
+                #     rot = random.randint(1, 3)
+                #     images = torch.cat([images, torch.rot90(images, rot, dims=(2, 3))], dim=0)
                 images = train_transform(images)
                 ets_feature.append(self.ets_forward(images, model_id, feat=True).detach())
                 kbts_feature.append(self.kbts_forward(images, model_id, feat=True).detach())
