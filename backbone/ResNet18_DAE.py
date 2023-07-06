@@ -347,12 +347,12 @@ class ResNet(_DynamicModel):
                     else:
                         break
                 if r == 0:
-                    print (f'Skip Updating GPM for Model {model_id} and Data {data_id}') 
+                    print (f'Skip Updating GPM for Model {model_id} and Data {data_id}, Threshold: {threshold}') 
                 # update GPM
                 U=torch.cat([pre_feature, U[:, 0:r]], dim=1)  
                 if U.shape[1] > U.shape[0] :
                     U = U[:, 0:U.shape[0]]
-            print(f'Model: {model_id}, Data: {data_id}, GPM dim: {U.shape}')
+            print(f'Model: {model_id}, Data: {data_id}, GPM dim: {U.shape}, Threshold: {threshold}')
             return U
         
         threshold = 0.97 + (data_id - model_id) * 0.03/self.args.total_tasks
