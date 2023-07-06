@@ -322,7 +322,7 @@ class ResNet(_DynamicModel):
             else:
                 return out
             
-    def get_representation_matrix(self, train_loader, train_transform, buffer, t):
+    def get_representation_matrix(self, train_loader, train_transform, buffer, data_id, model_id):
         def get_feature(feature, pre_feature, threshold):
             U, S, V = torch.linalg.svd(feature, full_matrices=False)
             if pre_feature is None:
@@ -347,15 +347,15 @@ class ResNet(_DynamicModel):
                     else:
                         break
                 if r == 0:
-                    print ('Skip Updating GPM') 
+                    print (f'Skip Updating GPM for Model {model_id} and Data {data_id}') 
                 # update GPM
                 U=torch.cat([pre_feature, U[:, 0:r]], dim=1)  
                 if U.shape[1] > U.shape[0] :
                     U = U[:, 0:U.shape[0]]
-            print('GPM dim', U.shape)
+            print(f'Model: {model_id}, Data: {data_id}, GPM dim: {U.shape}')
             return U
         
-        threshold = 0.97
+        threshold = 0.97 + (data_id - model_id) * 0.03/self.args.total_tasks
         N = train_loader.dataset.tensors[0].shape[0]
         with torch.no_grad():
             ets_feature = []
@@ -367,30 +367,30 @@ class ResNet(_DynamicModel):
                     rot = random.randint(1, 3)
                     images = torch.cat([images, torch.rot90(images, rot, dims=(2, 3))], dim=0)
                 images = train_transform(images)
-                ets_feature.append(self.ets_forward(images, t, feat=True).detach())
-                kbts_feature.append(self.kbts_forward(images, t, feat=True).detach())
+                ets_feature.append(self.ets_forward(images, model_id, feat=True).detach())
+                kbts_feature.append(self.kbts_forward(images, model_id, feat=True).detach())
                 n += data[0].shape[0]
                 # if n >= N: break
 
             if buffer is not None:
                 for data in buffer:
-                    ets_feature.append(self.ets_forward(data[0].to(device), t, feat=True).detach())
-                    kbts_feature.append(self.kbts_forward(data[0].to(device), t, feat=True).detach())
+                    ets_feature.append(self.ets_forward(data[0].to(device), model_id, feat=True).detach())
+                    kbts_feature.append(self.kbts_forward(data[0].to(device), model_id, feat=True).detach())
 
 
             ets_feature = torch.cat(ets_feature, dim=0).T
             kbts_feature = torch.cat(kbts_feature, dim=0).T
 
-            if len(self.ets_feat) > t:
-                self.ets_feat[t] = get_feature(ets_feature, self.ets_feat[t], threshold)
-                self.kbts_feat[t] = get_feature(kbts_feature, self.kbts_feat[t], threshold)
-                self.ets_proj_mat[t] = torch.mm(self.ets_feat[t], self.ets_feat[t].T)
-                self.kbts_proj_mat[t] = torch.mm(self.kbts_feat[t], self.kbts_feat[t].T)
+            if len(self.ets_feat) > model_id:
+                self.ets_feat[model_id] = get_feature(ets_feature, self.ets_feat[model_id], threshold)
+                self.kbts_feat[model_id] = get_feature(kbts_feature, self.kbts_feat[model_id], threshold)
+                self.ets_proj_mat[model_id] = torch.mm(self.ets_feat[model_id], self.ets_feat[model_id].T)
+                self.kbts_proj_mat[model_id] = torch.mm(self.kbts_feat[model_id], self.kbts_feat[model_id].T)
             else:
                 self.ets_feat.append(get_feature(ets_feature, None, threshold))
                 self.kbts_feat.append(get_feature(kbts_feature, None, threshold))
-                self.ets_proj_mat.append(torch.mm(self.ets_feat[t], self.ets_feat[t].T))
-                self.kbts_proj_mat.append(torch.mm(self.kbts_feat[t], self.kbts_feat[t].T))
+                self.ets_proj_mat.append(torch.mm(self.ets_feat[model_id], self.ets_feat[model_id].T))
+                self.kbts_proj_mat.append(torch.mm(self.kbts_feat[model_id], self.kbts_feat[model_id].T))
 
 
     def proj_grad(self, t):
