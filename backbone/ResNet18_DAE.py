@@ -363,7 +363,7 @@ class ResNet(_DynamicModel):
             n = 0
             for data in train_loader:
                 images = data[0].to(device)
-                if rot:
+                if 'rot' in self.args.mode:
                     rot = random.randint(1, 3)
                     images = torch.cat([images, torch.rot90(images, rot, dims=(2, 3))], dim=0)
                 images = train_transform(images)
