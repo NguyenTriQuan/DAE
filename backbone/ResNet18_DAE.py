@@ -321,7 +321,7 @@ class ResNet(_DynamicModel):
             else:
                 return out
             
-    def get_representation_matrix(self, train_loader, buffer, t):
+    def get_representation_matrix(self, train_loader, train_transform, buffer, t):
         def get_feature(feature, pre_feature, threshold):
             U, S, V = torch.linalg.svd(feature, full_matrices=False)
             if pre_feature is None:
@@ -354,15 +354,16 @@ class ResNet(_DynamicModel):
             print('GPM dim', U.shape)
             return U
         
-        threshold = 0.99
+        threshold = 0.97
         N = train_loader.dataset.tensors[0].shape[0]
         with torch.no_grad():
             ets_feature = []
             kbts_feature = []
             n = 0
             for data in train_loader:
-                ets_feature.append(self.ets_forward(data[0].to(device), t, feat=True).detach())
-                kbts_feature.append(self.kbts_forward(data[0].to(device), t, feat=True).detach())
+                images = train_transform(data[0].to(device))
+                ets_feature.append(self.ets_forward(images, t, feat=True).detach())
+                kbts_feature.append(self.kbts_forward(images, t, feat=True).detach())
                 n += data[0].shape[0]
                 # if n >= N: break
 
