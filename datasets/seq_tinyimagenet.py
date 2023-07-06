@@ -54,7 +54,7 @@ class TinyImagenet(Dataset):
                 root, 'processed/x_%s_%02d.npy' %
                       ('train' if self.train else 'val', num + 1)))
             sub_data = torch.FloatTensor(sub_data)
-            sub_data = sub_data.permute(0, 3, 1, 2)/255.0
+            sub_data = sub_data.permute(0, 3, 1, 2)
             sub_data = resize(sub_data)
             self.data.append(sub_data)
         self.data = torch.cat(self.data, dim=0)
