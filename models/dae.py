@@ -431,8 +431,8 @@ class DAE(ContinualModel):
                     #     kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels)
                     #     ets_ood_ent = ets_ood_ent[ets_incorrect].mean() if ets_incorrect.sum() > 0 else 0
                     #     kbts_ood_ent = kbts_ood_ent[kbts_incorrect].mean() if kbts_incorrect.sum() > 0 else 0
-                    loss += F.nll_loss(ets_outputs, labels) - ets_ood_ent
-                    loss += F.nll_loss(kbts_outputs, labels) - kbts_ood_ent
+                    loss += F.nll_loss(ets_outputs, labels) - self.alpha * ets_ood_ent
+                    loss += F.nll_loss(kbts_outputs, labels) - self.alpha * kbts_ood_ent
             else:
                 if feat:
                     loss += sup_clr_loss(features, labels, self.args.temperature, ood=False)
@@ -464,10 +464,20 @@ class DAE(ContinualModel):
         torch.cuda.empty_cache()
         
         self.net.train()
+        # if self.buffer is not None:
+        #     buffer = iter(self.buffer)
         for i, data in enumerate(train_loader):
             inputs, labels = data
             bs = labels.shape[0]
             inputs, labels = inputs.to(self.device), labels.to(self.device)
+            # if self.buffer is not None:
+            #     try:
+            #         buffer_data = next(buffer)
+            #     except StopIteration:
+            #         # restart the generator if the previous generator is exhausted.
+            #         buffer = iter(self.buffer)
+            #         buffer_data = next(buffer)
+            #     inputs = torch.cat([inputs, buffer_data[0].to(self.device)], dim=0)
             # inputs = self.dataset.train_transform(inputs)
 
             self.opt.zero_grad()
