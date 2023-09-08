@@ -362,7 +362,8 @@ class DAE(ContinualModel):
             num_ood = 0
             if rot:
                 rot = random.randint(1, 3)
-                ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
+                # ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
+                ood_inputs = torch.cat([ood_inputs, self.dataset.ood_transform(inputs)], dim=0)
                 num_ood += inputs.shape[0]
             if buf:
                 if self.buffer is not None:

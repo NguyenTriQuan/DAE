@@ -42,6 +42,7 @@ class SequentialCIFAR100(ContinualDataset):
                     K.augmentation.Normalize((0.5071, 0.4867, 0.4408),
                                             (0.2675, 0.2565, 0.2761)),
                 )
+        self.ood_transform = K.augmentation.RandomRotation((90, 270), same_on_batch=False, p=1)
         self.test_transforms = []
         
         train_set=CIFAR100(base_path() + 'CIFAR100',train=True,download=True)
