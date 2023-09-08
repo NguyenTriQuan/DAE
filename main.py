@@ -34,8 +34,6 @@ from utils.continual_training import train as ctrain
 from utils.distributed import make_dp
 from utils.training import train
 import wandb
-import cupy as cp
-handle = cp.cuda.cublas.create()
 
 def lecun_fix():
     # Yann moved his website to CloudFlare. You need this now
