@@ -40,7 +40,7 @@ class SequentialCIFAR10(ContinualDataset):
                     K.augmentation.Normalize((0.4914, 0.4822, 0.4465),
                                             (0.2470, 0.2435, 0.2615)),
                 )
-        
+        self.ood_transform = K.augmentation.RandomRotation((90, 270), same_on_batch=False, p=1)
         train_set=CIFAR10(base_path() + 'CIFAR10',train=True,download=True)
         test_set=CIFAR10(base_path() + 'CIFAR10',train=False,download=True)
         self.train_data, self.train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)

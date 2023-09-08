@@ -138,7 +138,7 @@ class SequentialTinyImagenet(ContinualDataset):
                     K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
                     # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
                 )
-        
+        self.ood_transform = K.augmentation.RandomRotation((90, 270), same_on_batch=False, p=1)
         train_set = TinyImagenet(base_path() + 'TINYIMG', train=True, download=True)
         test_set = TinyImagenet(base_path() + 'TINYIMG', train=False, download=True)
         self.train_data, self.train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
