@@ -20,6 +20,17 @@
 
 + python main.py --model dae --cal --dataset seq-cifar100 --ablation op_cal --total_tasks 5 --num_aug 32 --norm_type bn_track_affine --lr 0.1 --lr_score 0.5 --temperature 0.1 --lamb 0.05_0.1 --buffer_size 2000 --dropout 0.2 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 256 --verbose
 
+
+## Scripts:
+
+### TinyImg 5T
+python main.py --model dae --resume --dataset seq-tinyimg --mode buf_rot --total_tasks 5 --num_tasks 5 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --temperature 0.1 --lamb 0.1 --alpha 1 --eps 1 --buffer_size 2000 --dropout 0 --sparsity 0.8 --seed 0 --batch_size 64 --val_batch_size 128 --verbose
+
+### TinyImg 10T
+python main.py --model dae --resume --dataset seq-tinyimg --mode buf_rot --total_tasks 10 --num_tasks 10 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --temperature 0.1 --lamb 0.2 --alpha 1 --eps 1 --buffer_size 2000 --dropout 0 --sparsity 0.8 --seed 0 --batch_size 64 --val_batch_size 128 --verbose
+
+
+
 Official repository of [Class-Incremental Continual Learning into the eXtended DER-verse](https://arxiv.org/abs/2201.00766) and [Dark Experience for General Continual Learning: a Strong, Simple Baseline](https://papers.nips.cc/paper/2020/hash/b704ea2c39778f07c617f6b7ce480e9e-Abstract.html)
 
 <p align="center">
