@@ -42,7 +42,7 @@ class _DynamicModel(nn.Module):
         params = []
         for m in self.DB:
             params += m.get_optim_ets_params()
-        params += self.projector.get_optim_ets_params()
+        # params += self.projector.get_optim_ets_params()
         params += self.last.get_optim_ets_params()
         return params
     
@@ -53,7 +53,7 @@ class _DynamicModel(nn.Module):
             p, s = m.get_optim_kbts_params()
             params += p
             scores += s
-        params += self.projector.get_optim_kbts_params()
+        # params += self.projector.get_optim_kbts_params()
         params += self.last.get_optim_kbts_params()
         return params, scores
 
@@ -72,12 +72,12 @@ class _DynamicModel(nn.Module):
         for m in self.DB:
             m.freeze(state)
         self.last.freeze(state)
-        self.projector.freeze(state)
+        # self.projector.freeze(state)
 
     def freeze_feature(self, state=False):
         for m in self.DB:
             m.freeze(state)
-        self.projector.freeze(state)
+        # self.projector.freeze(state)
 
     def freeze_classifier(self, state=False):
         self.last.freeze(state)
@@ -275,8 +275,8 @@ class ResNet(_DynamicModel):
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
         # feature = self.mid.ets_forward([feature], t)
-        feature = self.projector.ets_forward(feature, t)
-        feature = F.relu(feature)
+        # feature = self.projector.ets_forward(feature, t)
+        # feature = F.relu(feature)
 
         if feat:
             return feature
@@ -306,8 +306,8 @@ class ResNet(_DynamicModel):
         out = F.avg_pool2d(out, out.shape[2])
         feature = out.view(out.size(0), -1)
         # feature = self.mid.kbts_forward([feature], t)
-        feature = self.projector.kbts_forward(feature, t)
-        feature = F.relu(feature)
+        # feature = self.projector.kbts_forward(feature, t)
+        # feature = F.relu(feature)
 
         if feat:
             return feature
@@ -410,14 +410,14 @@ class ResNet(_DynamicModel):
             add_in_1 = block.conv1.expand([add_in], [(None, None)])
             add_in = block.conv2.expand([add_in, add_in_1], [(None, None), (None, None)])
 
-        self.projector.expand(add_in, (self.feat_dim, self.feat_dim))
-        if t == 0:
-            self.last.expand((self.feat_dim, self.feat_dim), (new_classes, new_classes))
-        else:
-            self.last.expand((0, 0), (new_classes, new_classes))
+        # self.projector.expand(add_in, (self.feat_dim, self.feat_dim))
+        # if t == 0:
+        #     self.last.expand((self.feat_dim, self.feat_dim), (new_classes, new_classes))
+        # else:
+        #     self.last.expand((0, 0), (new_classes, new_classes))
 
         # add_in = self.mid.expand([add_in], [(None, None)])
-        # self.last.expand(add_in, (new_classes, new_classes))
+        self.last.expand(add_in, (new_classes+1, new_classes+1))
         # self.projector.expand(add_in, (128, 128))
 
         self.total_strength = 1
@@ -442,8 +442,8 @@ class ResNet(_DynamicModel):
         # self.last.squeeze(optim_state, self.mid.mask_out, None)
         # self.projector.squeeze(optim_state, self.mid.mask_out, None)
 
-        self.projector.squeeze(optim_state, mask_in, None)
-        # self.last.squeeze(optim_state, mask_in, None)
+        # self.projector.squeeze(optim_state, mask_in, None)
+        self.last.squeeze(optim_state, mask_in, None)
 
         self.total_strength = 1
         for m in self.DB:
