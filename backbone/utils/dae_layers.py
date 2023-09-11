@@ -221,7 +221,6 @@ class _DynamicLayer(nn.Module):
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
         
         if isinstance(self, DynamicConv2D):
-            print(x.shape)
             output = F.conv2d(x, weight, None, self.stride, self.padding, self.dilation, self.groups)
         else:
             output = F.linear(x, weight, None)
