@@ -218,11 +218,11 @@ class DAE(ContinualModel):
             if ba:
                 outputs = [out.view(N, bs, -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=0)
-                outputs = outputs[:, :, :-1]  # ignore ood class
+                # outputs = outputs[:, :, 1:]  # ignore ood class
                 outputs = ensemble_outputs(outputs)
             else:
                 outputs = torch.stack(outputs, dim=0)
-                outputs = outputs[:, :, :-1]  # ignore ood class
+                # outputs = outputs[:, :, 1:]  # ignore ood class
                 outputs = ensemble_outputs(outputs)
 
             predicts = outputs.argmax(1)
@@ -241,14 +241,14 @@ class DAE(ContinualModel):
                 if ba:
                     outputs = [out.view(N, bs, -1) for out in outputs]
                     outputs = torch.cat(outputs, dim=0)
-                    outputs = outputs[:, :, :-1]  # ignore ood class
+                    # outputs = outputs[:, :, 1:]  # ignore ood class
                     outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
                 else:
                     outputs = torch.stack(outputs, dim=0)
-                    outputs = outputs[:, :, :-1]  # ignore ood class
+                    # outputs = outputs[:, :, 1:]  # ignore ood class
                     outputs = ensemble_outputs(outputs)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
@@ -362,8 +362,8 @@ class DAE(ContinualModel):
             num_ood = 0
             if rot:
                 rot = random.randint(1, 3)
-                # ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
-                ood_inputs = torch.cat([ood_inputs, self.dataset.ood_transform(inputs)], dim=0)
+                ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
+                # ood_inputs = torch.cat([ood_inputs, self.dataset.ood_transform(inputs)], dim=0)
                 num_ood += inputs.shape[0]
             if buf:
                 if self.buffer is not None:
@@ -418,13 +418,13 @@ class DAE(ContinualModel):
                     ood_labels = -torch.ones(ood_inputs.shape[0], dtype=torch.long).to(self.device)
                     loss += sup_clr_loss(features, torch.cat([labels, ood_labels]), self.args.temperature, ood=True) 
                 else:
-                    # ets_outputs = F.log_softmax(ets_outputs, dim=1)
-                    # kbts_outputs = F.log_softmax(kbts_outputs, dim=1)
+                    ets_outputs = F.log_softmax(ets_outputs, dim=1)
+                    kbts_outputs = F.log_softmax(kbts_outputs, dim=1)
                     ets_outputs, ets_ood_outputs = ets_outputs.split((bs, num_ood), dim=0)
                     kbts_outputs, kbts_ood_outputs = kbts_outputs.split((bs, num_ood), dim=0)
                     
-                    ets_ood_ent = entropy(F.softmax(ets_ood_outputs[:, :-1], dim=1)).mean()
-                    kbts_ood_ent = entropy(F.softmax(kbts_ood_outputs[:, :-1], dim=1)).mean()
+                    ets_ood_ent = entropy(ets_ood_outputs.exp()).mean()
+                    kbts_ood_ent = entropy(kbts_ood_outputs.exp()).mean()
                     # if adv:
                     #     # ets_incorrect = (ets_ood_outputs.argmax(1) != labels) & (ets_ood_ent <= entropy(ets_outputs.exp()))
                     #     # kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels) & (kbts_ood_ent <= entropy(kbts_outputs.exp()))
@@ -432,8 +432,8 @@ class DAE(ContinualModel):
                     #     kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels)
                     #     ets_ood_ent = ets_ood_ent[ets_incorrect].mean() if ets_incorrect.sum() > 0 else 0
                     #     kbts_ood_ent = kbts_ood_ent[kbts_incorrect].mean() if kbts_incorrect.sum() > 0 else 0
-                    loss += F.cross_entropy(ets_outputs, labels) - self.alpha * ets_ood_ent
-                    loss += F.cross_entropy(kbts_outputs, labels) - self.alpha * kbts_ood_ent
+                    loss += F.nll_loss(ets_outputs, labels) - self.alpha * ets_ood_ent
+                    loss += F.nll_loss(kbts_outputs, labels) - self.alpha * kbts_ood_ent
             else:
                 if feat:
                     loss += sup_clr_loss(features, labels, self.args.temperature, ood=False)
