@@ -35,6 +35,8 @@ from utils.distributed import make_dp
 from utils.training import train
 import wandb
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
+
 def lecun_fix():
     # Yann moved his website to CloudFlare. You need this now
     from six.moves import urllib  # pyright: ignore
