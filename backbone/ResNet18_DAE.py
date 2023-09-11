@@ -63,9 +63,9 @@ class _DynamicModel(nn.Module):
         num_params = []
         num_neurons = []
         for m in self.DM:
-            if not isinstance(m, DynamicClassifier):
-                num_params.append(m.count_params(t))
-                num_neurons.append(m.shape_out[t+1])
+            # if not isinstance(m, DynamicClassifier):
+            num_params.append(m.count_params(t))
+            num_neurons.append(m.shape_out[t+1])
         return num_params, num_neurons
     
     def freeze(self, state=False):
