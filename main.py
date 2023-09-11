@@ -119,13 +119,13 @@ def main(args=None):
     loss = dataset.get_loss()
     model = get_model(args, backbone, loss, dataset)
 
-    if args.distributed == 'dp':
-        model.net = make_dp(model.net)
-        model.to('cuda:0')
-        args.conf_ngpus = torch.cuda.device_count()
-    elif args.distributed == 'ddp':
-        # DDP breaks the buffer, it has to be synchronized.
-        raise NotImplementedError('Distributed Data Parallel not supported yet.')
+    # if args.distributed == 'dp':
+    #     model.net = make_dp(model.net)
+    #     model.to('cuda:0')
+    #     args.conf_ngpus = torch.cuda.device_count()
+    # elif args.distributed == 'ddp':
+    #     # DDP breaks the buffer, it has to be synchronized.
+    #     raise NotImplementedError('Distributed Data Parallel not supported yet.')
 
     if args.debug_mode:
         args.nowand = 1
