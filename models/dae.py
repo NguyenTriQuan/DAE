@@ -628,7 +628,7 @@ class DAE(ContinualModel):
             buf_data = list(self.buffer.dataset.tensors)
             data = [torch.cat([buf_temp, temp]) for buf_temp, temp in zip(buf_data, data)]
 
-        self.buffer = DataLoader(TensorDataset(*data), batch_size=(self.args.batch_size//2), shuffle=True)
+        self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         print('Buffer size', data[0].shape)
         # print(data[2].unique())
         # print(data[0].shape)
@@ -679,7 +679,7 @@ class DAE(ContinualModel):
         data = [temp[indices] for temp in data]
 
         # data = [torch.cat(temp) for temp in data]
-        self.buffer = DataLoader(TensorDataset(*data), batch_size=(self.args.batch_size//2), shuffle=True)
+        self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
         # print(data[2].unique())
         # print(data[1].unique())
         print('Buffer size', data[0].shape)
