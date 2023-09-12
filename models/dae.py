@@ -22,6 +22,7 @@ import random
 import math
 import wandb
 from utils.status import ProgressBar
+from utils.distributed import make_dp
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
@@ -187,6 +188,9 @@ class DAE(ContinualModel):
             # self.net = resnet18(self.dataset.N_CLASSES_PER_TASK, norm_type=norm_type, args=args)
         else:
             self.net = resnet18(0, norm_type=norm_type, args=args)
+        self.net = make_dp(self.net)
+        self.net.to(device)
+
         self.task = -1
         # try:
         #     self.lamb = float(args.lamb)
