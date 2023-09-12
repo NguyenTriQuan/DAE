@@ -27,10 +27,10 @@
 python main.py --model dae --dataset seq-cifar100 --mode buf_rot --total_tasks 20 --num_tasks 20 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 1.7 --alpha 1 --eps 1 --buffer_size 2000 --dropout 0.0 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 128 --verbose
 
 ### TinyImg 5T
-python main.py --model dae --resume --dataset seq-tinyimg --mode buf_rot --total_tasks 5 --num_tasks 5 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.2 --alpha 1 --eps 1 --buffer_size 2000 --dropout 0 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 128 --verbose
+python main.py --model dae --dataset seq-tinyimg --mode buf_rot --total_tasks 5 --num_tasks 5 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.2 --alpha 1 --eps 1 --buffer_size 2000 --dropout 0 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 128 --verbose
 
 ### TinyImg 10T
-python main.py --model dae --resume --dataset seq-tinyimg --mode buf_rot --total_tasks 10 --num_tasks 10 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.4 --alpha 1 --eps 1 --buffer_size 2000 --dropout 0 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 128 --verbose
+python main.py --model dae --dataset seq-tinyimg --mode buf_rot --total_tasks 10 --num_tasks 10 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.4 --alpha 1 --eps 1 --buffer_size 2000 --dropout 0 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 128 --verbose
 
 
 

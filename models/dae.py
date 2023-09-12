@@ -23,7 +23,9 @@ import math
 import wandb
 from utils.status import ProgressBar
 
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def get_parser() -> ArgumentParser:
@@ -174,7 +176,7 @@ class DAE(ContinualModel):
 
     def __init__(self, backbone, loss, args, dataset):
         super(DAE, self).__init__(backbone, loss, args, dataset)
-        self.device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+        self.device = device
         if args.norm_type == "none":
             norm_type = None
         else:
