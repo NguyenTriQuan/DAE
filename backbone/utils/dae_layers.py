@@ -14,7 +14,7 @@ from utils import *
 from typing import Optional, List, Tuple, Union
 import sys
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 # device = 'cpu'
 
 def compute_conv_output_size(Lin,kernel_size,stride=1,padding=0,dilation=1):

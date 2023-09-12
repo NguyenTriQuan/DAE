@@ -23,7 +23,7 @@ import math
 import wandb
 from utils.status import ProgressBar
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
 
 def get_parser() -> ArgumentParser:
