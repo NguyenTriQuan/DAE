@@ -27,7 +27,7 @@ def ensemble_outputs(outputs):
     log_outputs = logmeanexp(outputs, dim=-1)
     return log_outputs
 
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class _DynamicModel(nn.Module):
     def __init__(self):

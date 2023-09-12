@@ -5,7 +5,7 @@ import math
 import numpy as np
 import random
 from torch.nn.modules.utils import _single, _pair, _triple
-from torch import Tensor, device, isin, seed
+from torch import Tensor, isin, seed
 from typing import Optional, Any
 from torch.nn import init
 from torch.nn.parameter import Parameter
@@ -14,7 +14,7 @@ from utils import *
 from typing import Optional, List, Tuple, Union
 import sys
 
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = 'cpu'
 
 def compute_conv_output_size(Lin,kernel_size,stride=1,padding=0,dilation=1):

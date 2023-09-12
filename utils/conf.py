@@ -12,7 +12,7 @@ def get_device() -> torch.device:
     """
     Returns the GPU device if available else CPU.
     """
-    return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def base_path() -> str:

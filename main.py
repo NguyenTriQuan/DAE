@@ -35,7 +35,7 @@ from utils.distributed import make_dp
 from utils.training import train
 import wandb
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 def lecun_fix():
     # Yann moved his website to CloudFlare. You need this now
