@@ -16,7 +16,7 @@ import sys
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
-device = torch.device("cuda:1,2,4,5,6,7" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # device = 'cpu'
 
 def compute_conv_output_size(Lin,kernel_size,stride=1,padding=0,dilation=1):

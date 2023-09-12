@@ -25,7 +25,7 @@ from utils.lars_optimizer import LARC
 import wandb
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
-device = torch.device("cuda:1,2,4,5,6,7" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     start_epoch = 0
