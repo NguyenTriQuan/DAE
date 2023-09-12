@@ -37,7 +37,7 @@ import wandb
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
 def lecun_fix():
     # Yann moved his website to CloudFlare. You need this now
