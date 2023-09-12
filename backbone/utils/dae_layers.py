@@ -16,7 +16,7 @@ import sys
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 # device = 'cpu'
 
 def compute_conv_output_size(Lin,kernel_size,stride=1,padding=0,dilation=1):
@@ -66,6 +66,7 @@ class _DynamicLayer(nn.Module):
     def __init__(self, in_features, out_features, bias=False, norm_type=None, args=None, s=1):
         super(_DynamicLayer, self).__init__()
         self.args = args
+        self.device = args.device
         self.dropout = args.dropout
         self.sparsity = args.sparsity
         self.s = s
@@ -82,10 +83,10 @@ class _DynamicLayer(nn.Module):
 
         self.register_buffer('bias', None)
 
-        self.register_buffer('shape_out', torch.IntTensor([0]).to(device))
-        self.register_buffer('shape_in', torch.IntTensor([0]).to(device))
-        self.register_buffer('num_out', torch.IntTensor([]).to(device))
-        self.register_buffer('num_in', torch.IntTensor([]).to(device))
+        self.register_buffer('shape_out', torch.IntTensor([0]).to(self.device))
+        self.register_buffer('shape_in', torch.IntTensor([0]).to(self.device))
+        self.register_buffer('num_out', torch.IntTensor([]).to(self.device))
+        self.register_buffer('num_in', torch.IntTensor([]).to(self.device))
         # self.register_buffer('kbts_sparsities', torch.IntTensor([]).to(device))
 
         # self.shape_out = [0]
@@ -106,7 +107,7 @@ class _DynamicLayer(nn.Module):
         torch.manual_seed(self.args.seed)
         torch.cuda.manual_seed(self.args.seed)
         torch.cuda.manual_seed_all(self.args.seed)
-        self.dummy_weight = torch.Tensor(self.base_params).to(device)
+        self.dummy_weight = torch.Tensor(self.base_params).to(self.device)
         nn.init.normal_(self.dummy_weight, 0, 1)
     
     def get_expand_shape(self, t, add_in, add_out=None, kbts=False):
@@ -146,11 +147,11 @@ class _DynamicLayer(nn.Module):
         add_in = add_in[0]
         add_out = add_out[0]
 
-        self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(device)])
-        self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(device)])
+        self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(self.device)])
+        self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(self.device)])
 
-        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([fan_out]).to(device)])
-        self.shape_in = torch.cat([self.shape_in, torch.IntTensor([fan_in]).to(device)])
+        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([fan_out]).to(self.device)])
+        self.shape_in = torch.cat([self.shape_in, torch.IntTensor([fan_in]).to(self.device)])
 
         # self.num_out.append(add_out)
         # self.num_in.append(add_in)
@@ -161,18 +162,18 @@ class _DynamicLayer(nn.Module):
         # bound_std = self.gain / math.sqrt(fan_out * self.ks)
         self.bound_std.append(bound_std)
         if isinstance(self, DynamicConv2D):
-            self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
-            self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2] // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
-            self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in // self.groups, *self.kernel_size).normal_(0, bound_std).to(device)))
-            self.score = nn.Parameter(torch.Tensor(fan_out_kbts, fan_in_kbts // self.groups, *self.kernel_size).to(device))
+            self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in // self.groups, *self.kernel_size).normal_(0, bound_std).to(self.device)))
+            self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2] // self.groups, *self.kernel_size).normal_(0, bound_std).to(self.device)))
+            self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in // self.groups, *self.kernel_size).normal_(0, bound_std).to(self.device)))
+            self.score = nn.Parameter(torch.Tensor(fan_out_kbts, fan_in_kbts // self.groups, *self.kernel_size).to(self.device))
         else:
-            self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in).normal_(0, bound_std).to(device)))
-            self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2]).normal_(0, bound_std).to(device)))
-            self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in).normal_(0, bound_std).to(device)))
-            self.score = nn.Parameter(torch.Tensor(fan_out_kbts, fan_in_kbts).to(device))
+            self.weight.append(nn.Parameter(torch.Tensor(add_out, add_in).normal_(0, bound_std).to(self.device)))
+            self.fwt_weight.append(nn.Parameter(torch.Tensor(add_out, self.shape_in[-2]).normal_(0, bound_std).to(self.device)))
+            self.bwt_weight.append(nn.Parameter(torch.Tensor(self.shape_out[-2], add_in).normal_(0, bound_std).to(self.device)))
+            self.score = nn.Parameter(torch.Tensor(fan_out_kbts, fan_in_kbts).to(self.device))
 
         nn.init.kaiming_uniform_(self.score, a=math.sqrt(5))
-        self.register_buffer('kbts_mask'+f'_{len(self.num_out)-1}', torch.ones_like(self.score).to(device).bool())
+        self.register_buffer('kbts_mask'+f'_{len(self.num_out)-1}', torch.ones_like(self.score).to(self.device).bool())
         
         self.set_reg_strength()
 
@@ -180,7 +181,7 @@ class _DynamicLayer(nn.Module):
         # get knowledge base parameters for task t
         # kb weight std = 1
         
-        self.kb_weight = torch.empty(0).to(device)
+        self.kb_weight = torch.empty(0).to(self.device)
 
         for i in range(t):
             weight_scale = getattr(self, f'weight_scale_{i}')
@@ -255,21 +256,21 @@ class _DynamicLayer(nn.Module):
                 # w_std = self.weight[i].std(unbiased=False)
                 self.register_buffer(f'weight_scale_{i}', w_std.view(self.view_in))
             else:
-                self.register_buffer(f'weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
+                self.register_buffer(f'weight_scale_{i}', torch.ones(1).to(self.device).view(self.view_in))
 
             if self.fwt_weight[i].numel() > self.fwt_weight[i].shape[0]:
                 # w_std = self.fwt_weight[i].std(unbiased=False)
                 w_std = self.fwt_weight[i].std(dim=self.dim_in, unbiased=False)
                 self.register_buffer(f'fwt_weight_scale_{i}', w_std.view(self.view_in))
             else:
-                self.register_buffer(f'fwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
+                self.register_buffer(f'fwt_weight_scale_{i}', torch.ones(1).to(self.device).view(self.view_in))
 
             if self.bwt_weight[i].numel() > self.bwt_weight[i].shape[0]:
                 # w_std = self.bwt_weight[i].std(unbiased=False)
                 w_std = self.bwt_weight[i].std(dim=self.dim_in, unbiased=False)
                 self.register_buffer(f'bwt_weight_scale_{i}', w_std.view(self.view_in))
             else:
-                self.register_buffer(f'bwt_weight_scale_{i}', torch.ones(1).to(device).view(self.view_in))
+                self.register_buffer(f'bwt_weight_scale_{i}', torch.ones(1).to(self.device).view(self.view_in))
 
     def count_params(self, t):
         count = 0
@@ -295,7 +296,7 @@ class _DynamicLayer(nn.Module):
             self.num_out[-1] = self.weight[-1].shape[0]
             self.shape_out[-1] = sum(self.num_out)
 
-            mask = torch.ones(self.shape_out[-2], dtype=bool, device=device)
+            mask = torch.ones(self.shape_out[-2], dtype=bool, device=self.device)
             mask = torch.cat([mask, mask_out])
             if self.bias is not None:
                 apply_mask_out(self.bias[-1], mask, optim_state)
@@ -368,6 +369,7 @@ class DynamicBlock(nn.Module):
         super(DynamicBlock, self).__init__()
         self.layers = nn.ModuleList(layers)
         self.args = args
+        self.device = args.device
         self.norm_type = norm_type
         self.ets_norm_layers = nn.ModuleList([])
         self.kbts_norm_layers = nn.ModuleList([])
@@ -377,7 +379,7 @@ class DynamicBlock(nn.Module):
         else:
             self.activation = nn.Identity()
             self.gain = 1
-        self.register_buffer('task', torch.tensor(-1, dtype=torch.int).to(device))
+        self.register_buffer('task', torch.tensor(-1, dtype=torch.int).to(self.device))
         self.mask_out = None
         self.last = False
 
@@ -426,8 +428,8 @@ class DynamicBlock(nn.Module):
                 track_running_stats = False
             # self.ets_norm_layers.append(DynamicNorm(layer.shape_out[-1] + add_out, affine=affine, track_running_stats=track_running_stats))
             # self.kbts_norm_layers.append(DynamicNorm(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats))
-            self.kbts_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats).to(device))
-            self.ets_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out, affine=affine, track_running_stats=track_running_stats).to(device))
+            self.kbts_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out_kbts, affine=affine, track_running_stats=track_running_stats).to(self.device))
+            self.ets_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out, affine=affine, track_running_stats=track_running_stats).to(self.device))
 
         for add_in, layer in zip(add_ins_, self.layers):
             layer.expand(add_in, (add_out, add_out_kbts))
@@ -453,7 +455,7 @@ class DynamicBlock(nn.Module):
             layer.squeeze(optim_state, mask_in, self.mask_out)
         self.strength = max([layer.strength for layer in self.layers])
         if self.norm_type is not None and self.mask_out is not None:
-            mask = torch.ones(self.layers[0].shape_out[-2], dtype=bool, device=device)
+            mask = torch.ones(self.layers[0].shape_out[-2], dtype=bool, device=self.device)
             mask = torch.cat([mask, self.mask_out])
             if self.ets_norm_layers[-1].affine:
                 apply_mask_out(self.ets_norm_layers[-1].weight, mask, optim_state)
@@ -484,7 +486,7 @@ class DynamicBlock(nn.Module):
         
         if self.norm_type is not None:
             norm_layer = self.ets_norm_layers[-1]
-            temp = torch.ones(layer.shape_out[-2], dtype=float, device=device)
+            temp = torch.ones(layer.shape_out[-2], dtype=float, device=self.device)
             temp = torch.cat([temp, aux], dim=0)
             if norm_layer.affine:
                 norm_layer.weight.data *= temp
@@ -557,10 +559,10 @@ class DynamicClassifier(DynamicLinear):
         add_in = add_in[0]
         add_out = add_out[0]
 
-        self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(device)])
-        self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(device)])
-        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([self.shape_out[-1] + add_out]).to(device)])
-        self.shape_in = torch.cat([self.shape_in, torch.IntTensor([self.shape_in[-1] + add_in]).to(device)])
+        self.num_out = torch.cat([self.num_out, torch.IntTensor([add_out]).to(self.device)])
+        self.num_in = torch.cat([self.num_in, torch.IntTensor([add_in]).to(self.device)])
+        self.shape_out = torch.cat([self.shape_out, torch.IntTensor([self.shape_out[-1] + add_out]).to(self.device)])
+        self.shape_in = torch.cat([self.shape_in, torch.IntTensor([self.shape_in[-1] + add_in]).to(self.device)])
 
         # self.num_out.append(add_out)
         # self.num_in.append(add_in)
@@ -569,15 +571,15 @@ class DynamicClassifier(DynamicLinear):
 
         bound_std = self.gain / math.sqrt(self.shape_in[-1])
         # bound_std = self.gain / math.sqrt(self.num_out[-1])
-        self.weight_ets.append(nn.Parameter(torch.Tensor(self.num_out[-1], self.shape_in[-1]).normal_(0, bound_std).to(device)))
+        self.weight_ets.append(nn.Parameter(torch.Tensor(self.num_out[-1], self.shape_in[-1]).normal_(0, bound_std).to(self.device)))
 
         bound_std = self.gain / math.sqrt(fan_in_kbts)
         # bound_std = self.gain / math.sqrt(self.num_out[-1])
-        self.weight_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_kbts).normal_(0, bound_std).to(device)))
+        self.weight_kbts.append(nn.Parameter(torch.Tensor(self.num_out[-1], fan_in_kbts).normal_(0, bound_std).to(self.device)))
 
         if self.use_bias:
-            self.bias_ets.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device))) 
-            self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(device)))
+            self.bias_ets.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(self.device))) 
+            self.bias_kbts.append(nn.Parameter(torch.zeros(self.num_out[-1]).to(self.device)))
         
     
     def freeze(self, state=False):
@@ -617,7 +619,7 @@ class DynamicClassifier(DynamicLinear):
             if self.s != 1:
                 mask_in = mask_in.view(-1,1,1).expand(mask_in.size(0), self.s, self.s).contiguous().view(-1)
             
-            mask = torch.ones(self.shape_in[-2], dtype=bool, device=device)
+            mask = torch.ones(self.shape_in[-2], dtype=bool, device=self.device)
             mask = torch.cat([mask, mask_in])
             apply_mask_in(self.weight_ets[-1], mask, optim_state)
             self.shape_in[-1] = self.weight_ets[-1].shape[1]
@@ -633,13 +635,13 @@ class DynamicNorm(nn.Module):
         self.num_features = num_features
         
         if self.affine:
-            self.weight = nn.Parameter(torch.ones(num_features, dtype=torch.float).to(device))
-            self.bias = nn.Parameter(torch.zeros(num_features, dtype=torch.float).to(device))
+            self.weight = nn.Parameter(torch.ones(num_features, dtype=torch.float).to(self.device))
+            self.bias = nn.Parameter(torch.zeros(num_features, dtype=torch.float).to(self.device))
 
         if self.track_running_stats:
-            self.register_buffer(f'running_mean', torch.zeros(num_features).to(device))
-            self.register_buffer(f'running_var', torch.ones(num_features).to(device))
-            self.register_buffer(f'num_batches_tracked', torch.tensor(0, dtype=torch.long).to(device))
+            self.register_buffer(f'running_mean', torch.zeros(num_features).to(self.device))
+            self.register_buffer(f'running_var', torch.ones(num_features).to(self.device))
+            self.register_buffer(f'num_batches_tracked', torch.tensor(0, dtype=torch.long).to(self.device))
         else:
             self.register_buffer(f'running_mean', None)
             self.register_buffer(f'running_var', None)

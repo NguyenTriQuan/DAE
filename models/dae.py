@@ -26,7 +26,6 @@ from utils.distributed import make_dp
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
 
 def get_parser() -> ArgumentParser:
@@ -58,6 +57,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--threshold", type=float, required=False, help="GPM threshold.", default=0.97)
     parser.add_argument('--scale', type=float, nargs='*', default=[0.2, 1.0],
                         help='resized crop scale (default: [])', required=False)
+    parser.add_argument("--device", type=str, required=False, help="training device: cuda:id or cpu", default="cuda:0")
     return parser
 
 def fgsm_attack(image, epsilon, data_grad):
@@ -177,7 +177,7 @@ class DAE(ContinualModel):
 
     def __init__(self, backbone, loss, args, dataset):
         super(DAE, self).__init__(backbone, loss, args, dataset)
-        self.device = device
+        self.device = args.device
         if args.norm_type == "none":
             norm_type = None
         else:

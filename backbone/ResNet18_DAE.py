@@ -13,7 +13,7 @@ from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClass
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
 def logmeanexp(x, dim=None, keepdim=False):
     """Stable computation of log(mean(exp(x))"""
@@ -245,6 +245,7 @@ class ResNet(_DynamicModel):
         self.kbts_proj_mat = []
         self.ets_feat = []
         self.kbts_feat = []
+        self.device = args.device
         
         
     def _make_layer(self, block: BasicBlock, planes: int,
@@ -364,7 +365,7 @@ class ResNet(_DynamicModel):
             kbts_feature = []
             n = 0
             for data in train_loader:
-                images = data[0].to(device)
+                images = data[0].to(self.device)
                 # images = train_transform(images)
                 ets_feature.append(self.ets_forward(images, model_id, feat=True).detach())
                 kbts_feature.append(self.kbts_forward(images, model_id, feat=True).detach())
@@ -373,7 +374,7 @@ class ResNet(_DynamicModel):
 
             if buffer is not None and model_id == data_id:
                 for data in buffer:
-                    images = data[0].to(device)
+                    images = data[0].to(self.device)
                     # images = train_transform(images)
                     ets_feature.append(self.ets_forward(images, model_id, feat=True).detach())
                     kbts_feature.append(self.kbts_forward(images, model_id, feat=True).detach())
@@ -496,7 +497,7 @@ class ResNet(_DynamicModel):
                     nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
                     nn.Sigmoid()
-                ).to(device)
+                ).to(self.device)
             )
             self.kbts_cal_layers.append(
                 nn.Sequential(
@@ -508,7 +509,7 @@ class ResNet(_DynamicModel):
                     nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
                     nn.Sigmoid()
-                ).to(device)
+                ).to(self.device)
             )
 
     def reset_cal_params(self, num_tasks):
@@ -527,7 +528,7 @@ class ResNet(_DynamicModel):
                     nn.Dropout(0.2),
                     nn.Linear(hidden_dim, 2),
                     nn.Sigmoid()
-                ).to(device)
+                ).to(self.device)
             )
         
 
