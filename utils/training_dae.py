@@ -24,7 +24,7 @@ from utils.lars_optimizer import LARC
 
 import wandb
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
 
 def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     start_epoch = 0

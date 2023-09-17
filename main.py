@@ -36,7 +36,7 @@ from utils.training import train
 import wandb
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
 
 def lecun_fix():
     # Yann moved his website to CloudFlare. You need this now

@@ -25,7 +25,7 @@ from utils.status import ProgressBar
 from utils.distributed import make_dp
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
 
 
 def get_parser() -> ArgumentParser:

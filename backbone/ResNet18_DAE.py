@@ -12,7 +12,7 @@ import random
 from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
 # device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
 def logmeanexp(x, dim=None, keepdim=False):

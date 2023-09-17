@@ -15,7 +15,7 @@ from typing import Optional, List, Tuple, Union
 import sys
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
 # device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 # device = 'cpu'
 
