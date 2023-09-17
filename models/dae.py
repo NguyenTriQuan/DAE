@@ -204,7 +204,7 @@ class DAE(ContinualModel):
         self.buffer = None
 
     def forward(self, inputs, t=None, ets=True, kbts=False, cal=True, ba=True):
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         bs = inputs.shape[0]
         if ba:
             # batch augmentation
@@ -353,7 +353,7 @@ class DAE(ContinualModel):
         total = 0
         correct = 0
         total_loss = 0
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
 
         if self.buffer is not None:
             buffer = iter(self.buffer)
@@ -468,7 +468,7 @@ class DAE(ContinualModel):
         total = 0
         correct = 0
         total_loss = 0
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         
         self.net.train()
         # if self.buffer is not None:
