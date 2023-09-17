@@ -287,6 +287,7 @@ class DAE(ContinualModel):
                 cil_correct, til_correct, total = 0.0, 0.0, 0.0
                 for data in test_loader:
                     inputs, labels = data
+                    print(inputs.shape)
                     inputs, labels = inputs.to(self.device), labels.to(self.device)
                     if task is None:
                         cil_predicts, outputs, predicted_task = self.forward(inputs, None, ets, kbts, cal, ba)
