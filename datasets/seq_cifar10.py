@@ -55,7 +55,7 @@ class TrainCIFAR10(CIFAR10):
 
         if self.rot:
             rot = random.randint(1, 3)
-            return img, torch.rot90(img, rot, dims=(2, 3)), target
+            return img, torch.rot90(img, rot, dims=(1, 2)), target
         else:
             return img, target
     
