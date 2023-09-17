@@ -105,7 +105,7 @@ def main(args=None):
     args.conf_timestamp = str(datetime.datetime.now())
     args.conf_host = socket.gethostname()
     dataset = get_dataset(args)
-    dataset.download()
+    # dataset.download()
     dataset.N_TASKS = args.total_tasks
     dataset.N_CLASSES_PER_TASK = dataset.N_CLASSES // args.total_tasks
 
