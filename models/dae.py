@@ -359,17 +359,17 @@ class DAE(ContinualModel):
         
         self.net.train()
         for i, data in enumerate(train_loader):
-            inputs, labels = data
+            inputs, rot_inputs, labels = data
             bs = labels.shape[0]
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
+            inputs, rot_inputs, labels = inputs.to(self.device), rot_inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
-            ood_inputs = torch.empty(0).to(self.device)
-            num_ood = 0
-            if rot:
-                rot = random.randint(1, 3)
-                # ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
-                ood_inputs = torch.cat([ood_inputs, self.dataset.ood_transform(inputs)], dim=0)
-                num_ood += inputs.shape[0]
+            ood_inputs = rot_inputs
+            num_ood = inputs.shape[0]
+            # if rot:
+            #     rot = random.randint(1, 3)
+            #     ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
+            #     # ood_inputs = torch.cat([ood_inputs, self.dataset.ood_transform(inputs)], dim=0)
+            #     num_ood += inputs.shape[0]
             if buf:
                 if self.buffer is not None:
                     try:
@@ -385,8 +385,8 @@ class DAE(ContinualModel):
             if feat:
                 inputs = torch.cat([inputs, inputs], dim=0)
             
-            if augment:
-                inputs = self.dataset.train_transform(inputs)
+            # if augment:
+            #     inputs = self.dataset.train_transform(inputs)
             # inputs = self.dataset.test_transforms[self.task](inputs)                
 
             # if adv:
