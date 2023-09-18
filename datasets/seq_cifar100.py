@@ -117,7 +117,7 @@ class SequentialCIFAR100(ContinualDataset):
 
         test_transform = transforms.ToTensor()
 
-        train_dataset = TrainCIFAR100(base_path() + 'CIFAR100', train=True,
+        train_dataset = CIFAR100(base_path() + 'CIFAR100', train=True,
                                   download=True, transform=transform)
         if self.args.validation:
             train_dataset, test_dataset = get_train_val(train_dataset,

@@ -157,7 +157,7 @@ class SequentialTinyImagenet(ContinualDataset):
         test_transform = transforms.Compose(
             [transforms.Resize((32, 32)), transforms.ToTensor()])
 
-        train_dataset = TrainTinyImagenet(base_path() + 'TINYIMG',
+        train_dataset = TinyImagenet(base_path() + 'TINYIMG',
                                        train=True, download=True, transform=transform)
         if self.args.validation:
             train_dataset, test_dataset = get_train_val(train_dataset,

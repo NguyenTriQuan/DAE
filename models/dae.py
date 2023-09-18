@@ -360,12 +360,12 @@ class DAE(ContinualModel):
         
         self.net.train()
         for i, data in enumerate(train_loader):
-            inputs, rot_inputs, labels = data
+            inputs, labels = data
             bs = labels.shape[0]
-            inputs, rot_inputs, labels = inputs.to(self.device), rot_inputs.to(self.device), labels.to(self.device)
+            inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
-            ood_inputs = rot_inputs
-            num_ood = inputs.shape[0]
+            ood_inputs = torch.empty(0).to(self.device)
+            num_ood = 0
             # if rot:
             #     rot = random.randint(1, 3)
             #     ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
