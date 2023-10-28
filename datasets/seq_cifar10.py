@@ -53,11 +53,7 @@ class TrainCIFAR10(CIFAR10):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        if self.rot:
-            rot = random.randint(1, 3)
-            return img, torch.rot90(img, rot, dims=(1, 2)), target
-        else:
-            return img, target
+        return img, target
     
 class TestCIFAR10(CIFAR10):
     """
@@ -99,8 +95,10 @@ class SequentialCIFAR10(ContinualDataset):
     N_CLASSES_PER_TASK = 2
     N_TASKS = 5
     N_CLASSES = 10
+    scale = (0.08, 1.0)
     TRANSFORM = transforms.Compose([
-                transforms.RandomResizedCrop(size=(32, 32)),
+                transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
+                transforms.RandomResizedCrop(size=(32, 32), scale=scale),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor()
                 ])
@@ -185,8 +183,9 @@ class SequentialCIFAR10(ContinualDataset):
 #                                               store_masked_loaders)
 # from datasets.utils.validation import get_train_val
 # from torch.utils.data import DataLoader, Dataset, TensorDataset
-# import kornia as K
+# # import kornia as K
 # import torch
+# import datasets.transforms.transform_layers as TL 
 
 # class SequentialCIFAR10(ContinualDataset):
 
@@ -197,18 +196,21 @@ class SequentialCIFAR10(ContinualDataset):
 #     INPUT_SHAPE = (3, 32, 32)
     
 #     def download(self):
-#         self.train_transform = torch.nn.Sequential(
-#                     K.augmentation.RandomResizedCrop(size=(32, 32), scale=self.args.scale, p=1, same_on_batch=False),
-#                     K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
-#                     K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
-#                     # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
-#                 )
+#         # self.train_transform = torch.nn.Sequential(
+#         #             K.augmentation.RandomResizedCrop(size=(32, 32), scale=self.args.scale, p=1, same_on_batch=False),
+#         #             K.augmentation.RandomHorizontalFlip(p=0.5, same_on_batch=False),
+#         #             K.augmentation.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8, same_on_batch=False),
+#         #             # K.augmentation.RandomGrayscale(p=0.2, same_on_batch=False),
+#         #         )
         
-#         self.test_transform = torch.nn.Sequential(
-#                     K.augmentation.Normalize((0.4914, 0.4822, 0.4465),
-#                                             (0.2470, 0.2435, 0.2615)),
-#                 )
-#         self.ood_transform = K.augmentation.RandomRotation((90, 270), same_on_batch=False, p=1)
+#         # self.test_transform = torch.nn.Sequential(
+#         #             K.augmentation.Normalize((0.4914, 0.4822, 0.4465),
+#         #                                     (0.2470, 0.2435, 0.2615)),
+#         #         )
+#         self.train_transform = torch.nn.Sequential(
+#             TL.ColorJitterLayer(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1, p=0.8), 
+#             TL.RandomResizedCropLayer(scale=(0.08, 1.0), size=(32,32,3))
+#         )
 #         train_set=CIFAR10(base_path() + 'CIFAR10',train=True,download=True)
 #         test_set=CIFAR10(base_path() + 'CIFAR10',train=False,download=True)
 #         self.train_data, self.train_targets = torch.FloatTensor(train_set.data), torch.LongTensor(train_set.targets)
