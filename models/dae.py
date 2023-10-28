@@ -12,7 +12,7 @@ from datasets import get_dataset
 from models.utils.continual_model import ContinualModel
 from utils.args import add_management_args, add_experiment_args, add_rehearsal_args, ArgumentParser
 from utils.batch_norm import bn_track_stats
-from utils.buffer import Buffer, icarl_replay
+# from utils.buffer import Buffer, icarl_replay
 from backbone.ResNet18_DAE import resnet18, resnet10
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from itertools import cycle
@@ -23,6 +23,7 @@ import math
 import wandb
 from utils.status import ProgressBar
 from utils.distributed import make_dp
+import copy
 
 import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
@@ -35,7 +36,8 @@ def get_parser() -> ArgumentParser:
     add_experiment_args(parser)
     add_rehearsal_args(parser)
     parser.add_argument("--lamb", type=str, required=True, help="capacity control.")
-    parser.add_argument("--alpha", type=float, required=False, help="maximize entropy of ood samples loss factor.", default=1)
+    parser.add_argument("--alpha", type=float, default=1, required=False, help="maximize entropy of ood samples loss factor.")
+    parser.add_argument("--beta", type=float, default=1, required=False)
     parser.add_argument("--dropout", type=float, required=False, help="Dropout probability.", default=0.0)
     parser.add_argument("--sparsity", type=float, required=True, help="Super mask sparsity.")
     parser.add_argument("--temperature", default=0.1, type=float, required=False, help="Supervised Contrastive loss temperature.")
@@ -45,6 +47,8 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--norm_type", type=str, required=False, help="batch normalization layer", default="none")
     parser.add_argument("--debug", action="store_true", help="Quick test.")
     parser.add_argument("--verbose", action="store_true", help="compute test accuracy and number of params.")
+    parser.add_argument("--wandb", action="store_true", help="wandb")
+    parser.add_argument("--amp", action="store_true", help="mix precision")
     parser.add_argument("--eval", action="store_true", help="evaluation only")
     parser.add_argument("--cal", action="store_true", help="calibration training")
     parser.add_argument("--resume", action="store_true", help="resume training")
@@ -55,7 +59,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("--num_aug", type=int, required=False, help="number of augument samples used when evaluation.", default=16)
     parser.add_argument("--task", type=int, required=False, help="Specify task for eval or cal.", default=-1)
     parser.add_argument("--threshold", type=float, required=False, help="GPM threshold.", default=0.97)
-    parser.add_argument('--scale', type=float, nargs='*', default=[0.2, 1.0],
+    parser.add_argument('--scale', type=float, nargs='*', default=[0.08, 1.0],
                         help='resized crop scale (default: [])', required=False)
     parser.add_argument("--device", type=str, required=False, help="training device: cuda:id or cpu", default="cuda:0")
     return parser
@@ -76,8 +80,8 @@ def smooth(logits, temp, dim):
     return log / torch.sum(log, dim).unsqueeze(1)
 
 
-def modified_kl_div(old, new):
-    return -torch.mean(torch.sum(old * torch.log(new), 1))
+def modified_kl_div(targets, outputs):
+    return -torch.sum(targets * torch.log(outputs+1e-9), dim=1)
 
 
 def entropy(x):
@@ -93,11 +97,11 @@ def logmeanexp(x, dim=None, keepdim=False):
     return x if keepdim else x.squeeze(dim)
 
 
-def ensemble_outputs(outputs):
+def ensemble_outputs(outputs, dim=0):
     # outputs shape [num_member, bs, num_cls]
     outputs = F.log_softmax(outputs, dim=-1)
     ## with shape [bs, num_cls]
-    log_outputs = logmeanexp(outputs, dim=0)
+    log_outputs = logmeanexp(outputs, dim=dim)
     return log_outputs
 
 
@@ -112,63 +116,6 @@ def weighted_ensemble(outputs, weights, temperature):
     return log_outputs.squeeze(-1)
 
 
-# def sup_clr_ood_loss(ind_features, features, labels, temperature):
-#     labels = labels.repeat(2)
-#     labels = labels.contiguous().view(-1, 1)
-#     mask = torch.eq(labels, labels.T).float().to(device)
-#     # compute logits
-#     anchor_dot_contrast = torch.div(torch.matmul(ind_features, features.T), temperature) # shape [num ind, num ind + num ood]
-#     # for numerical stability
-#     logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
-#     logits = anchor_dot_contrast - logits_max.detach()
-
-#     logits_mask = (1 - torch.eye(ind_features.shape[0]).to(device))  # remove diagonal shape: num ind, num ind
-#     mask = mask * logits_mask
-#     extend_mask = torch.ones(ind_features.shape[0], features.shape[0] - ind_features.shape[0]).to(device)
-#     logits_mask = torch.cat([logits_mask, extend_mask], dim=1) # shape num ind, num ind + ood
-#     mask = torch.cat([mask, 1-extend_mask], dim=1)
-
-#     # compute log_prob
-#     exp_logits = torch.exp(logits) * logits_mask
-#     log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True))
-
-#     # compute mean of log-likelihood over positive
-#     mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
-
-#     # loss
-#     loss = -mean_log_prob_pos
-#     loss = loss.mean()
-
-#     return loss
-
-def sup_clr_loss(features, labels, temperature, ood=False):
-    labels = labels.repeat(2)
-    labels = labels.contiguous().view(-1, 1)
-    mask = torch.eq(labels, labels.T).float()
-    # compute logits
-    anchor_dot_contrast = torch.div(torch.matmul(features, features.T), temperature)
-    # for numerical stability
-    logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
-    logits = anchor_dot_contrast - logits_max.detach()
-    # Remove self contrast
-    logits = logits * (1 - torch.eye(features.shape[0]).to(device))
-
-    # compute log_prob
-    log_prob = logits - torch.log(torch.exp(logits).sum(1, keepdim=True))
-    # compute mean of log-likelihood over positive
-    mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
-    # loss
-    loss = -mean_log_prob_pos
-    if ood:
-        # remove ood anchors
-        ood_mask = (labels.squeeze() != -1).float()
-        loss = loss * ood_mask
-        num = ood_mask.sum()
-    else:
-        num = loss.shape[0]
-    loss = loss.sum() / num
-
-    return loss
 
 
 class DAE(ContinualModel):
@@ -200,18 +147,23 @@ class DAE(ContinualModel):
         print("lambda tasks", self.lamb)
         self.soft = torch.nn.Softmax(dim=1)
         self.alpha = args.alpha
+        self.beta = args.beta
         self.eps = args.eps
         self.buffer = None
 
     def forward(self, inputs, t=None, ets=True, kbts=False, cal=True, ba=True):
         # torch.cuda.empty_cache()
-        bs = inputs.shape[0]
+        B = inputs.shape[0]
         if ba:
             # batch augmentation
-            N = self.args.num_aug
-            # aug_inputs = inputs.unsqueeze(0).expand(N, *inputs.shape).reshape(N * inputs.shape[0], *inputs.shape[1:])
-            inputs = inputs.repeat(N, 1, 1, 1)
-            inputs = self.dataset.train_transform(inputs)
+            B, N, C, W, H = inputs.shape
+            inputs = inputs.view(B*N, C, W, H)
+
+            # N = self.args.num_aug
+            # inputs = inputs.repeat(N, 1, 1, 1)
+            # inputs = self.dataset.train_transform(inputs)
+
+        inputs = inputs.to(self.device)
 
         if t is not None:
             outputs = []
@@ -221,14 +173,14 @@ class DAE(ContinualModel):
                 outputs.append(self.net.kbts_forward(inputs, t))
 
             if ba:
-                outputs = [out.view(N, bs, -1) for out in outputs]
-                outputs = torch.cat(outputs, dim=0)
+                outputs = [out.view(B, N, -1) for out in outputs]
+                outputs = torch.cat(outputs, dim=1)
                 outputs = outputs[:, :, :-1]  # ignore ood class
-                outputs = ensemble_outputs(outputs)
+                outputs = ensemble_outputs(outputs, dim=1)
             else:
-                outputs = torch.stack(outputs, dim=0)
+                outputs = torch.stack(outputs, dim=1)
                 outputs = outputs[:, :, :-1]  # ignore ood class
-                outputs = ensemble_outputs(outputs)
+                outputs = ensemble_outputs(outputs, dim=1)
 
             predicts = outputs.argmax(1)
             del inputs, outputs
@@ -244,17 +196,17 @@ class DAE(ContinualModel):
                     outputs.append(self.net.kbts_forward(inputs, i, cal=cal))
 
                 if ba:
-                    outputs = [out.view(N, bs, -1) for out in outputs]
-                    outputs = torch.cat(outputs, dim=0)
+                    outputs = [out.view(B, N, -1) for out in outputs]
+                    outputs = torch.cat(outputs, dim=1)
                     outputs = outputs[:, :, :-1]  # ignore ood class
-                    outputs = ensemble_outputs(outputs)
+                    outputs = ensemble_outputs(outputs, dim=1)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
                 else:
-                    outputs = torch.stack(outputs, dim=0)
+                    outputs = torch.stack(outputs, dim=1)
                     outputs = outputs[:, :, :-1]  # ignore ood class
-                    outputs = ensemble_outputs(outputs)
+                    outputs = ensemble_outputs(outputs, dim=1)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
@@ -284,11 +236,15 @@ class DAE(ContinualModel):
                 if task is not None:
                     if k != task:
                         continue
+                if ba:
+                    test_loader.dataset.num_aug = self.args.num_aug
+                else: 
+                    test_loader.dataset.num_aug = 0
+
                 cil_correct, til_correct, total = 0.0, 0.0, 0.0
                 for data in test_loader:
                     inputs, labels = data
-                    print(inputs.shape)
-                    inputs, labels = inputs.to(self.device), labels.to(self.device)
+                    labels = labels.to(self.device)
                     if task is None:
                         cil_predicts, outputs, predicted_task = self.forward(inputs, None, ets, kbts, cal, ba)
                         cil_correct += torch.sum(cil_predicts == labels).item()
@@ -296,12 +252,12 @@ class DAE(ContinualModel):
                         til_correct += torch.sum(til_predicts == labels).item()
                         task_correct += torch.sum(predicted_task == k).item()
                         total += labels.shape[0]
-                        del cil_predicts, outputs, predicted_task
+                        del cil_predicts, outputs, predicted_task, inputs, labels
                     else:
                         til_predicts = self.forward(inputs, task, ets, kbts, cal, ba)
                         til_correct += torch.sum(til_predicts == labels).item()
                         total += labels.shape[0]
-                        del til_predicts
+                        del til_predicts, inputs, labels
 
                 til_accs.append(round(til_correct / total * 100, 2))
                 cil_accs.append(round(cil_correct / total * 100, 2))
@@ -312,7 +268,8 @@ class DAE(ContinualModel):
                 til_avg = round(np.mean(til_accs), 2)
                 print(f"Task {len(til_accs)-1}: {mode}: cil {cil_avg} {cil_accs}, til {til_avg} {til_accs}, tp {task_acc}")
                 if self.args.verbose:
-                    wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, f"{mode}_tp": task_acc, 'task':len(til_accs) - 1})
+                    if self.args.wandb:
+                        wandb.log({f"{mode}_cil": cil_avg, f"{mode}_til": til_avg, f"{mode}_tp": task_acc, 'task':len(til_accs) - 1})
                 return til_accs, cil_accs, task_acc
             else:
                 return til_accs[0]
@@ -349,11 +306,20 @@ class DAE(ContinualModel):
         self.adv_loader = DataLoader(TensorDataset(all_adv_inputs), batch_size=self.args.batch_size, shuffle=True)
         self.net.freeze(True)
 
-    def train_contrast(self, train_loader, mode, ets, kbts, rot, buf, adv, feat, squeeze, augment):
+    def train_contrast(self, train_loader, mode, ets, kbts, rot, buf, adv, feat, squeeze, augment, kd):
         total = 0
-        correct = 0
-        total_loss = 0
-        # torch.cuda.empty_cache()
+        ets_correct = 0
+        ets_total_loss = 0
+
+        kbts_correct = 0
+        kbts_total_loss = 0
+
+        enabled = False
+        if self.args.amp:
+            enabled = True
+            torch.backends.cudnn.benchmark = True
+            scaler = torch.cuda.amp.GradScaler(enabled=True)
+            scaler2 = torch.cuda.amp.GradScaler(enabled=True)
 
         if self.buffer is not None:
             buffer = iter(self.buffer)
@@ -362,99 +328,79 @@ class DAE(ContinualModel):
         for i, data in enumerate(train_loader):
             inputs, labels = data
             bs = labels.shape[0]
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
+            # inputs, labels = inputs.to(self.device), labels.to(self.device)
             labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
-            ood_inputs = torch.empty(0).to(self.device)
+            ood_inputs = torch.empty(0)
             num_ood = 0
-            # if rot:
-            #     rot = random.randint(1, 3)
-            #     ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
-            #     # ood_inputs = torch.cat([ood_inputs, self.dataset.ood_transform(inputs)], dim=0)
-            #     num_ood += inputs.shape[0]
+            if rot:
+                rot = random.randint(1, 3)
+                ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
+                num_ood += inputs.shape[0]
             if buf:
                 if self.buffer is not None:
                     try:
-                        buffer_data = next(buffer)
+                        buffer_data, buffer_targets = next(buffer)
                     except StopIteration:
                         # restart the generator if the previous generator is exhausted.
                         buffer = iter(self.buffer)
-                        buffer_data = next(buffer)
-                    ood_inputs = torch.cat([ood_inputs, buffer_data[0].to(self.device)], dim=0)
-                    num_ood += buffer_data[0].shape[0]
+                        buffer_data, buffer_targets = next(buffer)
+                    ood_inputs = torch.cat([ood_inputs, buffer_data], dim=0)
+                    num_ood += buffer_data.shape[0]
 
             inputs = torch.cat([inputs, ood_inputs], dim=0)
-            if feat:
-                inputs = torch.cat([inputs, inputs], dim=0)
-            
             # if augment:
             #     inputs = self.dataset.train_transform(inputs)
-            # inputs = self.dataset.test_transforms[self.task](inputs)                
 
-            # if adv:
-            #     num_ood += ets_inputs.shape[0]
-            #     ets_inputs.requires_grad = True
-            #     kbts_inputs.requires_grad = True
-            #     self.net.freeze(False)
-            #     ets_outputs = self.net.ets_forward(ets_inputs, self.task, feat=False)
-            #     kbts_outputs = self.net.kbts_forward(kbts_inputs, self.task, feat=False)
-            #     self.opt.zero_grad()
-            #     loss = F.cross_entropy(ets_outputs, labels) + F.cross_entropy(kbts_outputs, labels)
-            #     loss.backward()
-            #     ets_inputs = torch.cat([ets_inputs, fgsm_attack(ets_inputs, self.eps, ets_inputs.grad.data)], dim=0).detach()
-            #     kbts_inputs = torch.cat([kbts_inputs, fgsm_attack(kbts_inputs, self.eps, kbts_inputs.grad.data)], dim=0).detach()
-            #     ets_inputs.requires_grad = False
-            #     kbts_inputs.requires_grad = False
-            #     self.net.freeze(True)
-
+            inputs, labels = inputs.to(self.device), labels.to(self.device)
             self.opt.zero_grad()
 
-            if feat:
-                ets_inputs, kbts_inputs = inputs.split(inputs.shape[0]//2, dim=0)
-                ets_features = self.net.ets_forward(ets_inputs, self.task, feat=True)
-                kbts_features = self.net.kbts_forward(kbts_inputs, self.task, feat=True)
-                features = torch.cat([ets_features, kbts_features], dim=0)
-                # features = F.normalize(features, p=2, dim=1)
-            else:
+            with torch.cuda.amp.autocast(enabled=enabled):
                 ets_outputs = self.net.ets_forward(inputs, self.task, feat=False)
                 kbts_outputs = self.net.kbts_forward(inputs, self.task, feat=False)
+                ets_outputs = F.softmax(ets_outputs, dim=1)
+                kbts_outputs = F.softmax(kbts_outputs, dim=1)
 
-            loss = 0
-            if num_ood > 0:
-                if feat:
-                    ood_labels = -torch.ones(ood_inputs.shape[0], dtype=torch.long).to(self.device)
-                    loss += sup_clr_loss(features, torch.cat([labels, ood_labels]), self.args.temperature, ood=True) 
-                else:
-                    # ets_outputs = F.log_softmax(ets_outputs, dim=1)
-                    # kbts_outputs = F.log_softmax(kbts_outputs, dim=1)
+                loss = 0
+                if num_ood > 0:
                     ets_outputs, ets_ood_outputs = ets_outputs.split((bs, num_ood), dim=0)
                     kbts_outputs, kbts_ood_outputs = kbts_outputs.split((bs, num_ood), dim=0)
                     
-                    ets_ood_ent = entropy(F.softmax(ets_ood_outputs[:, :-1], dim=1)).mean()
-                    kbts_ood_ent = entropy(F.softmax(kbts_ood_outputs[:, :-1], dim=1)).mean()
-                    # if adv:
-                    #     # ets_incorrect = (ets_ood_outputs.argmax(1) != labels) & (ets_ood_ent <= entropy(ets_outputs.exp()))
-                    #     # kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels) & (kbts_ood_ent <= entropy(kbts_outputs.exp()))
-                    #     ets_incorrect = (ets_ood_outputs.argmax(1) != labels)
-                    #     kbts_incorrect = (kbts_ood_outputs.argmax(1) != labels)
-                    #     ets_ood_ent = ets_ood_ent[ets_incorrect].mean() if ets_incorrect.sum() > 0 else 0
-                    #     kbts_ood_ent = kbts_ood_ent[kbts_incorrect].mean() if kbts_incorrect.sum() > 0 else 0
-                    loss += F.cross_entropy(ets_outputs, labels) - self.alpha * ets_ood_ent
-                    loss += F.cross_entropy(kbts_outputs, labels) - self.alpha * kbts_ood_ent
-            else:
-                if feat:
-                    loss += sup_clr_loss(features, labels, self.args.temperature, ood=False)
+                    ets_ood_ent = entropy(ets_ood_outputs[:, :-1])
+                    kbts_ood_ent = entropy(kbts_ood_outputs[:, :-1])
+
+                    ets_ce_loss = F.nll_loss(ets_outputs.log(), labels, reduction='none') 
+                    kbts_ce_loss = F.nll_loss(kbts_outputs.log(), labels, reduction='none')
+
+                    loss += ets_ce_loss.mean() - self.alpha * ets_ood_ent.mean()
+                    loss += kbts_ce_loss.mean() - self.alpha * kbts_ood_ent.mean()
                 else:
-                    loss += F.cross_entropy(ets_outputs, labels) + F.cross_entropy(kbts_outputs, labels)
+                    ets_ce_loss = F.nll_loss(ets_outputs.log(), labels, reduction='none') 
+                    kbts_ce_loss = F.nll_loss(kbts_outputs.log(), labels, reduction='none')
+                    loss += ets_ce_loss.mean() + kbts_ce_loss.mean()
+
+                if kd:
+                    mask = (ets_ce_loss >= kbts_ce_loss).float()
+                    loss += self.beta * torch.mean(mask * modified_kl_div(smooth(ets_outputs.detach(), 1, 1), smooth(kbts_outputs, 1, 1))
+                                        + (1-mask) * modified_kl_div(smooth(kbts_outputs.detach(), 1, 1), smooth(ets_outputs, 1, 1)))
+
             
             assert not math.isnan(loss)
-            loss.backward()
-            self.opt.step()
+            if self.args.amp:
+                scaler.scale(loss).backward()
+                scaler.step(self.opt)
+                scaler.update()
+            else:
+                loss.backward()
+                self.opt.step()
+
             total += bs
-            total_loss += loss.item() * bs
+            ets_total_loss += ets_ce_loss.mean().item() * bs
+            kbts_total_loss += kbts_ce_loss.mean().item() * bs
 
             if not feat:
-                outputs = ensemble_outputs(torch.stack([ets_outputs, kbts_outputs], dim=0))
-                correct += (outputs.argmax(1) == labels).sum().item()
+                # outputs = ensemble_outputs(torch.stack([ets_outputs, kbts_outputs], dim=1), dim=1)
+                ets_correct += (ets_outputs.argmax(1) == labels).sum().item()
+                kbts_correct += (kbts_outputs.argmax(1) == labels).sum().item()
 
             if squeeze and self.lamb[self.task] > 0:
                 self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
@@ -462,7 +408,7 @@ class DAE(ContinualModel):
         if squeeze and self.lamb[self.task] > 0:
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
-        return total_loss / total, round(correct * 100 / total, 2)
+        return ets_total_loss / total, round(ets_correct * 100 / total, 2), kbts_total_loss / total, round(kbts_correct * 100 / total, 2)
     
     def back_updating(self, train_loader, t):
         total = 0
@@ -566,83 +512,44 @@ class DAE(ContinualModel):
             samples_per_class = self.args.buffer_size // (self.task * self.dataset.N_CLASSES_PER_TASK)
 
         self.net.eval()
-        # data = [[] for _ in range(3 + (self.task+1) * 3)]
-        data = [[] for _ in range(3)]
-
-        for inputs, labels in train_loader:
-            data[0].append(inputs)
-            data[1].append(labels)
-            data[2].append(torch.ones_like(labels) * self.task)
-            # inputs = inputs.to(self.device)
-            # for i in range(self.task+1):
-            #     x = self.dataset.test_transforms[i](inputs)
-            #     outputs = []
-            #     feat, out = self.net.ets_forward(x, i, feat=True)
-            #     data[3*i+3].append(feat.detach().clone().cpu())
-            #     outputs.append(out)
-            #     feat, out = self.net.kbts_forward(x, i, feat=True)
-            #     data[3*i+1+3].append(feat.detach().clone().cpu())
-            #     outputs.append(out)
-            #     outputs = ensemble_outputs(torch.stack(outputs, dim=0))
-            #     data[3*i+2+3].append(entropy(outputs.exp()).detach().clone().cpu())
-
-        data = [torch.cat(temp) for temp in data]
-
-        # if 'be' not in self.args.ablation:
-        #     # buffer entropy
-        #     indices = []
-        #     for c in data[1].unique():
-        #         idx = (data[1] == c)
-        #         if self.task == 0:
-        #             loss = data[3*self.task+2+3][idx]
-        #         else:
-        #             join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
-        #             labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
-        #             loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
-        #         # loss = data[3*self.task+2+3][idx]
-        #         values, stt = loss.sort(dim=0, descending=True)
-        #         indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_class]])
-        #     indices = torch.cat(indices)
-        #     data = [temp[indices] for temp in data]
-        # else:
+        
         # random class balanced selection
         indices = []
-        for c in data[1].unique():
-            idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
+        data, targets = np.array(train_loader.dataset.data), np.array(train_loader.dataset.targets)
+        for c in np.unique(targets):
+            idx = np.arange(targets.shape[0])[targets == c][:samples_per_class]
             indices.append(idx)
-        indices = torch.cat(indices)
-        data = [temp[indices] for temp in data]
+        indices = np.concatenate(indices)
+        data = np.array(data[indices])
+        targets = np.array(targets[indices])
 
         if self.task > 0:
-            # buf_ent = []
-            # buf_ets_feat = []
-            # buf_kbts_feat = []
-            # for temp in self.buffer:
-            #     inputs = temp[0].to(self.device)
-            #     x = self.dataset.test_transforms[self.task](inputs)
-            #     outputs = []
-            #     feat, out = self.net.ets_forward(x, self.task, feat=True)
-            #     buf_ets_feat.append(feat.detach().clone().cpu())
-            #     outputs.append(out)
-            #     feat, out = self.net.kbts_forward(x, self.task, feat=True)
-            #     buf_kbts_feat.append(feat.detach().clone().cpu())
-            #     outputs.append(out)
-            #     outputs = ensemble_outputs(torch.stack(outputs, dim=0))
-            #     buf_ent.append(entropy(outputs.exp()).detach().clone().cpu())
+            buf_data, buf_targets = np.array(self.buffer.dataset.data), np.array(self.buffer.dataset.targets)
+            data = np.concatenate([buf_data, data])
+            targets = np.concatenate([buf_targets, targets])
 
-            # buf_data = list(self.buffer.dataset.tensors) + [torch.cat(buf_ets_feat), torch.cat(buf_kbts_feat), torch.cat(buf_ent)]
-            buf_data = list(self.buffer.dataset.tensors)
-            data = [torch.cat([buf_temp, temp]) for buf_temp, temp in zip(buf_data, data)]
+        # self.buffer = DataLoader(Buffer(data, targets, self.dataset.TRANSFORM), batch_size=self.args.batch_size, shuffle=True)
+        self.buffer = copy.deepcopy(train_loader)
+        self.buffer.dataset.data = data
+        self.buffer.dataset.targets = targets
+        print('Buffer size', data.shape)
+        # for c in np.unique(targets):
+        #     print(sum(targets == c))
 
-        self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
-        print('Buffer size', data[0].shape)
-        # print(data[2].unique())
-        # print(data[0].shape)
-        # print(data[1].unique())
+        # data = list(train_loader.dataset.tensors)
+        # indices = []
         # for c in data[1].unique():
-        #     idx = data[1] == c
-        #     print(f"{c}: {idx.sum()}", end=", ")
-        # print()
+        #     idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
+        #     indices.append(idx)
+        # indices = torch.cat(indices)
+        # data = [temp[indices] for temp in data]
+
+        # if self.task > 0:
+        #     buf_data = list(self.buffer.dataset.tensors)
+        #     data = [torch.cat([buf_temp, temp]) for buf_temp, temp in zip(buf_data, data)]
+
+        # self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
+        # print('Buffer size', data[0].shape)
 
     def fill_buffer(self, train_loader) -> None:
         """
@@ -657,39 +564,56 @@ class DAE(ContinualModel):
         samples_per_task = self.args.buffer_size // (self.task + 1)
         samples_per_class = self.args.buffer_size // ((self.task + 1) * self.dataset.N_CLASSES_PER_TASK)
 
-        data = list(self.buffer.dataset.tensors)
+        data, targets = np.array(self.buffer.dataset.data), np.array(self.buffer.dataset.targets)
 
-        # if 'be' not in self.args.ablation:
-        #     # buffer entropy
-        #     indices = []
-        #     for c in data[1].unique():
-        #         idx = (data[1] == c)
-        #         if self.task == 0:
-        #             loss = data[3*self.task+2+3][idx]
-        #         else:
-        #             join_entropy = torch.stack([data[3*t+2+3][idx] for t in range(self.task+1)], dim=1)
-        #             labels = torch.stack([(data[2][idx] == t).float() for t in range(self.task+1)], dim=1)
-        #             loss = torch.sum(join_entropy * labels, dim=1) / torch.sum(join_entropy, dim=1)
-        #         # loss = data[3*self.task+2+3][idx]
-        #         values, stt = loss.sort(dim=0, descending=True)
-        #         indices.append(torch.arange(data[1].shape[0])[idx][stt[:samples_per_class]])
-        #     indices = torch.cat(indices)
-        #     data = [temp[indices] for temp in data]
-        # else:
-        # random class balanced selection
         indices = []
-        for c in data[1].unique():
-            idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
+        for c in np.unique(targets):
+            idx = np.arange(targets.shape[0])[targets == c][:samples_per_class]
             indices.append(idx)
-        indices = torch.cat(indices)
-        data = [temp[indices] for temp in data]
+        indices = np.concatenate(indices)
+        data = np.array(data[indices])
+        targets = np.array(targets[indices])
 
-        # data = [torch.cat(temp) for temp in data]
-        self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
-        # print(data[2].unique())
-        # print(data[1].unique())
-        print('Buffer size', data[0].shape)
+        # self.buffer = DataLoader(Buffer(data, targets, self.dataset.TRANSFORM), batch_size=self.args.batch_size, shuffle=True)
+        self.buffer.dataset.data = data
+        self.buffer.dataset.targets = targets
+        print('Buffer size', data.shape)
+        # for c in np.unique(targets):
+        #     print(sum(targets == c))
+
+        # data = list(self.buffer.dataset.tensors)
+        # indices = []
         # for c in data[1].unique():
-        #     idx = data[1] == c
-        #     print(f"{c}: {idx.sum()}", end=", ")
-        # print()
+        #     idx = torch.arange(data[1].shape[0])[data[1] == c][:samples_per_class]
+        #     indices.append(idx)
+        # indices = torch.cat(indices)
+        # data = [temp[indices] for temp in data]
+
+        # self.buffer = DataLoader(TensorDataset(*data), batch_size=self.args.batch_size, shuffle=True)
+        # print('Buffer size', data[0].shape)
+
+from PIL import Image
+class Buffer():
+    def __init__(self, data, targets, transform=None) -> None:
+        self.transform = transform
+        self.data = data
+        self.targets = targets
+    
+    def __len__(self):
+        return self.targets.shape[0]
+
+
+    def __getitem__(self, index):
+        """
+        Gets the requested element from the dataset.
+        :param index: index of the element to be returned
+        :returns: tuple: (image, target) where target is index of the target class.
+        """
+        img, target = self.data[index], self.targets[index]
+
+        # to return a PIL Image
+        img = Image.fromarray(img, mode='RGB')
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, target
