@@ -55,11 +55,7 @@ class TrainCIFAR100(CIFAR100):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        if self.rot:
-            rot = random.randint(1, 3)
-            return img, torch.rot90(img, rot, dims=(1, 2)), target
-        else:
-            return img, target
+        return img, target
         
 class TestCIFAR100(CIFAR100):
     """
@@ -101,8 +97,10 @@ class SequentialCIFAR100(ContinualDataset):
     N_CLASSES_PER_TASK = 10
     N_TASKS = 10
     N_CLASSES = 100
+    scale = (0.08, 1.0)
     TRANSFORM = transforms.Compose([
-                transforms.RandomResizedCrop(size=(32, 32)),
+                transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
+                transforms.RandomResizedCrop(size=(32, 32), scale=scale),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor()
                 ])
@@ -176,10 +174,10 @@ class SequentialCIFAR100(ContinualDataset):
         return scheduler
     
 
-# # Copyright 2022-present, Lorenzo Bonicelli, Pietro Buzzega, Matteo Boschini, Angelo Porrello, Simone Calderara.
-# # All rights reserved.
-# # This source code is licensed under the license found in the
-# # LICENSE file in the root directory of this source tree.
+# Copyright 2022-present, Lorenzo Bonicelli, Pietro Buzzega, Matteo Boschini, Angelo Porrello, Simone Calderara.
+# All rights reserved.
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
 
 # from typing import Tuple
 
@@ -238,8 +236,8 @@ class SequentialCIFAR100(ContinualDataset):
 #         train_mask = (self.train_targets >= self.i) & (self.train_targets < self.i + self.N_CLASSES_PER_TASK)
 #         test_mask = (self.test_targets >= self.i) & (self.test_targets < self.i + self.N_CLASSES_PER_TASK)
 
-#         train_loader = DataLoader(TensorDataset(self.train_data[train_mask], self.train_targets[train_mask]), batch_size=self.args.batch_size, shuffle=True)
-#         test_loader = DataLoader(TensorDataset(self.test_data[test_mask], self.test_targets[test_mask]), batch_size=self.args.val_batch_size, shuffle=False)
+#         train_loader = DataLoader(TensorDataset(self.train_data[train_mask].clone(), self.train_targets[train_mask].clone()), batch_size=self.args.batch_size, shuffle=True)
+#         test_loader = DataLoader(TensorDataset(self.test_data[test_mask].clone(), self.test_targets[test_mask].clone()), batch_size=self.args.val_batch_size, shuffle=False)
 #         self.test_loaders.append(test_loader)
 #         self.train_loader = train_loader
 #         print(f'Data info: Classes: {self.i}-{self.i+self.N_CLASSES_PER_TASK}, Size: {train_loader.dataset.tensors[0].shape[0]}, Mean: {train_loader.dataset.tensors[0].mean((0,2,3))}, STD: {train_loader.dataset.tensors[0].std((0,2,3))}')
