@@ -312,6 +312,28 @@ class _DynamicLayer(nn.Module):
 
         self.mask_out = None
         self.set_reg_strength()
+    
+    def to_device(self, device):
+        self.device = device
+        self.num_in = self.num_in.to(device)
+        self.num_out = self.num_out.to(device)
+        self.shape_in = self.shape_in.to(device)
+        self.shape_out = self.shape_out.to(device)
+        
+        if hasattr(self, 'strength'):
+            self.strength = self.strength.to(device)
+        for p in self.parameters():
+            p.to(device)
+
+        for p in self.buffers():
+            p.to(device)
+
+        if self.dummy_weight is not None:
+            self.dummy_weight = self.dummy_weight.to(device)      
+
+        if hasattr(self, 'kb_weight'):
+            if self.kb_weight is not None:
+                self.kb_weight = self.kb_weight.to(device)
 
 
 class DynamicLinear(_DynamicLayer):
@@ -382,6 +404,12 @@ class DynamicBlock(nn.Module):
         self.register_buffer('task', torch.tensor(-1, dtype=torch.int).to(self.device))
         self.mask_out = None
         self.last = False
+        self.strength = torch.tensor(1)
+    
+    def to_device(self, device):
+        self.task.to(device)
+        self.device = device
+        self.strength = self.strength.to(device)
 
     def ets_forward(self, inputs, t):
         out = 0
@@ -498,8 +526,8 @@ class DynamicBlock(nn.Module):
         params = []
         for layer in self.layers:
             params += [layer.weight[-1], layer.fwt_weight[-1], layer.bwt_weight[-1]]
-        # if self.norm_type is not None and 'affine' in self.norm_type:
-        #     params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
+        if self.norm_type is not None and 'affine' in self.norm_type:
+            params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
         return params
     
     def get_optim_kbts_params(self):
