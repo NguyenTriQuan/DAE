@@ -30,6 +30,7 @@ class TinyImagenet(Dataset):
     def __init__(self, root: str, train: bool = True, transform: Optional[nn.Module] = None,
                  target_transform: Optional[nn.Module] = None, download: bool = False) -> None:
         self.non_aug_transform = transforms.Compose([transforms.Resize((32, 32)), transforms.ToTensor()])
+        self.rot_transform = transforms.RandomRotation(degrees=(90, 270))
         self.root = root
         self.train = train
         self.transform = transform
@@ -102,11 +103,7 @@ class TrainTinyImagenet(TinyImagenet):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        if self.rot:
-            rot = random.randint(1, 3)
-            return img, torch.rot90(img, rot, dims=(1, 2)), target
-        else:
-            return img, target
+        return img, target
 
 class TestTinyImagenet(TinyImagenet):
     """
@@ -127,9 +124,11 @@ class TestTinyImagenet(TinyImagenet):
         img = Image.fromarray(np.uint8(255 * img))
         imgs = []
         if self.transform is not None:
-            imgs.append(self.non_aug_transform(img))
-            for _ in range(self.num_aug):
-                imgs.append(self.transform(img))
+            if self.num_aug == 0:
+                imgs.append(self.non_aug_transform(img))
+            else:
+                for _ in range(self.num_aug):
+                    imgs.append(self.transform(img))
 
         if self.target_transform is not None:
             target = self.target_transform(target)
@@ -144,9 +143,11 @@ class SequentialTinyImagenet(ContinualDataset):
     N_CLASSES_PER_TASK = 20
     N_TASKS = 10
     N_CLASSES = 200
+    scale = (0.08, 1.0)
     TRANSFORM = transforms.Compose([
                 transforms.Resize((32, 32)),
-                transforms.RandomResizedCrop(size=(32, 32)),
+                transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
+                transforms.RandomResizedCrop(size=(32, 32), scale=scale),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor()
                 ])
