@@ -36,9 +36,18 @@ class _DynamicModel(nn.Module):
         super(_DynamicModel, self).__init__()
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer) if not isinstance(m, DynamicClassifier)]
-        self.total_strength = 1
+        self.total_strength = torch.tensor(1)
         self.ets_temp = -1
         self.kbts_temp = -1
+
+    def to_device(self, device):
+        self.total_strength = self.total_strength.to(device)
+        for m in self.DB:
+            m.to_device(device)
+        for m in self.modules():
+            m.to(device)
+            if isinstance(m, _DynamicLayer):
+                m.to_device(device)
 
     def get_optim_ets_params(self):
         params = []
