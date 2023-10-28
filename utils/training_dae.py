@@ -26,6 +26,20 @@ import wandb
 import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
 
+def optimizer_to(optim, device):
+    for param in optim.state.values():
+        # Not sure there are any global tensors in the state dict
+        if isinstance(param, torch.Tensor):
+            param.data = param.data.to(device)
+            if param._grad is not None:
+                param._grad.data = param._grad.data.to(device)
+        elif isinstance(param, dict):
+            for subparam in param.values():
+                if isinstance(subparam, torch.Tensor):
+                    subparam.data = subparam.data.to(device)
+                    if subparam._grad is not None:
+                        subparam._grad.data = subparam._grad.data.to(device)
+
 def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     start_epoch = 0
     if checkpoint is not None:
@@ -39,6 +53,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     buf = 'buf' in args.mode
     rot = 'rot' in args.mode
     adv = 'adv' in args.mode
+    kd = 'kd' in args.mode
     feat = 'feat' in mode
     head = 'head' in mode
     cal = 'cal' in mode
@@ -86,9 +101,9 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     else:
         ets_params = model.net.get_optim_ets_params()
         kbts_params, scores = model.net.get_optim_kbts_params()
-        n_epochs = 150
-        num_squeeze = 100
-        step_lr = [130, 145]
+        n_epochs = 220
+        num_squeeze = 140
+        step_lr = [180, 200]
         squeeze = 'squeeze' not in args.ablation
         model.opt = torch.optim.SGD([{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
                                     lr=args.lr, weight_decay=0, momentum=0.9)
@@ -102,15 +117,15 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     if checkpoint is not None:
         model.opt = checkpoint['opt']
         model.scheduler = checkpoint['scheduler']
+        optimizer_to(model.opt, args.device)
 
-    if 'epoch' in args.ablation:
-        n_epochs = 10
+    # if 'epoch' in args.ablation:
     progress_bar = ProgressBar()
     for epoch in range(start_epoch, n_epochs):
         if cal:
             loss, train_acc = model.back_updating(train_loader, t)
         else:          
-            loss, train_acc = model.train_contrast(train_loader, mode, ets, kbts, rot, buf, adv, feat, squeeze, augment)
+            ets_loss, ets_train_acc, kbts_loss, kbts_train_acc = model.train_contrast(train_loader, mode, ets, kbts, rot, buf, adv, feat, squeeze, augment, kd)
 
         # wandb.save(base_path_memory() + args.title + '.tar')
         if args.verbose:
@@ -121,13 +136,17 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
                 num_params, num_neurons = model.net.count_params()
                 num_neurons = '-'.join(str(int(num)) for num in num_neurons)
                 num_params = sum(num_params)
-                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, train_acc, test_acc, num_params, num_neurons)
-                wandb.log({'epoch':epoch, f"Task {model.task} {mode} loss": loss, f"Task {model.task} {mode} train acc": train_acc,
-                           f"Task {model.task} {mode} test acc": test_acc, f"Task {model.task} params": num_params})
+                progress_bar.prog(epoch, n_epochs, epoch, model.task, ets_loss, ets_train_acc, kbts_loss, kbts_train_acc, test_acc, num_params, num_neurons)
+                if args.wandb:
+                    wandb.log({'epoch':epoch, f"Task {model.task} {mode} ets loss": ets_loss, f"Task {model.task} {mode} ets train acc": ets_train_acc,
+                               f"Task {model.task} {mode} kbts loss": kbts_loss, f"Task {model.task} {mode} kbts train acc": kbts_train_acc,
+                            f"Task {model.task} {mode} test acc": test_acc, f"Task {model.task} params": num_params})
             else:
-                progress_bar.prog(epoch, n_epochs, epoch, model.task, loss, train_acc, test_acc)
-                wandb.log({'epoch':epoch, f"Task {model.task} {mode} loss": loss, f"Task {model.task} {mode} train acc": train_acc,
-                           f"Task {model.task} {mode} test acc": test_acc})
+                progress_bar.prog(epoch, n_epochs, epoch, model.task, ets_loss, ets_train_acc, kbts_loss, kbts_train_acc, test_acc)
+                if args.wandb:
+                    wandb.log({'epoch':epoch, f"Task {model.task} {mode} ets loss": ets_loss, f"Task {model.task} {mode} ets train acc": ets_train_acc,
+                               f"Task {model.task} {mode} kbts loss": kbts_loss, f"Task {model.task} {mode} kbts train acc": kbts_train_acc,
+                            f"Task {model.task} {mode} test acc": test_acc})
 
         #save model
         model.net.clear_memory()
@@ -157,6 +176,9 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     # if wandb.run.resumed:
     checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
     model.net = checkpoint['net']
+    model.net.args = args
+    model.net.to_device(args.device)
+    model.device = args.device
 
     num_params, num_neurons = model.net.count_params()
     num_neurons = '-'.join(str(int(num)) for num in num_neurons)
@@ -173,7 +195,8 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         num_neurons = '-'.join(str(int(num)) for num in num_neurons)
         print(f'Num params :{num_params}, num neurons: {num_neurons}')
         if args.verbose:
-            wandb.log({'params': num_params, 'task': t})
+            if args.wandb:
+                wandb.log({'params': num_params, 'task': t})
 
         if args.task >= 0 :
             if t != args.task:
@@ -192,8 +215,8 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         #     mode = 'ets_kbts_ba_cal'
         #     model.evaluate(task=None, mode=mode)
 
-        mode = 'ets'
-        model.evaluate(task=None, mode=mode)
+        # mode = 'ets'
+        # model.evaluate(task=None, mode=mode)
 
         # mode = 'ets_ba'
         # model.evaluate(task=None, mode=mode)
@@ -205,8 +228,8 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         #     mode = 'ets_ba_cal'
         #     model.evaluate(task=None, mode=mode)
 
-        mode = 'kbts'
-        model.evaluate(task=None, mode=mode)
+        # mode = 'kbts'
+        # model.evaluate(task=None, mode=mode)
 
         # mode = 'kbts_ba'
         # model.evaluate(task=None, mode=mode)
@@ -227,7 +250,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     start_task = checkpoint['task']
     model.net = checkpoint['net']
     model.net.args = args
-    model.net.to(model.device)
+    model.net.to_device(args.device)
     model.net.freeze(False)
     model.net.ets_proj_mat = []
     model.net.kbts_proj_mat = []
@@ -304,24 +327,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             start_task = checkpoint['task']
             model.net = checkpoint['net']
             model.net.args = args
+            model.net.to_device(args.device)
+            model.device = args.device
         except Exception as e:
             print(e)
             print('no checkpoint to resume')
 
-    if 'sub' in args.ablation:
-        ratio = 0.1
-        data = []
-        targets = []
-        for c in dataset.train_targets.unique():
-            idx = dataset.train_targets == c
-            num = int(ratio * idx.sum())
-            data.append(dataset.train_data[idx][:num])
-            targets.append(dataset.train_targets[idx][:num])
-        dataset.train_data = torch.cat(data)
-        dataset.train_targets = torch.cat(targets)
-        print(dataset.train_data.shape)
-
-    model.net.to(model.device)
+    model.net.to_device(args.device)
     results, results_mask_classes = [], []
 
     # if not args.disable_log:
@@ -336,7 +348,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         train_loader, test_loader = dataset.get_data_loaders()
         if hasattr(model, 'begin_task') and checkpoint is None:
             model.begin_task(dataset)
-            model.net.to(model.device)
+            model.net.to_device(args.device)
             num_params, num_neurons = model.net.count_params()
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
