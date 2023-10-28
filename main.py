@@ -33,9 +33,9 @@ from utils.conf import set_random_seed
 from utils.continual_training import train as ctrain
 from utils.distributed import make_dp
 from utils.training import train
-import wandb
-
 import os
+# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+# Enable device-side assertions
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
 
 def lecun_fix():
@@ -93,17 +93,17 @@ def parse_args():
 
 
 def main(args=None):
-    # lecun_fix()
+    lecun_fix()
     if args is None:
         args = parse_args()
-
-    # os.putenv("MKL_SERVICE_FORCE_INTEL", "1")
-    # os.putenv("NPY_MKL_FORCE_INTEL", "1")
+    torch.cuda.set_device(0)
+    os.putenv("MKL_SERVICE_FORCE_INTEL", "1")
+    os.putenv("NPY_MKL_FORCE_INTEL", "1")
 
     # Add uuid, timestamp and hostname for logging
-    args.conf_jobnum = str(uuid.uuid4())
-    args.conf_timestamp = str(datetime.datetime.now())
-    args.conf_host = socket.gethostname()
+    # args.conf_jobnum = str(uuid.uuid4())
+    # args.conf_timestamp = str(datetime.datetime.now())
+    # args.conf_host = socket.gethostname()
     dataset = get_dataset(args)
     # dataset.download()
     dataset.N_TASKS = args.total_tasks
@@ -158,26 +158,16 @@ def main(args=None):
         print(args.title)
 
     if args.verbose:
-        wandb.login(key='74ac7eba00fea7e805a70861a86c7767406946c9')
-        run = wandb.init(
-            # Set the project where this run will be logged
-            project=model.NAME,
-            name=args.title,
-            # Track hyperparameters and run metadata
-            config=args
-            # config={
-            #     'dataset': args.dataset,
-            #     'total tasks': args.total_tasks,
-            #     "learning rate": args.lr,
-            #     "learning score": args.lr_score,
-            #     'lamb': args.lamb,
-            #     'sparsity': args.sparsity,
-            #     'dropout': args.dropout,
-            #     'buffer': args.buffer_size,
-            #     'ablation': args.ablation,
-            #     'temperature': args.temperature
-            # }
-            )
+        if args.wandb:
+            import wandb
+            wandb.login(key='74ac7eba00fea7e805a70861a86c7767406946c9')
+            run = wandb.init(
+                # Set the project where this run will be logged
+                project=model.NAME+'_new',
+                name=args.title,
+                # Track hyperparameters and run metadata
+                config=args
+                )
     if args.eval:
         evaluate(model, dataset, args)
     elif args.cal:
@@ -190,7 +180,8 @@ def main(args=None):
         assert not hasattr(model, 'end_task') or model.NAME == 'joint_gcl'
         ctrain(args)
     if args.verbose:
-        wandb.finish()
+        if args.wandb:
+            wandb.finish()
 
 
 if __name__ == '__main__':
