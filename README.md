@@ -32,7 +32,19 @@ python main.py --model dae --dataset seq-tinyimg --mode buf_rot --total_tasks 5 
 ### TinyImg 10T
 python main.py --model dae --dataset seq-tinyimg --mode buf_rot --total_tasks 10 --num_tasks 10 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.4 --alpha 1 --eps 1 --buffer_size 2000 --dropout 0 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 128 --verbose
 
+python main.py --model dae --dataset seq-cifar100 --mode buf_kd --device cuda --total_tasks 20 --num_tasks 20 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 1.05 --alpha 1 --beta 1 --buffer_size 2000 --dropout 0.2 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 256 --verbose --amp --resume
 
+python main.py --model dae --dataset seq-cifar100 --mode buf_rot_kd --device cuda --total_tasks 10 --num_tasks 10 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.55 --alpha 1 --beta 1 --buffer_size 2000 --dropout 0.2 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 256 --verbose --wandb --amp --resume
+
+python main.py --model dae --dataset seq-tinyimg --mode buf_rot --device cuda --total_tasks 10 --num_tasks 10 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.22 --alpha 1 --beta 1 --buffer_size 2000 --dropout 0.2 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 256 --verbose --amp --wandb --resume
+
+python main.py --model dae --dataset seq-tinyimg --mode buf_rot_kd --device cuda --total_tasks 5 --num_tasks 5 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.11 --alpha 1 --beta 1 --buffer_size 2000 --dropout 0.2 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 256 --verbose --amp --wandb --resume
+
+python main.py --model dae --dataset seq-cifar10 --mode buf_rot_kd --device cuda --total_tasks 5 --num_tasks 5 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.5 --alpha 1 --beta 1 --buffer_size 2000 --dropout 0.2 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 256 --verbose --amp --wandb --resume
+
+python main.py --eval --model dae --dataset seq-cifar100 --mode buf_rot_kd --device cuda --total_tasks 20 --num_tasks 20 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 1.05 --alpha 1 --beta 1 --buffer_size 2000 --dropout 0.0 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 32 --verbose --amp  --resume --wandb
+
+python main.py --eval --model dae --dataset seq-tinyimg --mode buf_rot --device cuda --total_tasks 10 --num_tasks 10 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.22 --alpha 1 --beta 1 --buffer_size 2000 --dropout 0.2 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 32 --verbose --amp --wandb --resume
 
 Official repository of [Class-Incremental Continual Learning into the eXtended DER-verse](https://arxiv.org/abs/2201.00766) and [Dark Experience for General Continual Learning: a Strong, Simple Baseline](https://papers.nips.cc/paper/2020/hash/b704ea2c39778f07c617f6b7ce480e9e-Abstract.html)
 
