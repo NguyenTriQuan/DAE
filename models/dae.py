@@ -62,6 +62,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument('--scale', type=float, nargs='*', default=[0.08, 1.0],
                         help='resized crop scale (default: [])', required=False)
     parser.add_argument("--device", type=str, required=False, help="training device: cuda:id or cpu", default="cuda:0")
+    parser.add_argument("--gpu_id", type=int, required=False, help="id of the gpu to run on", default=0)
     return parser
 
 def fgsm_attack(image, epsilon, data_grad):

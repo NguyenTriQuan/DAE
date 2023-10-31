@@ -6,7 +6,6 @@ checkpoints/
 *.png
 *.pt
 *.pkl
-*.sh
 *.txt
 json/
 out/
@@ -91,3 +90,5 @@ dmypy.json
 cython_debug/
 wandb
 tmp/
+pymp-*/
+tmp*/

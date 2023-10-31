@@ -1,0 +1,1 @@
+python main.py --eval --model dae --dataset seq-tinyimg --mode buf_rot --device cuda --total_tasks 10 --num_tasks 10 --num_aug 32 --norm_type bn_track_affine --lr 0.01 --lr_score 0.05 --lamb 0.22 --alpha 1 --beta 1 --buffer_size 2000 --dropout 0.2 --sparsity 0.8 --seed 0 --batch_size 32 --val_batch_size 32 --verbose --amp --wandb --resume
