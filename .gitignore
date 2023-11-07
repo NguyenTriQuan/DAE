@@ -92,3 +92,4 @@ wandb
 tmp/
 pymp-*/
 tmp*/
+*.json

@@ -215,11 +215,11 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         #     mode = 'ets_kbts_ba_cal'
         #     model.evaluate(task=None, mode=mode)
 
-        # mode = 'ets'
-        # model.evaluate(task=None, mode=mode)
+        mode = 'ets'
+        model.evaluate(task=None, mode=mode)
 
-        # mode = 'ets_ba'
-        # model.evaluate(task=None, mode=mode)
+        mode = 'ets_ba'
+        model.evaluate(task=None, mode=mode)
 
         # if 'cal' in args.mode:
         #     mode = 'ets_cal'
@@ -228,11 +228,11 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         #     mode = 'ets_ba_cal'
         #     model.evaluate(task=None, mode=mode)
 
-        # mode = 'kbts'
-        # model.evaluate(task=None, mode=mode)
+        mode = 'kbts'
+        model.evaluate(task=None, mode=mode)
 
-        # mode = 'kbts_ba'
-        # model.evaluate(task=None, mode=mode)
+        mode = 'kbts_ba'
+        model.evaluate(task=None, mode=mode)
 
         # if 'cal' in args.mode:
         #     mode = 'kbts_cal'
