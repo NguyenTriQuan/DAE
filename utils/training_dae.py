@@ -183,6 +183,9 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     num_params, num_neurons = model.net.count_params()
     num_neurons = '-'.join(str(int(num)) for num in num_neurons)
     print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
+
+    if args.cal:
+        model.train_calibration()
     for t in range(dataset.N_TASKS):
         if t >= args.num_tasks:
             break
@@ -205,7 +208,11 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         mode = 'ets_kbts'
         model.evaluate(task=None, mode=mode)
 
-        mode = 'ets_kbts_ba'
+        if args.cal:
+            mode = 'ets_kbts_cal'
+            model.evaluate(task=None, mode=mode)
+
+        mode = 'ets_kbts_ba' if not args.cal else 'ets_kbts_ba_cal'
         model.evaluate(task=None, mode=mode)
 
         # if 'cal' in args.mode:
@@ -218,7 +225,11 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         mode = 'ets'
         model.evaluate(task=None, mode=mode)
 
-        mode = 'ets_ba'
+        if args.cal:
+            mode = 'ets_cal'
+            model.evaluate(task=None, mode=mode)
+
+        mode = 'ets_ba' if not args.cal else 'ets_ba_cal'
         model.evaluate(task=None, mode=mode)
 
         # if 'cal' in args.mode:
@@ -231,7 +242,11 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         mode = 'kbts'
         model.evaluate(task=None, mode=mode)
 
-        mode = 'kbts_ba'
+        if args.cal:
+            mode = 'kbts_cal'
+            model.evaluate(task=None, mode=mode)
+
+        mode = 'kbts_ba' if not args.cal else 'kbts_ba_cal'
         model.evaluate(task=None, mode=mode)
 
         # if 'cal' in args.mode:

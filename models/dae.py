@@ -190,11 +190,22 @@ class DAE(ContinualModel):
             joint_entropy_tasks = []
             outputs_tasks = []
             for i in range(self.task + 1):
+                if cal:
+                    w_ets = self.net.w_ets
+                    b_ets = self.net.b_ets
+                    w_kbts = self.net.w_kbts
+                    b_kbts = self.net.b_kbts
+                else: 
+                    w_ets = 1
+                    b_ets = 0
+                    w_kbts = 1
+                    b_kbts = 0
+
                 outputs = []
                 if ets:
-                    outputs.append(self.net.ets_forward(inputs, i, cal=cal))
+                    outputs.append(self.net.ets_forward(inputs, i, cal=cal) * w_ets + b_ets)
                 if kbts:
-                    outputs.append(self.net.kbts_forward(inputs, i, cal=cal))
+                    outputs.append(self.net.kbts_forward(inputs, i, cal=cal) * w_kbts + b_kbts)
 
                 if ba:
                     outputs = [out.view(B, N, -1) for out in outputs]
@@ -206,7 +217,7 @@ class DAE(ContinualModel):
                     joint_entropy_tasks.append(joint_entropy)
                 else:
                     outputs = torch.stack(outputs, dim=1)
-                    outputs = outputs[:, :, :-1]  # ignore ood class
+                    outputs = outputs[:, :, :-1]  # ignore ood class 
                     outputs = ensemble_outputs(outputs, dim=1)
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
@@ -411,6 +422,48 @@ class DAE(ContinualModel):
         self.scheduler.step()
         return ets_total_loss / total, round(ets_correct * 100 / total, 2), kbts_total_loss / total, round(kbts_correct * 100 / total, 2)
     
+    def train_calibration(self):
+        self.net.freeze(False)
+        self.net.w_ets = torch.rand(self.task+1, requires_grad=True, device=self.args.device)
+        self.net.b_ets = torch.rand(self.task+1, requires_grad=True, device=self.args.device)
+        self.net.w_kbts = torch.rand(self.task+1, requires_grad=True, device=self.args.device)
+        self.net.b_kbts = torch.rand(self.task+1, requires_grad=True, device=self.args.device)
+
+        self.net.eval()
+        optimizer = torch.optim.SGD([self.net.w, self.net.b], lr=0.01, momentum=0.8)
+        total = 0
+        ets_correct = 0
+        ets_total_loss = 0
+
+        kbts_correct = 0
+        kbts_total_loss = 0
+        for e in range(200):
+            for i, data in enumerate(self.buffer):
+                optimizer.zero_grad()
+                inputs, labels = data
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
+
+                ets_outputs = []
+                kbts_outputs = []
+                for t in range(self.task+1):
+                    ets_outputs += [self.net.ets_forward(inputs, self.task, feat=False) * self.net.w_ets[t] + self.net.b_ets[t]]
+                    kbts_outputs += [self.net.kbts_forward(inputs, self.task, feat=False) * self.net.w_kbts[t] + self.net.b_kbts[t]]
+                
+                ets_outputs = torch.cat(ets_outputs, dim=1)
+                kbts_outputs = torch.cat(kbts_outputs, dim=1)
+                loss = F.cross_entropy(ets_outputs, labels) + F.cross_entropy(kbts_outputs, labels)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                total += labels.shape[0]
+                ets_correct += (ets_outputs.argmax(1) == labels).sum().item()
+                kbts_correct += (kbts_outputs.argmax(1) == labels).sum().item()
+
+            ets_acc = round(ets_correct * 100 / total, 2)
+            kbts_acc = round(kbts_correct * 100 / total, 2)
+            print(f'ets acc: {ets_acc}, kbts acc: {kbts_acc}')
+            
+    
     def back_updating(self, train_loader, t):
         total = 0
         correct = 0
@@ -451,7 +504,7 @@ class DAE(ContinualModel):
         self.scheduler.step()
         return total_loss / total, 0
 
-    def train_calibration(self, mode, ets, kbts):
+    # def train_calibration(self, mode, ets, kbts):
         self.net.train()
         total = 0
         correct = 0
