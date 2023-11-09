@@ -369,9 +369,9 @@ class MEAE(ContinualModel):
             with torch.cuda.amp.autocast(enabled=enabled):
                 ets_outputs = self.net.ets_forward(inputs, self.task, feat=False)
                 kbts_outputs = self.net.kbts_forward(inputs, self.task, feat=False)
+                print(ets_outputs, kbts_outputs)
                 ets_outputs = F.softmax(ets_outputs, dim=1)
                 kbts_outputs = F.softmax(kbts_outputs, dim=1)
-                print(ets_outputs, kbts_outputs)
                 loss = 0
                 if num_ood > 0:
                     ets_outputs, ets_ood_outputs = ets_outputs.split((bs, num_ood), dim=0)
