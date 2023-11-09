@@ -250,7 +250,7 @@ class _DynamicLayer(nn.Module):
             self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
         else:
             weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.kbts_sparsities[t])
-        print(weight.norm(p=2))
+        
         if isinstance(self, DynamicConv2D):
             output = F.conv2d(x, weight, None, self.stride, self.padding, self.dilation, self.groups)
         else:
@@ -722,7 +722,6 @@ class DynamicClassifier(DynamicLinear):
     def kbts_forward(self, x, t):
         weight = self.weight_kbts[t]
         bias = self.bias_kbts[t] if self.use_bias else None
-        print(weight.norm(p=2))
         out = F.linear(x, weight, bias)
         return out
     
@@ -802,7 +801,7 @@ class DynamicClassifier(DynamicLinear):
         
     def initialize(self):
         nn.init.normal_(self.weight_ets[-1], 0, 1 / math.sqrt(self.weight_ets[-1].shape[0]))
-        # nn.init.normal_(self.weight_kbts[-1], 0, 1 / math.sqrt(self.weight_kbts[-1].shape[0]))
+        nn.init.normal_(self.weight_kbts[-1], 0, 1 / math.sqrt(self.weight_kbts[-1].shape[0]))
     
     def normalize(self):
         mean = self.weight_ets[-1].data.mean(self.dim_in)
