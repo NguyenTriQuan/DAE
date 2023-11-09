@@ -228,8 +228,14 @@ class _DynamicLayer(nn.Module):
         # get expanded task specific model
         weight = self.kb_weight * self.bound_std[t]
         weight = F.dropout(weight, self.dropout, self.training)
-        weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
-                                torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
+        
+        fwt_weight = torch.empty(0).to(self.device)
+        bwt_weight = torch.empty(0).to(self.device)
+        for i in range(t):
+            fwt_weight = torch.cat([fwt_weight, getattr(self, f'weight_{i}_{t}')], dim=1)
+            bwt_weight = torch.cat([bwt_weight, getattr(self, f'weight_{t}_{i}')], dim=0)
+        weight = torch.cat([torch.cat([weight, bwt_weight], dim=1), 
+                            torch.cat([fwt_weight, getattr(self, f'weight_{t}_{t}')], dim=1)], dim=0)
         
         if isinstance(self, DynamicConv2D):
             output = F.conv2d(x, weight, None, self.stride, self.padding, self.dilation, self.groups)
