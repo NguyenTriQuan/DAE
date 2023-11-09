@@ -552,6 +552,7 @@ class MEAE(ContinualModel):
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:
             m.kbts_sparsities += [m.sparsity]
+            print(m.sparsity)
 
     def end_task(self, dataset) -> None:
         # self.net.freeze_feature()
