@@ -369,7 +369,6 @@ class MEAE(ContinualModel):
             with torch.cuda.amp.autocast(enabled=enabled):
                 ets_outputs = self.net.ets_forward(inputs, self.task, feat=False)
                 kbts_outputs = self.net.kbts_forward(inputs, self.task, feat=False)
-                print(ets_outputs, kbts_outputs)
                 ets_outputs = F.softmax(ets_outputs, dim=1)
                 kbts_outputs = F.softmax(kbts_outputs, dim=1)
                 loss = 0
@@ -552,7 +551,6 @@ class MEAE(ContinualModel):
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:
             m.kbts_sparsities += [m.sparsity]
-            print(m.sparsity)
 
     def end_task(self, dataset) -> None:
         # self.net.freeze_feature()
