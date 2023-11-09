@@ -177,7 +177,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
     model.net = checkpoint['net']
     model.net.args = args
-    model.net.to_device(args.device)
+    # model.net.to_device(args.device)
     model.device = args.device
 
     num_params, num_neurons = model.net.count_params()
@@ -265,7 +265,7 @@ def train_cal(model: ContinualModel, dataset: ContinualDataset,
     start_task = checkpoint['task']
     model.net = checkpoint['net']
     model.net.args = args
-    model.net.to_device(args.device)
+    # model.net.to_device(args.device)
     model.net.freeze(False)
     model.net.ets_proj_mat = []
     model.net.kbts_proj_mat = []
@@ -342,13 +342,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             start_task = checkpoint['task']
             model.net = checkpoint['net']
             model.net.args = args
-            model.net.to_device(args.device)
+            # model.net.to_device(args.device)
             model.device = args.device
         except Exception as e:
             print(e)
             print('no checkpoint to resume')
 
-    model.net.to_device(args.device)
+    # model.net.to_device(args.device)
     results, results_mask_classes = [], []
 
     # if not args.disable_log:
@@ -363,7 +363,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         train_loader, test_loader = dataset.get_data_loaders()
         if hasattr(model, 'begin_task') and checkpoint is None:
             model.begin_task(dataset)
-            model.net.to_device(args.device)
+            # model.net.to_device(args.device)
             num_params, num_neurons = model.net.count_params()
             num_neurons = '-'.join(str(int(num)) for num in num_neurons)
             print(f'Num params :{sum(num_params)}, num neurons: {num_neurons}')
