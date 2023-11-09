@@ -54,7 +54,7 @@ class _DynamicModel(nn.Module):
         for m in self.DB:
             params += m.get_optim_ets_params()
         # params += self.projector.get_optim_ets_params()
-        params += self.last.get_optim_ets_params()
+        # params += self.last.get_optim_ets_params()
         return params
     
     def get_optim_kbts_params(self):
@@ -65,7 +65,7 @@ class _DynamicModel(nn.Module):
             params += p
             scores += s
         # params += self.projector.get_optim_kbts_params()
-        params += self.last.get_optim_kbts_params()
+        # params += self.last.get_optim_kbts_params()
         return params, scores
 
     def count_params(self, t=-1):
