@@ -9,7 +9,7 @@ from torch.nn.functional import avg_pool2d, relu
 import random
 
 # from backbone import MammothBackbone, _DynamicModel
-from backbone.utils.ata_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
+from backbone.utils.meae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm, DynamicBlock
 
 import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5,6,7"
@@ -482,7 +482,7 @@ class ResNet(_DynamicModel):
         with torch.no_grad():
             for block in self.DB:
                 block.check_var() 
-                
+
 
     def get_masked_kb_params(self, t):
         if t == 0:

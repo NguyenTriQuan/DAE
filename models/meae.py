@@ -16,7 +16,7 @@ from utils.batch_norm import bn_track_stats
 from backbone.ResNet18_MEAE import resnet18, resnet10
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from itertools import cycle
-from backbone.utils.dae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm
+from backbone.utils.meae_layers import DynamicLinear, DynamicConv2D, DynamicClassifier, _DynamicLayer, DynamicNorm
 import numpy as np
 import random
 import math
