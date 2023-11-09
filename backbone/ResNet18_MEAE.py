@@ -54,7 +54,7 @@ class _DynamicModel(nn.Module):
         for m in self.DB:
             params += m.get_optim_ets_params()
         # params += self.projector.get_optim_ets_params()
-        # params += self.last.get_optim_ets_params()
+        params += self.last.get_optim_ets_params()
         return params
     
     def get_optim_kbts_params(self):
@@ -65,7 +65,7 @@ class _DynamicModel(nn.Module):
             params += p
             scores += s
         # params += self.projector.get_optim_kbts_params()
-        # params += self.last.get_optim_kbts_params()
+        params += self.last.get_optim_kbts_params()
         return params, scores
 
     def count_params(self, t=-1):
@@ -242,7 +242,8 @@ class ResNet(_DynamicModel):
         feat_dim = nf * 8 * block.expansion
         # self.mid = DynamicBlock([DynamicLinear(feat_dim, feat_dim, bias=True, args=args, s=1)], None, args)
         # self.mid = DynamicClassifier(feat_dim, feat_dim, norm_type=None, args=args, s=1, bias=False)
-        self.last = DynamicBlock([DynamicLinear(nf * 8 * block.expansion, num_classes, args=self.args, s=1)], args=self.args, act=None, norm_type=None)
+        self.last = DynamicClassifier(feat_dim, num_classes, norm_type=None, args=args, s=1, bias=False)
+        # self.last = DynamicBlock([DynamicLinear(nf * 8 * block.expansion, num_classes, args=self.args, s=1)], args=self.args, act=None, norm_type=None)
         # self.projector = DynamicClassifier(feat_dim, feat_dim, norm_type=None, args=args, s=1, bias=True)
         self.DB = [m for m in self.modules() if isinstance(m, DynamicBlock)]
         self.DM = [m for m in self.modules() if isinstance(m, _DynamicLayer) if not isinstance(m, DynamicClassifier)]
@@ -429,7 +430,7 @@ class ResNet(_DynamicModel):
         #     self.last.expand((0, 0), (new_classes, new_classes))
 
         # add_in = self.mid.expand([add_in], [(None, None)])
-        self.last.expand([add_in], [(new_classes+1, new_classes+1)])
+        self.last.expand(add_in, (new_classes+1, new_classes+1))
         # self.projector.expand(add_in, (128, 128))
 
         self.total_strength = 1
@@ -466,17 +467,19 @@ class ResNet(_DynamicModel):
         with torch.no_grad():
             for block in self.DB:
                 block.initialize()
+            self.last.initialize()
 
     def proximal_gradient_descent(self, lr=0, lamb=0):
         with torch.no_grad():
-            for block in self.DB[:-1]:
+            for block in self.DB:
                 block.proximal_gradient_descent(lr, lamb, self.total_strength)
-            self.DB[-1].normalize()
+            self.last.normalize()
     
     def normalize(self):
         with torch.no_grad():
             for block in self.DB:
                 block.normalize()
+            self.last.normalize()
 
     def check_var(self):
         with torch.no_grad():
