@@ -801,7 +801,7 @@ class DynamicClassifier(DynamicLinear):
         
     def initialize(self):
         nn.init.normal_(self.weight_ets[-1], 0, 1 / math.sqrt(self.weight_ets[-1].shape[0]))
-        nn.init.normal_(self.weight_kbts[-1], 0, 1 / math.sqrt(self.weight_kbts[-1].shape[0]))
+        # nn.init.normal_(self.weight_kbts[-1], 0, 1 / math.sqrt(self.weight_kbts[-1].shape[0]))
     
     def normalize(self):
         mean = self.weight_ets[-1].data.mean(self.dim_in)
@@ -810,11 +810,11 @@ class DynamicClassifier(DynamicLinear):
         std = var.sum(0).sqrt()
         self.weight_ets[-1].data /= std
 
-        mean = self.weight_kbts[-1].data.mean(self.dim_in)
-        self.weight_kbts[-1].data -= mean.view(self.view_in)
-        var = (self.weight_kbts[-1].data ** 2).mean(self.dim_in)
-        std = var.sum(0).sqrt()
-        self.weight_kbts[-1].data /= std
+        # mean = self.weight_kbts[-1].data.mean(self.dim_in)
+        # self.weight_kbts[-1].data -= mean.view(self.view_in)
+        # var = (self.weight_kbts[-1].data ** 2).mean(self.dim_in)
+        # std = var.sum(0).sqrt()
+        # self.weight_kbts[-1].data /= std
 
 class DynamicNorm(nn.Module):
     def __init__(self, num_features, eps=1e-5, momentum=0.1,
