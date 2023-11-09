@@ -640,7 +640,7 @@ class DynamicBlock(nn.Module):
             return var
         
         for layer in self.layers:
-            print(layer.name, end=' ')
+            print(layer.__class__, end=' ')
         print()
         if hasattr(self, f'old_var_{self.task}'):
             print(getattr(self, f'old_var_{self.task}'))
