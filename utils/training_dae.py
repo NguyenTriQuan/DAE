@@ -105,6 +105,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
         num_squeeze = 140
         step_lr = [180, 200]
         squeeze = 'squeeze' not in args.ablation
+        print(ets_params+kbts_params)
         model.opt = torch.optim.SGD([{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
                                     lr=args.lr, weight_decay=0, momentum=0.9)
         count = 0
