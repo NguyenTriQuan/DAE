@@ -146,6 +146,17 @@ def main(args=None):
                                                                 args.lamb, args.dropout, args.sparsity,
                                                                  args.buffer_size, args.mode)
         print(args.title)
+    elif model.NAME == 'MEAE':
+        from utils.training_dae import train, evaluate, train_cal
+        if len(args.ablation)>0:
+            args.title = '{}_{}_{}_lamb_{}_drop_{}_sparsity_{}_buf_{}_{}-{}'.format(args.model, args.dataset, args.total_tasks,
+                                                                args.lamb, args.dropout, args.sparsity,
+                                                                 args.buffer_size, args.mode, args.ablation)
+        else:
+            args.title = '{}_{}_{}_lamb_{}_drop_{}_sparsity_{}_buf_{}_{}'.format(args.model, args.dataset, args.total_tasks,
+                                                                args.lamb, args.dropout, args.sparsity,
+                                                                 args.buffer_size, args.mode)
+        print(args.title)
     elif model.NAME == 'ATA':
         from utils.training_ata import train
         args.title = '{}_{}_lamb_{}_drop_{}_sparsity_{}'.format(args.model, args.dataset, 

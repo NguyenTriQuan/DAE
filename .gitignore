@@ -93,3 +93,4 @@ tmp/
 pymp-*/
 tmp*/
 *.json
+*.sh
