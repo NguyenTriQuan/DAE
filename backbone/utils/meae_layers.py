@@ -503,7 +503,7 @@ class DynamicBlock(nn.Module):
         for layer in self.layers:
             # rescale old weights
             layer.register_buffer(f'old_var_{self.task}', getattr(self, f'old_var_{self.task}').data)
-            layer.register_buffer(f'bound_std_{self.task}', std)
+            layer.register_buffer(f'bound_std_{self.task}', torch.tensor(std).to(self.device))
             if self.task > 0:
                 for i in range(self.task-1):
                     layer.register_buffer(f'scale_{i}_{self.task-1}', compute_scale(layer, i, self.task-1))
