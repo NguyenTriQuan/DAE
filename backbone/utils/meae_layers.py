@@ -227,7 +227,7 @@ class _DynamicLayer(nn.Module):
 
     def ets_forward(self, x, t):
         # get expanded task specific model
-        weight = F.dropout(weight, self.dropout, self.training)
+        weight = F.dropout(self.kb_weight, self.dropout, self.training)
 
         fwt_weight = torch.empty(0).to(self.device)
         bwt_weight = torch.empty(0).to(self.device)
