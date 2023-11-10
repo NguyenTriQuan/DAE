@@ -101,7 +101,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     else:
         ets_params = model.net.get_optim_ets_params()
         kbts_params, scores = model.net.get_optim_kbts_params()
-        n_epochs = 220
+        n_epochs = 5
         num_squeeze = 140
         step_lr = [180, 200]
         squeeze = 'squeeze' not in args.ablation
