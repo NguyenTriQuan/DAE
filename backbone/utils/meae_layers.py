@@ -647,8 +647,8 @@ class DynamicBlock(nn.Module):
 
             return var
         
-        for layer in self.layers:
-            print(layer.shape_in[-1], layer.shape_out[-1], end=' ')
+        for l, layer in enumerate(self.layers):
+            print(l, layer.shape_in[-1].item(), layer.shape_out[-1].item(), layer.ks, end=' - ')
         print()
         for i in range(self.task+1):
             if hasattr(self, f'old_var_{i}'):
