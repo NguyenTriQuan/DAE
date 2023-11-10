@@ -211,6 +211,8 @@ class _DynamicLayer(nn.Module):
             self.gen_dummy()
         num = (n_0 + n_1) // self.dummy_weight.numel() + 1
         dummy_weight = torch.cat([self.dummy_weight for _ in range(num)])
+        bound_std = self.gain / math.sqrt(fan_out * self.ks)
+        dummy_weight = dummy_weight * bound_std
 
         if isinstance(self, DynamicConv2D):
             dummy_weight_0 = dummy_weight[:n_0].view(add_out, (fan_in-add_in) // self.groups, *self.kernel_size)
@@ -220,8 +222,8 @@ class _DynamicLayer(nn.Module):
             dummy_weight_1 = dummy_weight[n_0:n_0+n_1].view(fan_out, add_in)
         self.masked_kb_weight = torch.cat([torch.cat([self.kb_weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
         del dummy_weight, dummy_weight_0, dummy_weight_1
-        bound_std = self.gain / math.sqrt(fan_in * self.ks)
-        self.masked_kb_weight = self.masked_kb_weight * bound_std
+
+        self.masked_kb_weight = self.masked_kb_weight
         return add_out * self.s * self.s
 
     def ets_forward(self, x, t):
