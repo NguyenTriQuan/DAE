@@ -245,12 +245,12 @@ class _DynamicLayer(nn.Module):
     def kbts_forward(self, x, t):
         if self.training and self.score is not None:
             mask = GetSubnet.apply(self.score.abs(), 1-self.kbts_sparsities[t])
-            # weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
-            weight = self.masked_kb_weight * mask
+            weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
+            # weight = self.masked_kb_weight * mask
             self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
         else:
-            # weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.kbts_sparsities[t])
-            weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}')
+            weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.kbts_sparsities[t])
+            # weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}')
         
         if isinstance(self, DynamicConv2D):
             output = F.conv2d(x, weight, None, self.stride, self.padding, self.dilation, self.groups)
