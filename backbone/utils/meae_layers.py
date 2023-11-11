@@ -107,6 +107,12 @@ class _DynamicLayer(nn.Module):
         torch.cuda.manual_seed_all(self.args.seed)
         self.dummy_weight = torch.Tensor(self.base_params).to(self.device)
         nn.init.normal_(self.dummy_weight, 0, 1)
+
+        mean = self.dummy_weight.data.mean(self.dim_in)
+        self.dummy_weight.data -= mean.view(self.view_in)
+        var = (self.dummy_weight.data ** 2).mean(self.dim_in)
+        std = var.sum(0).sqrt()
+        self.dummy_weight.data /= std
     
     def get_expand_shape(self, t, add_in, add_out=None, kbts=False):
         # expand from knowledge base weights of task t
@@ -195,7 +201,7 @@ class _DynamicLayer(nn.Module):
             row = torch.empty(0).to(self.device)
             # old_std = getattr(self, f'old_var_{t}')[i].sqrt()
             for j in range(t):
-                row = torch.cat([row, getattr(self, f'bound_std_{t}') * getattr(self, f'weight_{i}_{j}').data / getattr(self, f'scale_{i}_{j}')], dim=0)
+                row = torch.cat([row, getattr(self, f'weight_{i}_{j}').data / getattr(self, f'scale_{i}_{j}')], dim=0)
                 # row = torch.cat([row, getattr(self, f'weight_{i}_{j}')], dim=0)
             self.kb_weight = torch.cat([self.kb_weight, row], dim=1)
 
@@ -211,7 +217,7 @@ class _DynamicLayer(nn.Module):
             self.gen_dummy()
         num = (n_0 + n_1) // self.dummy_weight.numel() + 1
         dummy_weight = torch.cat([self.dummy_weight for _ in range(num)])
-        dummy_weight = dummy_weight * getattr(self, f'bound_std_{t}')
+        # dummy_weight = dummy_weight * getattr(self, f'bound_std_{t}')
 
         if isinstance(self, DynamicConv2D):
             dummy_weight_0 = dummy_weight[:n_0].view(add_out, (fan_in-add_in) // self.groups, *self.kernel_size)
@@ -222,11 +228,13 @@ class _DynamicLayer(nn.Module):
         self.masked_kb_weight = torch.cat([torch.cat([self.kb_weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
         del dummy_weight, dummy_weight_0, dummy_weight_1
 
+        bound_std = self.gain / math.sqrt(fan_out * self.ks)
+        self.masked_kb_weight = self.masked_kb_weight * bound_std
         return add_out * self.s * self.s
 
     def ets_forward(self, x, t):
         # get expanded task specific model
-        weight = F.dropout(self.kb_weight, self.dropout, self.training)
+        weight = F.dropout(self.kb_weight * getattr(self, f'bound_std_{t}'), self.dropout, self.training)
 
         fwt_weight = torch.empty(0).to(self.device)
         bwt_weight = torch.empty(0).to(self.device)
@@ -245,12 +253,12 @@ class _DynamicLayer(nn.Module):
     def kbts_forward(self, x, t):
         if self.training and self.score is not None:
             mask = GetSubnet.apply(self.score.abs(), 1-self.kbts_sparsities[t])
-            # weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
-            weight = self.masked_kb_weight * mask
+            weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
+            # weight = self.masked_kb_weight * mask
             self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
         else:
-            # weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.kbts_sparsities[t])
-            weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}')
+            weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.kbts_sparsities[t])
+            # weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}')
         
         if isinstance(self, DynamicConv2D):
             output = F.conv2d(x, weight, None, self.stride, self.padding, self.dilation, self.groups)
