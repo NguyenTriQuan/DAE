@@ -108,10 +108,10 @@ class _DynamicLayer(nn.Module):
         self.dummy_weight = torch.Tensor(self.base_params).to(self.device)
         nn.init.normal_(self.dummy_weight, 0, 1)
 
-        mean = self.dummy_weight.data.mean(self.dim_in)
-        self.dummy_weight.data -= mean.view(self.view_in)
-        var = (self.dummy_weight.data ** 2).mean(self.dim_in)
-        std = var.sum(0).sqrt()
+        mean = self.dummy_weight.data.mean()
+        self.dummy_weight.data -= mean
+        var = (self.dummy_weight.data ** 2).mean()
+        std = var.sqrt()
         self.dummy_weight.data /= std
     
     def get_expand_shape(self, t, add_in, add_out=None, kbts=False):
