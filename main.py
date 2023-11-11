@@ -96,7 +96,7 @@ def main(args=None):
     lecun_fix()
     if args is None:
         args = parse_args()
-    torch.cuda.set_device(args.gpu_id)
+    # torch.cuda.set_device(args.gpu_id)
     os.putenv("MKL_SERVICE_FORCE_INTEL", "1")
     os.putenv("NPY_MKL_FORCE_INTEL", "1")
 
