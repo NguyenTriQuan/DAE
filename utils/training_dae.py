@@ -119,7 +119,9 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
         model.scheduler = checkpoint['scheduler']
         # optimizer_to(model.opt, args.device)
 
-    # if 'epoch' in args.ablation:
+    if 'epoch' in args.ablation:
+        n_epochs = 5
+
     progress_bar = ProgressBar()
     for epoch in range(start_epoch, n_epochs):
         if cal:

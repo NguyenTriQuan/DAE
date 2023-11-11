@@ -256,6 +256,8 @@ class ResNet(_DynamicModel):
         self.ets_feat = []
         self.kbts_feat = []
         self.device = args.device
+        self.ets_batch_norms = nn.ModuleList([])
+        self.kbts_batch_norms = nn.ModuleList([])
         
         
     def _make_layer(self, block: BasicBlock, planes: int,
@@ -280,7 +282,8 @@ class ResNet(_DynamicModel):
         if t != self.ets_temp:
             self.get_kb_params(t)
             self.ets_temp = t
-        out = self.conv1.ets_forward([x], t)
+        out = self.ets_batch_norms[t](x)
+        out = self.conv1.ets_forward([out], t)
         
         for layer in self.layers:
             out = layer.ets_forward(out, t)  
@@ -311,7 +314,8 @@ class ResNet(_DynamicModel):
                 self.ets_temp = t
             self.get_masked_kb_params(t)
             self.kbts_temp = t
-        out = self.conv1.kbts_forward([x], t)
+        out = self.kbts_batch_norms[t](x)
+        out = self.conv1.kbts_forward([out], t)
         
         for layer in self.layers:
             out = layer.kbts_forward(out, t)  
@@ -432,6 +436,8 @@ class ResNet(_DynamicModel):
         # add_in = self.mid.expand([add_in], [(None, None)])
         self.last.expand(add_in, (new_classes+1, new_classes+1))
         # self.projector.expand(add_in, (128, 128))
+        self.ets_batch_norms.append(nn.BatchNorm2d(3, affine=False, track_running_stats=True).to(self.device))
+        self.kbts_batch_norms.append(nn.BatchNorm2d(3, affine=False, track_running_stats=True).to(self.device))
 
         self.total_strength = 1
         for m in self.DB:
