@@ -222,7 +222,6 @@ class _DynamicLayer(nn.Module):
         self.masked_kb_weight = torch.cat([torch.cat([self.kb_weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
         del dummy_weight, dummy_weight_0, dummy_weight_1
 
-        self.masked_kb_weight = self.masked_kb_weight
         return add_out * self.s * self.s
 
     def ets_forward(self, x, t):
@@ -246,10 +245,12 @@ class _DynamicLayer(nn.Module):
     def kbts_forward(self, x, t):
         if self.training and self.score is not None:
             mask = GetSubnet.apply(self.score.abs(), 1-self.kbts_sparsities[t])
-            weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
+            # weight = self.masked_kb_weight * mask / (1-self.kbts_sparsities[t])
+            weight = self.masked_kb_weight * mask
             self.register_buffer('kbts_mask'+f'_{t}', mask.detach().bool().clone())
         else:
-            weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.kbts_sparsities[t])
+            # weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}') / (1-self.kbts_sparsities[t])
+            weight = self.masked_kb_weight * getattr(self, 'kbts_mask'+f'_{t}')
         
         if isinstance(self, DynamicConv2D):
             output = F.conv2d(x, weight, None, self.stride, self.padding, self.dilation, self.groups)
