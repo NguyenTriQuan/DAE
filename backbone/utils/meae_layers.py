@@ -567,7 +567,7 @@ class DynamicBlock(nn.Module):
         std_old_neurons = var_tasks[self.task].sqrt()
         for layer in self.layers:
             # layer.register_buffer(f'old_var_{self.task}', getattr(self, f'old_var_{self.task}').data)
-            layer.register_buffer(f'bound_std_{self.task}', std_old_neurons)
+            # layer.register_buffer(f'bound_std_{self.task}', std_old_neurons)
             for i in range(self.task):
                 getattr(layer, f'weight_{i}_{self.task}').data /= std_new_neurons[i].view(layer.view_in)
                 getattr(layer, f'weight_{self.task}_{i}').data /= std_old_neurons
@@ -626,7 +626,7 @@ class DynamicBlock(nn.Module):
         std_old_neurons = var_tasks[self.task].sqrt() # shape (0)
         for layer in self.layers:
             # layer.register_buffer(f'old_var_{self.task}', getattr(self, f'old_var_{self.task}').data)
-            layer.register_buffer(f'bound_std_{self.task}', std_old_neurons)
+            # layer.register_buffer(f'bound_std_{self.task}', std_old_neurons)
             for i in range(self.task):
                 getattr(layer, f'weight_{i}_{self.task}').data /= std_new_neurons[i].view(layer.view_in)
                 getattr(layer, f'weight_{self.task}_{i}').data /= std_old_neurons
