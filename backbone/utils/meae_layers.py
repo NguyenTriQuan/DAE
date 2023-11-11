@@ -275,7 +275,9 @@ class _DynamicLayer(nn.Module):
         return norm
     
     def set_reg_strength(self):
-        self.strength = (self.shape_in[-1] * self.num_out[-1] * self.ks)
+        # self.strength = (self.shape_in[-1] * self.num_out[-1] * self.ks)
+        self.strength = self.num_out[-1]
+
 
     def squeeze(self, optim_state, mask_in=None, mask_out=None):
         prune_out = mask_out is not None and mask_out.sum() != self.num_out[-1]
@@ -404,8 +406,7 @@ class DynamicBlock(nn.Module):
         for x, layer in zip(inputs, self.layers):
             out = out + layer.ets_forward(x, t)
             
-        # out = self.activation(self.ets_norm_layers[t](out))
-        out = self.activation(out)
+        out = self.activation(self.ets_norm_layers[t](out))
         return out
     
     def kbts_forward(self, inputs, t):
