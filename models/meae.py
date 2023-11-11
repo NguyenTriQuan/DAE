@@ -556,7 +556,7 @@ class MEAE(ContinualModel):
     def end_task(self, dataset) -> None:
         # self.net.freeze_feature()
         # self.net.freeze_classifier()
-        self.net.check_var()
+        # self.net.check_var()
         self.net.freeze(False)
         self.net.clear_memory()
 
