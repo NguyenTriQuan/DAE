@@ -713,27 +713,6 @@ class DynamicBlock(nn.Module):
             self.ets_norm_layers[-1].track_running_stats = state
             self.kbts_norm_layers[-1].track_running_stats = state
 
-    def to_device(self, device):
-        self.device = device
-        self.num_in = self.num_in.to(device)
-        self.num_out = self.num_out.to(device)
-        self.shape_in = self.shape_in.to(device)
-        self.shape_out = self.shape_out.to(device)
-        
-        if hasattr(self, 'strength'):
-            self.strength = self.strength.to(device)
-        for p in self.parameters():
-            p.to(device)
-
-        for p in self.buffers():
-            p.to(device)
-
-        if self.dummy_weight is not None:
-            self.dummy_weight = self.dummy_weight.to(device)      
-
-        if hasattr(self, 'kb_weight'):
-            if self.kb_weight is not None:
-                self.kb_weight = self.kb_weight.to(device)
 
 class DynamicClassifier(DynamicLinear):
 
@@ -796,11 +775,6 @@ class DynamicClassifier(DynamicLinear):
         if self.use_bias:
             self.bias_ets[-1].requires_grad = state
             self.bias_kbts[-1].requires_grad = state
-        
-    def to_device(self, device):
-        self.task.to(device)
-        self.device = device
-        self.strength = self.strength.to(device)
 
     def get_optim_ets_params(self):
         if self.use_bias:
