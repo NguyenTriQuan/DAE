@@ -419,8 +419,8 @@ class DynamicBlock(nn.Module):
         for x, layer in zip(inputs, self.layers):
             out = out + layer.ets_forward(x, t)
             
-        out = self.activation(self.ets_norm_layers[t](out))
-        # out = self.activation(out)
+        # out = self.activation(self.ets_norm_layers[t](out))
+        out = self.activation(out)
         return out
     
     def kbts_forward(self, inputs, t):
@@ -581,15 +581,15 @@ class DynamicBlock(nn.Module):
                 getattr(layer, f'weight_{self.task}_{i}').data /= std_old_neurons
             getattr(layer, f'weight_{self.task}_{self.task}').data /= std_new_neurons[self.task].view(layer.view_in)
 
-        if self.norm_type is not None and 'scale' not in self.args.ablation:
-            out_scale = (std_new_neurons**2).sum(0).sqrt() # shape (num new neurons)
-            if self.ets_norm_layers[-1].track_running_stats:
-                self.ets_norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
-                self.ets_norm_layers[-1].running_var[layer.shape_out[-2]:] /= (out_scale ** 2)
+        # if self.norm_type is not None and 'scale' not in self.args.ablation:
+        #     out_scale = (std_new_neurons**2).sum(0).sqrt() # shape (num new neurons)
+        #     if self.ets_norm_layers[-1].track_running_stats:
+        #         self.ets_norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
+        #         self.ets_norm_layers[-1].running_var[layer.shape_out[-2]:] /= (out_scale ** 2)
 
-            if self.ets_norm_layers[-1].affine:
-                self.ets_norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
-                self.ets_norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
+        #     if self.ets_norm_layers[-1].affine:
+        #         self.ets_norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
+        #         self.ets_norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
             
 
     def proximal_gradient_descent(self, lr=0, lamb=0, total_strength=1):
@@ -640,15 +640,15 @@ class DynamicBlock(nn.Module):
                 getattr(layer, f'weight_{self.task}_{i}').data /= std_old_neurons
             getattr(layer, f'weight_{self.task}_{self.task}').data /= std_new_neurons[self.task].view(layer.view_in)
 
-        if self.norm_type is not None and 'scale' not in self.args.ablation:
-            out_scale = (std_new_neurons**2).sum(0).sqrt() # shape (num new neurons)
-            if self.ets_norm_layers[-1].track_running_stats:
-                self.ets_norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
-                self.ets_norm_layers[-1].running_var[layer.shape_out[-2]:] /= (out_scale ** 2)
+        # if self.norm_type is not None and 'scale' not in self.args.ablation:
+        #     out_scale = (std_new_neurons**2).sum(0).sqrt() # shape (num new neurons)
+        #     if self.ets_norm_layers[-1].track_running_stats:
+        #         self.ets_norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
+        #         self.ets_norm_layers[-1].running_var[layer.shape_out[-2]:] /= (out_scale ** 2)
 
-            if self.ets_norm_layers[-1].affine:
-                self.ets_norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
-                self.ets_norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
+        #     if self.ets_norm_layers[-1].affine:
+        #         self.ets_norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
+        #         self.ets_norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
         
         # if self.task > 0:
         #     self.check_var()
@@ -987,7 +987,7 @@ class DynamicNorm(nn.Module):
 
         var = var.sum()
         # var = var.sum()
-        output = 6 * (input - mean.view(shape)) / (torch.sqrt(var + self.eps))
+        output = (input - mean.view(shape)) / (torch.sqrt(var + self.eps))
     
         if self.affine:
             output = output * self.weight.view(shape) + self.bias.view(shape)
