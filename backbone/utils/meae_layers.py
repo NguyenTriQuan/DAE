@@ -98,7 +98,7 @@ class _DynamicLayer(nn.Module):
 
         # self.gain = torch.nn.init.calculate_gain('leaky_relu', math.sqrt(5))
         self.activation = nn.LeakyReLU(args.negative_slope)
-        self.gain = torch.nn.init.calculate_gain('leaky_relu', args.negative_slope)
+        self.gain = torch.nn.init.calculate_gain('leaky_relu', args.negative_slope) ** 2
         self.gen_dummy()
 
     def gen_dummy(self):
@@ -161,8 +161,7 @@ class _DynamicLayer(nn.Module):
         # self.shape_out.append(fan_out)
         # self.shape_in.append(fan_in)
         
-        bound_std = self.gain / math.sqrt(fan_in * self.ks)
-        # bound_std = self.gain / math.sqrt(fan_out * self.ks)
+        bound_std = math.sqrt(self.gain / (fan_out * self.ks))
         self.bound_std.append(bound_std)
         if isinstance(self, DynamicConv2D):
             for i in range(self.task):
@@ -228,7 +227,7 @@ class _DynamicLayer(nn.Module):
         self.masked_kb_weight = torch.cat([torch.cat([self.kb_weight, dummy_weight_0], dim=0), dummy_weight_1], dim=1)
         del dummy_weight, dummy_weight_0, dummy_weight_1
 
-        bound_std = self.gain / math.sqrt(fan_out * self.ks)
+        bound_std = math.sqrt(self.gain / (fan_out * self.ks))
         self.masked_kb_weight = self.masked_kb_weight * bound_std
         return add_out * self.s * self.s
 

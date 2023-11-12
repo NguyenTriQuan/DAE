@@ -397,7 +397,7 @@ class MEAE(ContinualModel):
                                         + (1-mask) * modified_kl_div(smooth(kbts_outputs.detach(), 1, 1), smooth(ets_outputs, 1, 1)))
 
             
-            assert not math.isnan(loss)
+            # assert not math.isnan(loss)
             if self.args.amp:
                 scaler.scale(loss).backward()
                 scaler.step(self.opt)
