@@ -501,7 +501,8 @@ class DynamicBlock(nn.Module):
 
     def initialize(self):
         def compute_scale(layer, i, j):
-            if getattr(layer, f'weight_{i}_{j}').numel() <= getattr(layer, f'weight_{i}_{j}').size(0):
+            # if getattr(layer, f'weight_{i}_{j}').numel() <= getattr(layer, f'weight_{i}_{j}').size(0):
+            if getattr(layer, f'weight_{i}_{j}').numel() == 0:
                 return torch.tensor(1).to(self.device)
             else:
                 var = (getattr(layer, f'weight_{i}_{j}').data ** 2).mean(layer.dim_in).detach()
@@ -540,6 +541,7 @@ class DynamicBlock(nn.Module):
     def normalize(self):
         def layer_wise(layer, i, j):
             if getattr(layer, f'weight_{i}_{j}').numel() == 0:
+            # if getattr(layer, f'weight_{i}_{j}').numel() <= getattr(layer, f'weight_{i}_{j}').size(0):
                 return torch.zeros(getattr(layer, f'weight_{i}_{j}').shape[0]).to(self.device)
             mean = getattr(layer, f'weight_{i}_{j}').data.mean(layer.dim_in)
             getattr(layer, f'weight_{i}_{j}').data -= mean.view(layer.view_in)
@@ -594,6 +596,7 @@ class DynamicBlock(nn.Module):
 
     def proximal_gradient_descent(self, lr=0, lamb=0, total_strength=1):
         def layer_wise(layer, i, j):
+            # if getattr(layer, f'weight_{i}_{j}').numel() <= getattr(layer, f'weight_{i}_{j}').size(0):
             if getattr(layer, f'weight_{i}_{j}').numel() == 0:
                 return torch.zeros(getattr(layer, f'weight_{i}_{j}').shape[0]).to(self.device)
             mean = getattr(layer, f'weight_{i}_{j}').data.mean(layer.dim_in)
@@ -656,6 +659,7 @@ class DynamicBlock(nn.Module):
     def check_var(self):
         def layer_wise(layer, i, j):
             w = getattr(layer, f'weight_{i}_{j}')
+            # if w.numel() <= w.size(0):
             if w.numel() == 0:
                 return torch.zeros(w.shape[0]).to(self.device)
             
