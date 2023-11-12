@@ -501,7 +501,7 @@ class DynamicBlock(nn.Module):
 
     def initialize(self):
         def compute_scale(layer, i, j):
-            if getattr(layer, f'weight_{i}_{j}').numel() == 0:
+            if getattr(layer, f'weight_{i}_{j}').numel() <= getattr(layer, f'weight_{i}_{j}').size(0):
                 return torch.tensor(1).to(self.device)
             else:
                 var = (getattr(layer, f'weight_{i}_{j}').data ** 2).mean(layer.dim_in).detach()
