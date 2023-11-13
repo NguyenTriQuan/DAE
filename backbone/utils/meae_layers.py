@@ -757,7 +757,7 @@ class DynamicBlock(nn.Module):
         for l, layer in enumerate(self.layers):
             print(l, layer.shape_in[-1].item(), layer.shape_out[-1].item(), layer.ks, end=' - ')
         print()
-        print(f'mean: {mean.sum()}, var: {var.sum()}')
+        print(f'mean: {round(mean.sum().item(), 3)}, var: {round(var.sum().item(), 3)}')
 
         # def layer_wise(layer, i, j):
         #     w = getattr(layer, f'weight_{i}_{j}')
