@@ -560,17 +560,24 @@ class DynamicBlock(nn.Module):
         
         var_layers_out = 0
         for layer in self.layers:
-            mean = layer.bwt_weight[-1].data.mean(layer.dim_in)
-            layer.bwt_weight[-1].data -= mean.view(layer.view_in)
-            bwt_var = (layer.bwt_weight[-1].data ** 2).mean(layer.dim_in)
-            layer.register_buffer(f'std_neurons_{self.task}', bwt_var.sqrt().view(layer.view_in).clone())
+            if layer.bwt_weight[-1].numel() != 0:
+                mean = layer.bwt_weight[-1].data.mean(layer.dim_in)
+                layer.bwt_weight[-1].data -= mean.view(layer.view_in)
+                bwt_var = (layer.bwt_weight[-1].data ** 2).mean(layer.dim_in)
+                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.sqrt().view(layer.view_in).clone())
+            else: 
+                bwt_var = torch.zeros(layer.bwt_weight[-1].shape[0]).to(self.device)
+                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.view(layer.view_in).clone())
 
             fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
-            mean = fwt_weight.data.mean(layer.dim_in)
-            layer.fwt_weight[-1].data -= mean.view(layer.view_in)
-            layer.weight[-1].data -= mean.view(layer.view_in)
-            fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
-            fwt_var = (fwt_weight.data ** 2).mean(layer.dim_in)
+            if fwt_weight.numel() != 0:
+                mean = fwt_weight.data.mean(layer.dim_in)
+                layer.fwt_weight[-1].data -= mean.view(layer.view_in)
+                layer.weight[-1].data -= mean.view(layer.view_in)
+                fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
+                fwt_var = (fwt_weight.data ** 2).mean(layer.dim_in)
+            else:
+                fwt_var = torch.zeros(fwt_weight.shape[0]).to(self.device)
 
             var = torch.cat([bwt_var, fwt_var], dim=0)
             var_layers_out += layer.ks * var
@@ -644,17 +651,24 @@ class DynamicBlock(nn.Module):
         var_old_neurons = 0
         var_new_neurons = 0
         for layer in self.layers:
-            mean = layer.bwt_weight[-1].data.mean(layer.dim_in)
-            layer.bwt_weight[-1].data -= mean.view(layer.view_in)
-            bwt_var = (layer.bwt_weight[-1].data ** 2).mean(layer.dim_in)
-            layer.register_buffer(f'std_neurons_{self.task}', bwt_var.sqrt().view(layer.view_in).clone())
+            if layer.bwt_weight[-1].numel() != 0:
+                mean = layer.bwt_weight[-1].data.mean(layer.dim_in)
+                layer.bwt_weight[-1].data -= mean.view(layer.view_in)
+                bwt_var = (layer.bwt_weight[-1].data ** 2).mean(layer.dim_in)
+                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.sqrt().view(layer.view_in).clone())
+            else: 
+                bwt_var = torch.zeros(layer.bwt_weight[-1].shape[0]).to(self.device)
+                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.view(layer.view_in).clone())
 
             fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
-            mean = fwt_weight.data.mean(layer.dim_in)
-            layer.fwt_weight[-1].data -= mean.view(layer.view_in)
-            layer.weight[-1].data -= mean.view(layer.view_in)
-            fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
-            fwt_var = (fwt_weight.data ** 2).mean(layer.dim_in)
+            if fwt_weight.numel() != 0:
+                mean = fwt_weight.data.mean(layer.dim_in)
+                layer.fwt_weight[-1].data -= mean.view(layer.view_in)
+                layer.weight[-1].data -= mean.view(layer.view_in)
+                fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
+                fwt_var = (fwt_weight.data ** 2).mean(layer.dim_in)
+            else:
+                fwt_var = torch.zeros(fwt_weight.shape[0]).to(self.device)
 
             var_old_neurons += layer.ks * bwt_var
             var_new_neurons += layer.ks * fwt_var
@@ -746,21 +760,24 @@ class DynamicBlock(nn.Module):
         mean = 0
         var = 0
         for layer in self.layers:
-            bwt_mean = layer.bwt_weight[-1].data.mean(layer.dim_in)
-            bwt_var = ((layer.bwt_weight[-1].data - bwt_mean.view(layer.view_in)) ** 2).mean(layer.dim_in)
+            if layer.bwt_weight[-1].numel() != 0:
+                bwt_var = (layer.bwt_weight[-1].data ** 2).mean(layer.dim_in)
+            else: 
+                bwt_var = torch.zeros(layer.bwt_weight[-1].shape[0]).to(self.device)
 
             fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
-            fwt_mean = fwt_weight.data.mean(layer.dim_in)
-            fwt_var = ((fwt_weight.data - fwt_mean.view(layer.view_in)) ** 2).mean(layer.dim_in)
+            if fwt_weight.numel() != 0:
+                fwt_var = (fwt_weight.data ** 2).mean(layer.dim_in)
+            else:
+                fwt_var = torch.zeros(fwt_weight.shape[0]).to(self.device)
 
             var += layer.ks * torch.cat([bwt_var, fwt_var], dim=0)
-            mean += torch.cat([bwt_mean, fwt_mean], dim=0)
         
         var /= self.gain
         for l, layer in enumerate(self.layers):
             print(l, layer.shape_in[-1].item(), layer.shape_out[-1].item(), layer.ks, end=' - ')
         print()
-        print(f'mean: {round(mean.sum().item(), 3)}, var: {round(var.sum().item(), 3)}')
+        print(f'var: {round(var.sum().item(), 3)}')
 
         # def layer_wise(layer, i, j):
         #     w = getattr(layer, f'weight_{i}_{j}')
