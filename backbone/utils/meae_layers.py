@@ -564,10 +564,10 @@ class DynamicBlock(nn.Module):
                 mean = layer.bwt_weight[-1].data.mean(layer.dim_in)
                 layer.bwt_weight[-1].data -= mean.view(layer.view_in)
                 bwt_var = (layer.bwt_weight[-1].data ** 2).mean(layer.dim_in)
-                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.sqrt().view(layer.view_in).clone())
+                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.sqrt().view(layer.view_in).detach().clone())
             else: 
                 bwt_var = torch.zeros(layer.bwt_weight[-1].shape[0]).to(self.device)
-                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.view(layer.view_in).clone())
+                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.view(layer.view_in).detach().clone())
 
             fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
             if fwt_weight.numel() != 0:
@@ -655,10 +655,10 @@ class DynamicBlock(nn.Module):
                 mean = layer.bwt_weight[-1].data.mean(layer.dim_in)
                 layer.bwt_weight[-1].data -= mean.view(layer.view_in)
                 bwt_var = (layer.bwt_weight[-1].data ** 2).mean(layer.dim_in)
-                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.sqrt().view(layer.view_in).clone())
+                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.sqrt().view(layer.view_in).detach().clone())
             else: 
                 bwt_var = torch.zeros(layer.bwt_weight[-1].shape[0]).to(self.device)
-                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.view(layer.view_in).clone())
+                layer.register_buffer(f'std_neurons_{self.task}', bwt_var.view(layer.view_in).detach().clone())
 
             fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
             if fwt_weight.numel() != 0:
