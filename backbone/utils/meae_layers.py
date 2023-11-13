@@ -785,10 +785,7 @@ class DynamicBlock(nn.Module):
     def get_optim_ets_params(self):
         params = []
         for layer in self.layers:
-            params += [getattr(layer, f'weight_{self.task}_{self.task}')]
-            for i in range(self.task):
-                params += [getattr(layer, f'weight_{i}_{self.task}'), getattr(layer, f'weight_{self.task}_{i}')]
-    
+            params += [layer.weight[-1], layer.fwt_weight[-1], layer.bwt_weight[-1]]
         if self.norm_type is not None and 'affine' in self.norm_type:
             params += [self.ets_norm_layers[-1].weight, self.ets_norm_layers[-1].bias]
         return params
