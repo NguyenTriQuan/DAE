@@ -744,11 +744,11 @@ class DynamicBlock(nn.Module):
         var = 0
         for layer in self.layers:
             bwt_mean = layer.bwt_weight[-1].data.mean(layer.dim_in)
-            bwt_var = ((layer.bwt_weight[-1].data - bwt_mean) ** 2).mean(layer.dim_in)
+            bwt_var = ((layer.bwt_weight[-1].data - bwt_mean.view(layer.view_in)) ** 2).mean(layer.dim_in)
 
             fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
             fwt_mean = fwt_weight.data.mean(layer.dim_in)
-            fwt_var = ((fwt_weight.data - fwt_mean) ** 2).mean(layer.dim_in)
+            fwt_var = ((fwt_weight.data - fwt_mean.view(layer.view_in)) ** 2).mean(layer.dim_in)
 
             var += layer.ks * torch.cat([bwt_var, fwt_var], dim=0)
             mean += torch.cat([bwt_mean, fwt_mean], dim=0)
