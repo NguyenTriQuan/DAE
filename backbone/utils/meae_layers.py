@@ -552,9 +552,9 @@ class DynamicBlock(nn.Module):
         #         nn.init.normal_(getattr(layer, f'weight_{self.task}_{i}'), 0, std)
         #     nn.init.normal_(getattr(layer, f'weight_{self.task}_{self.task}'), 0, std)
 
-        self.check_var()
+        # self.check_var()
         self.normalize()
-        self.check_var()
+        # self.check_var()
 
     def normalize(self):
         
@@ -693,7 +693,7 @@ class DynamicBlock(nn.Module):
             layer.fwt_weight[-1].data /= (std / aux).view(layer.view_in)
             layer.weight[-1].data /= (std / aux).view(layer.view_in)
 
-        self.check_var()
+        # self.check_var()
 
         # def layer_wise(layer, i, j):
         #     # if getattr(layer, f'weight_{i}_{j}').numel() <= getattr(layer, f'weight_{i}_{j}').size(0):
