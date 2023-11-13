@@ -231,8 +231,8 @@ class _DynamicLayer(nn.Module):
     def ets_forward(self, x, t):
         # get expanded task specific model
         weight = self.kb_weight
-        # if t > 0:
-        #     weight = weight * getattr(self, f'std_neurons_{t}')
+        if t > 0:
+            weight = weight * getattr(self, f'std_neurons_{t}')
         weight = F.dropout(weight, self.dropout, self.training)
 
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
@@ -818,10 +818,9 @@ class DynamicBlock(nn.Module):
     
     def freeze(self, state=False):
         for layer in self.layers:
-            for i in range(self.task):
-                for j in range(self.task):
-                    getattr(layer, f'weight_{i}_{j}').requires_grad = state
-
+            layer.weight[-1].requires_grad = state
+            layer.fwt_weight[-1].requires_grad = state
+            layer.bwt_weight[-1].requires_grad = state
             if layer.score is not None:
                 t = len(layer.kbts_sparsities) - 1
                 mask = GetSubnet.apply(layer.score.abs(), 1-layer.kbts_sparsities[t])
