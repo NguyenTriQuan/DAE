@@ -77,6 +77,10 @@ class _DynamicLayer(nn.Module):
         self.mask_in = None
         self.mask_out = None
 
+        self.weight = nn.ParameterList([])
+        self.fwt_weight = nn.ParameterList([])
+        self.bwt_weight = nn.ParameterList([])
+
         self.register_buffer('bias', None)
 
         self.register_buffer('shape_out', torch.IntTensor([0]).to(self.device))
