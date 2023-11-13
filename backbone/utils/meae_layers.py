@@ -230,7 +230,10 @@ class _DynamicLayer(nn.Module):
 
     def ets_forward(self, x, t):
         # get expanded task specific model
-        weight = F.dropout(self.kb_weight * getattr(self, f'std_neurons_{t}'), self.dropout, self.training)
+        weight = self.kb_weight
+        if t > 0:
+            weight = weight * getattr(self, f'std_neurons_{t}')
+        weight = F.dropout(weight, self.dropout, self.training)
 
         weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
                                 torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
