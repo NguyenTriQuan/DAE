@@ -397,7 +397,7 @@ class MEAE(ContinualModel):
                                         + (1-mask) * modified_kl_div(smooth(kbts_outputs.detach(), 1, 1), smooth(ets_outputs, 1, 1)))
 
             
-            assert not math.isnan(loss)
+            assert not math.isnan(loss), f'{sum([m.kb_weight.norm(p=2) for m in self.net.DM[-1]])}'
             if self.args.amp:
                 scaler.scale(loss).backward()
                 scaler.step(self.opt)
@@ -558,7 +558,7 @@ class MEAE(ContinualModel):
     def end_task(self, dataset) -> None:
         # self.net.freeze_feature()
         # self.net.freeze_classifier()
-        # self.net.check_var()
+        self.net.check_var()
         self.net.freeze(False)
         self.net.clear_memory()
 

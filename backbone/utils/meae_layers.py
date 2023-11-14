@@ -192,15 +192,21 @@ class _DynamicLayer(nn.Module):
         self.kb_weight = torch.empty(0).to(self.device)
 
         for i in range(t):
-            if 'scale' not in self.args.ablation:
-                fwt_weight_scale = getattr(self, f'fwt_weight_scale_{i}')
-                bwt_weight_scale = getattr(self, f'bwt_weight_scale_{i}')
-                self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i] / bwt_weight_scale], dim=1), 
-                                torch.cat([self.fwt_weight[i], self.weight[i]], dim=1) / fwt_weight_scale], dim=0)
+            fwt_weight = torch.cat([self.fwt_weight[i], self.weight[i]], dim=1)
+            if getattr(self, f'fwt_weight_scale_{i}') is not None:
+                fwt_weight = fwt_weight / getattr(self, f'fwt_weight_scale_{i}')
             else:
-                self.kb_weight = torch.cat([torch.cat([self.kb_weight, self.bwt_weight[i]], dim=1), 
-                                torch.cat([self.fwt_weight[i], self.weight[i]], dim=1)], dim=0)
+                fwt_weight = torch.zeros_like(fwt_weight)
 
+            bwt_weight = self.bwt_weight[i]
+            if getattr(self, f'bwt_weight_scale_{i}') is not None:
+                bwt_weight = bwt_weight / getattr(self, f'bwt_weight_scale_{i}')
+            else:
+                bwt_weight = torch.zeros_like(bwt_weight)
+
+            self.kb_weight = torch.cat([torch.cat([self.kb_weight, bwt_weight], dim=1), fwt_weight], dim=0)
+            
+            del fwt_weight, bwt_weight
     
     def get_masked_kb_params(self, t, add_in, add_out=None):
         # kb weight std = bound of the model size
@@ -414,8 +420,8 @@ class DynamicBlock(nn.Module):
         for x, layer in zip(inputs, self.layers):
             out = out + layer.ets_forward(x, t)
             
-        out = self.activation(self.ets_norm_layers[t](out))
-        # out = self.activation(out)
+        # out = self.activation(self.ets_norm_layers[t](out))
+        out = self.activation(out)
         return out
     
     def kbts_forward(self, inputs, t):
@@ -520,18 +526,18 @@ class DynamicBlock(nn.Module):
             i = self.task - 1
             if self.task > 0:
                 fwt_weight = torch.cat([layer.fwt_weight[i], layer.weight[i]], dim=1)
-                if fwt_weight.numel() != 0:
-                    w_std = (fwt_weight.data ** 2).mean(dim=layer.dim_in).sqrt()
+                if fwt_weight.numel() > fwt_weight.shape[0]:
+                    w_std = (fwt_weight.data ** 2).mean(dim=layer.dim_in).sqrt()                    
                     layer.register_buffer(f'fwt_weight_scale_{i}', w_std.view(layer.view_in))
                 else:
-                    layer.register_buffer(f'fwt_weight_scale_{i}', torch.ones(1).to(layer.device).view(layer.view_in))
+                    layer.register_buffer(f'fwt_weight_scale_{i}', None)
 
                 bwt_weight = layer.bwt_weight[i]
-                if bwt_weight.numel() != 0:
+                if bwt_weight.numel() > bwt_weight.shape[0]:
                     w_std = (bwt_weight.data ** 2).mean(dim=layer.dim_in).sqrt()
                     layer.register_buffer(f'bwt_weight_scale_{i}', w_std.view(layer.view_in))
                 else:
-                    layer.register_buffer(f'bwt_weight_scale_{i}', torch.ones(1).to(layer.device).view(layer.view_in))
+                    layer.register_buffer(f'bwt_weight_scale_{i}', None)
 
         # # initial equal var for old neurons
         # # self.register_buffer(f'old_var_{self.task}', (std ** 2) * torch.ones(self.task).to(self.device))
@@ -554,7 +560,7 @@ class DynamicBlock(nn.Module):
 
         # self.check_var()
         self.normalize()
-        # self.check_var()
+        self.check_var()
 
     def normalize(self):
         
@@ -703,7 +709,7 @@ class DynamicBlock(nn.Module):
         #         self.ets_norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
         #         self.ets_norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
 
-        self.check_var()
+        # self.check_var()
 
         # def layer_wise(layer, i, j):
         #     # if getattr(layer, f'weight_{i}_{j}').numel() <= getattr(layer, f'weight_{i}_{j}').size(0):
