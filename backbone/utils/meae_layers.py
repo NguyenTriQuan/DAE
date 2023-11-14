@@ -560,7 +560,7 @@ class DynamicBlock(nn.Module):
 
         # self.check_var()
         self.normalize()
-        self.check_var()
+        # self.check_var()
 
     def normalize(self):
         
