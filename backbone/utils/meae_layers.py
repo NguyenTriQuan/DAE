@@ -693,6 +693,16 @@ class DynamicBlock(nn.Module):
             layer.fwt_weight[-1].data /= (std / aux).view(layer.view_in)
             layer.weight[-1].data /= (std / aux).view(layer.view_in)
 
+        # if self.norm_type is not None and 'scale' not in self.args.ablation:
+        #     out_scale = (std_new_neurons**2).sum(0).sqrt() # shape (num new neurons)
+        #     if self.ets_norm_layers[-1].track_running_stats:
+        #         self.ets_norm_layers[-1].running_mean[layer.shape_out[-2]:] /= out_scale
+        #         self.ets_norm_layers[-1].running_var[layer.shape_out[-2]:] /= (out_scale ** 2)
+
+        #     if self.ets_norm_layers[-1].affine:
+        #         self.ets_norm_layers[-1].weight.data[layer.shape_out[-2]:] /= out_scale
+        #         self.ets_norm_layers[-1].bias.data[layer.shape_out[-2]:] /= out_scale
+
         self.check_var()
 
         # def layer_wise(layer, i, j):
@@ -774,7 +784,7 @@ class DynamicBlock(nn.Module):
         for l, layer in enumerate(self.layers):
             print(l, layer.shape_in[-1].item(), layer.shape_out[-1].item(), layer.ks, end=' - ')
         print()
-        print(f'mean: {round(var.sum().item(), 3)}, var: {round(var.sum().item(), 3)}')
+        print(f'mean: {round(mean.sum().item(), 3)}, var: {round(var.sum().item(), 3)}')
 
         # def layer_wise(layer, i, j):
         #     w = getattr(layer, f'weight_{i}_{j}')
