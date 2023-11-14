@@ -282,7 +282,8 @@ class ResNet(_DynamicModel):
         if t != self.ets_temp:
             self.get_kb_params(t)
             self.ets_temp = t
-        out = self.ets_batch_norms[t](x)
+
+        # out = self.ets_batch_norms[t](x)
         out = self.conv1.ets_forward([out], t)
         
         for layer in self.layers:
@@ -314,7 +315,8 @@ class ResNet(_DynamicModel):
                 self.ets_temp = t
             self.get_masked_kb_params(t)
             self.kbts_temp = t
-        out = self.kbts_batch_norms[t](x)
+
+        # out = self.kbts_batch_norms[t](x)
         out = self.conv1.kbts_forward([out], t)
         
         for layer in self.layers:
