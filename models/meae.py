@@ -369,8 +369,8 @@ class MEAE(ContinualModel):
             with torch.cuda.amp.autocast(enabled=enabled):
                 ets_outputs = self.net.ets_forward(inputs, self.task, feat=False)
                 kbts_outputs = self.net.kbts_forward(inputs, self.task, feat=False)
-                print(ets_outputs.mean(0).sum(), ets_outputs.var(0).sum())
-                print(kbts_outputs.mean(0).sum(), kbts_outputs.var(0).sum())
+                # print(ets_outputs.mean(0).sum(), ets_outputs.var(0).sum())
+                # print(kbts_outputs.mean(0).sum(), kbts_outputs.var(0).sum())
                 ets_outputs = F.softmax(ets_outputs, dim=1)
                 kbts_outputs = F.softmax(kbts_outputs, dim=1)
                 loss = 0
@@ -558,7 +558,7 @@ class MEAE(ContinualModel):
     def end_task(self, dataset) -> None:
         # self.net.freeze_feature()
         # self.net.freeze_classifier()
-        self.net.check_var()
+        # self.net.check_var()
         self.net.freeze(False)
         self.net.clear_memory()
 
