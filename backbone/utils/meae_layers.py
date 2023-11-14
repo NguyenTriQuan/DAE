@@ -414,8 +414,8 @@ class DynamicBlock(nn.Module):
         for x, layer in zip(inputs, self.layers):
             out = out + layer.ets_forward(x, t)
             
-        # out = self.activation(self.ets_norm_layers[t](out))
-        out = self.activation(out)
+        out = self.activation(self.ets_norm_layers[t](out))
+        # out = self.activation(out)
         return out
     
     def kbts_forward(self, inputs, t):
@@ -759,25 +759,22 @@ class DynamicBlock(nn.Module):
     def check_var(self):
         mean = 0
         var = 0
+        t = self.task
         for layer in self.layers:
-            if layer.bwt_weight[-1].numel() != 0:
-                bwt_var = (layer.bwt_weight[-1].data ** 2).mean(layer.dim_in)
-            else: 
-                bwt_var = torch.zeros(layer.bwt_weight[-1].shape[0]).to(self.device)
+            weight = self.kb_weight
+            if t > 0:
+                weight = weight * getattr(self, f'std_neurons_{t}')
 
-            fwt_weight = torch.cat([layer.fwt_weight[-1], layer.weight[-1]], dim=1)
-            if fwt_weight.numel() != 0:
-                fwt_var = (fwt_weight.data ** 2).mean(layer.dim_in)
-            else:
-                fwt_var = torch.zeros(fwt_weight.shape[0]).to(self.device)
-
-            var += layer.ks * torch.cat([bwt_var, fwt_var], dim=0)
+            weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
+                                    torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
+            mean += weight.data.mean(layer.dim_in)
+            var += layer.ks * ((weight - mean.view(layer.view_in)) ** 2).mean(layer.dim_in)
         
         var /= self.gain
         for l, layer in enumerate(self.layers):
             print(l, layer.shape_in[-1].item(), layer.shape_out[-1].item(), layer.ks, end=' - ')
         print()
-        print(f'var: {round(var.sum().item(), 3)}')
+        print(f'mean: {round(var.sum().item(), 3)}, var: {round(var.sum().item(), 3)}')
 
         # def layer_wise(layer, i, j):
         #     w = getattr(layer, f'weight_{i}_{j}')
