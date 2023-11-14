@@ -761,12 +761,12 @@ class DynamicBlock(nn.Module):
         var = 0
         t = self.task
         for layer in self.layers:
-            weight = self.kb_weight
+            weight = layer.kb_weight
             if t > 0:
-                weight = weight * getattr(self, f'std_neurons_{t}')
+                weight = weight * getattr(layer, f'std_neurons_{t}')
 
-            weight = torch.cat([torch.cat([weight, self.bwt_weight[t]], dim=1), 
-                                    torch.cat([self.fwt_weight[t], self.weight[t]], dim=1)], dim=0)
+            weight = torch.cat([torch.cat([weight, layer.bwt_weight[t]], dim=1), 
+                                    torch.cat([layer.fwt_weight[t], layer.weight[t]], dim=1)], dim=0)
             mean += weight.data.mean(layer.dim_in)
             var += layer.ks * ((weight - mean.view(layer.view_in)) ** 2).mean(layer.dim_in)
         
