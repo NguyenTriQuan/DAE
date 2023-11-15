@@ -185,7 +185,7 @@ class MEAE(ContinualModel):
 
             out_min = outputs.min(1)[1].view(-1, 1)
             out_max = outputs.max(1)[1].view(-1, 1)
-            outputs = (outputs - min) / (max - min)
+            outputs = (outputs - out_min) / (out_max - out_min)
             outputs = outputs / outputs.sum(1).view(-1,1)
 
             predicts = outputs.argmax(1)
@@ -220,7 +220,7 @@ class MEAE(ContinualModel):
 
                     out_min = outputs.min(1)[1].view(-1, 1)
                     out_max = outputs.max(1)[1].view(-1, 1)
-                    outputs = (outputs - min) / (max - min)
+                    outputs = (outputs - out_min) / (out_max - out_min)
                     outputs = outputs / outputs.sum(1).view(-1,1)
 
                     joint_entropy = entropy(outputs.exp())
@@ -233,9 +233,9 @@ class MEAE(ContinualModel):
 
                     out_min = outputs.min(1)[1].view(-1, 1)
                     out_max = outputs.max(1)[1].view(-1, 1)
-                    outputs = (outputs - min) / (max - min)
+                    outputs = (outputs - out_min) / (out_max - out_min)
                     outputs = outputs / outputs.sum(1).view(-1,1)
-                    
+
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
