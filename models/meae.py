@@ -183,6 +183,11 @@ class MEAE(ContinualModel):
                 outputs = outputs[:, :, :-1]  # ignore ood class
                 outputs = ensemble_outputs(outputs, dim=1)
 
+            out_min = outputs.min(1)[1].view(-1, 1)
+            out_max = outputs.max(1)[1].view(-1, 1)
+            outputs = (outputs - min) / (max - min)
+            outputs = outputs / outputs.sum(1).view(-1,1)
+
             predicts = outputs.argmax(1)
             del inputs, outputs
             return predicts + t * (self.dataset.N_CLASSES_PER_TASK)
@@ -212,6 +217,12 @@ class MEAE(ContinualModel):
                     outputs = torch.cat(outputs, dim=1)
                     outputs = outputs[:, :, :-1]  # ignore ood class
                     outputs = ensemble_outputs(outputs, dim=1)
+
+                    out_min = outputs.min(1)[1].view(-1, 1)
+                    out_max = outputs.max(1)[1].view(-1, 1)
+                    outputs = (outputs - min) / (max - min)
+                    outputs = outputs / outputs.sum(1).view(-1,1)
+
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
@@ -219,6 +230,12 @@ class MEAE(ContinualModel):
                     outputs = torch.stack(outputs, dim=1)
                     outputs = outputs[:, :, :-1]  # ignore ood class 
                     outputs = ensemble_outputs(outputs, dim=1)
+
+                    out_min = outputs.min(1)[1].view(-1, 1)
+                    out_max = outputs.max(1)[1].view(-1, 1)
+                    outputs = (outputs - min) / (max - min)
+                    outputs = outputs / outputs.sum(1).view(-1,1)
+                    
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
                     joint_entropy_tasks.append(joint_entropy)
