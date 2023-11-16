@@ -209,10 +209,12 @@ class MEAE(ContinualModel):
                 outputs = []
                 if ets:
                     outputs.append(self.net.ets_forward(inputs, i, cal=cal) * w_ets + b_ets)
-                    ets_var_tasks.append(outputs[-1].view(B, N, -1).var(dim=1).sum(-1).sqrt())
+                    if ba:
+                        ets_var_tasks.append(outputs[-1].view(B, N, -1).var(dim=1).sum(-1).sqrt())
                 if kbts:
                     outputs.append(self.net.kbts_forward(inputs, i, cal=cal) * w_kbts + b_kbts)
-                    kbts_var_tasks.append(outputs[-1].view(B, N, -1).var(dim=1).sum(-1).sqrt())
+                    if ba:
+                        kbts_var_tasks.append(outputs[-1].view(B, N, -1).var(dim=1).sum(-1).sqrt())
 
                 if ba:
                     outputs = [out.view(B, N, -1) for out in outputs]
