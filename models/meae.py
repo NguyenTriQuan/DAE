@@ -177,16 +177,14 @@ class MEAE(ContinualModel):
                 outputs = [out.view(B, N, -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=1)
                 outputs = outputs[:, :, :-1]  # ignore ood class
+                outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
                 outputs = ensemble_outputs(outputs, dim=1)
             else:
                 outputs = torch.stack(outputs, dim=1)
                 outputs = outputs[:, :, :-1]  # ignore ood class
+                outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
                 outputs = ensemble_outputs(outputs, dim=1)
 
-            # out_min = outputs.min(1)[1].view(-1, 1)
-            # out_max = outputs.max(1)[1].view(-1, 1)
-            # outputs = (outputs - out_min) / (out_max - out_min)
-            # outputs = outputs / outputs.sum(1).view(-1,1)
 
             predicts = outputs.argmax(1)
             del inputs, outputs
@@ -216,12 +214,8 @@ class MEAE(ContinualModel):
                     outputs = [out.view(B, N, -1) for out in outputs]
                     outputs = torch.cat(outputs, dim=1)
                     outputs = outputs[:, :, :-1]  # ignore ood class
+                    outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
                     outputs = ensemble_outputs(outputs, dim=1)
-
-                    # out_min = outputs.min(1)[1].view(-1, 1)
-                    # out_max = outputs.max(1)[1].view(-1, 1)
-                    # outputs = (outputs - out_min) / (out_max - out_min)
-                    # outputs = outputs / outputs.sum(1).view(-1,1)
 
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
@@ -229,12 +223,8 @@ class MEAE(ContinualModel):
                 else:
                     outputs = torch.stack(outputs, dim=1)
                     outputs = outputs[:, :, :-1]  # ignore ood class 
+                    outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
                     outputs = ensemble_outputs(outputs, dim=1)
-
-                    # out_min = outputs.min(1)[1].view(-1, 1)
-                    # out_max = outputs.max(1)[1].view(-1, 1)
-                    # outputs = (outputs - out_min) / (out_max - out_min)
-                    # outputs = outputs / outputs.sum(1).view(-1,1)
 
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
