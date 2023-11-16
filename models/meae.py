@@ -239,7 +239,12 @@ class MEAE(ContinualModel):
             outputs_tasks = torch.stack(outputs_tasks, dim=1)
             joint_entropy_tasks = torch.stack(joint_entropy_tasks, dim=1)
             if ba:
-                joint_entropy_tasks = joint_entropy_tasks / (torch.stack(ets_var_tasks, dim=1)+torch.stack(kbts_var_tasks, dim=1))
+                temp = 0
+                if ets:
+                    temp += torch.stack(ets_var_tasks, dim=1)
+                if kbts:
+                    temp += torch.stack(kbts_var_tasks, dim=1)
+                joint_entropy_tasks = joint_entropy_tasks / temp
             predicted_task = torch.argmin(joint_entropy_tasks, dim=1)
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             cil_predicts = predicted_outputs.argmax(1)
