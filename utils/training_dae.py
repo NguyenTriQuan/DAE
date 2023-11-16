@@ -179,7 +179,7 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
     checkpoint = torch.load(base_path_memory() + args.title + '.checkpoint')
     model.net = checkpoint['net']
     model.net.args = args
-    # model.net.to_device(args.device)
+    model.net.to_device(args.device)
     model.device = args.device
 
     num_params, num_neurons = model.net.count_params()
