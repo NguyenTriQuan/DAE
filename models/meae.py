@@ -192,6 +192,7 @@ class MEAE(ContinualModel):
         else:
             joint_entropy_tasks = []
             outputs_tasks = []
+            var_tasks = []
             for i in range(self.task + 1):
                 if cal:
                     w_ets = self.net.w_ets
