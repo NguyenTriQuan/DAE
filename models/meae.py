@@ -177,12 +177,12 @@ class MEAE(ContinualModel):
                 outputs = [out.view(B, N, -1) for out in outputs]
                 outputs = torch.cat(outputs, dim=1)
                 outputs = outputs[:, :, :-1]  # ignore ood class
-                outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
+                # outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
                 outputs = ensemble_outputs(outputs, dim=1)
             else:
                 outputs = torch.stack(outputs, dim=1)
                 outputs = outputs[:, :, :-1]  # ignore ood class
-                outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
+                # outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
                 outputs = ensemble_outputs(outputs, dim=1)
 
 
@@ -214,7 +214,7 @@ class MEAE(ContinualModel):
                     outputs = [out.view(B, N, -1) for out in outputs]
                     outputs = torch.cat(outputs, dim=1)
                     outputs = outputs[:, :, :-1]  # ignore ood class
-                    outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
+                    # outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
                     outputs = ensemble_outputs(outputs, dim=1)
 
                     joint_entropy = entropy(outputs.exp())
@@ -223,7 +223,7 @@ class MEAE(ContinualModel):
                 else:
                     outputs = torch.stack(outputs, dim=1)
                     outputs = outputs[:, :, :-1]  # ignore ood class 
-                    outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
+                    # outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
                     outputs = ensemble_outputs(outputs, dim=1)
 
                     joint_entropy = entropy(outputs.exp())
