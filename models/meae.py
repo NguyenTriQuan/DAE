@@ -192,7 +192,8 @@ class MEAE(ContinualModel):
         else:
             joint_entropy_tasks = []
             outputs_tasks = []
-            var_tasks = []
+            ets_var_tasks = []
+            kbts_var_tasks = []
             for i in range(self.task + 1):
                 if cal:
                     w_ets = self.net.w_ets
@@ -208,13 +209,14 @@ class MEAE(ContinualModel):
                 outputs = []
                 if ets:
                     outputs.append(self.net.ets_forward(inputs, i, cal=cal) * w_ets + b_ets)
+                    ets_var_tasks.append(outputs[-1].view(B, N, -1).var(dim=1).sum(-1).sqrt())
                 if kbts:
                     outputs.append(self.net.kbts_forward(inputs, i, cal=cal) * w_kbts + b_kbts)
+                    kbts_var_tasks.append(outputs[-1].view(B, N, -1).var(dim=1).sum(-1).sqrt())
 
                 if ba:
                     outputs = [out.view(B, N, -1) for out in outputs]
                     outputs = torch.cat(outputs, dim=1)
-                    var_tasks.append(outputs.var(dim=1).sum(-1).sqrt())
                     outputs = outputs[:, :, :-1]  # ignore ood class
                     # outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
                     outputs = ensemble_outputs(outputs, dim=1)
@@ -234,8 +236,8 @@ class MEAE(ContinualModel):
 
             outputs_tasks = torch.stack(outputs_tasks, dim=1)
             joint_entropy_tasks = torch.stack(joint_entropy_tasks, dim=1)
-            # if ba:
-            #     joint_entropy_tasks = joint_entropy_tasks / torch.stack(var_tasks, dim=1)
+            if ba:
+                joint_entropy_tasks = joint_entropy_tasks / (torch.stack(ets_var_tasks, dim=1)+torch.stack(kbts_var_tasks, dim=1))
             predicted_task = torch.argmin(joint_entropy_tasks, dim=1)
             predicted_outputs = outputs_tasks[range(outputs_tasks.shape[0]), predicted_task]
             cil_predicts = predicted_outputs.argmax(1)
