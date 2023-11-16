@@ -183,10 +183,10 @@ class MEAE(ContinualModel):
                 outputs = outputs[:, :, :-1]  # ignore ood class
                 outputs = ensemble_outputs(outputs, dim=1)
 
-            out_min = outputs.min(1)[1].view(-1, 1)
-            out_max = outputs.max(1)[1].view(-1, 1)
-            outputs = (outputs - out_min) / (out_max - out_min)
-            outputs = outputs / outputs.sum(1).view(-1,1)
+            # out_min = outputs.min(1)[1].view(-1, 1)
+            # out_max = outputs.max(1)[1].view(-1, 1)
+            # outputs = (outputs - out_min) / (out_max - out_min)
+            # outputs = outputs / outputs.sum(1).view(-1,1)
 
             predicts = outputs.argmax(1)
             del inputs, outputs
@@ -218,10 +218,10 @@ class MEAE(ContinualModel):
                     outputs = outputs[:, :, :-1]  # ignore ood class
                     outputs = ensemble_outputs(outputs, dim=1)
 
-                    out_min = outputs.min(1)[1].view(-1, 1)
-                    out_max = outputs.max(1)[1].view(-1, 1)
-                    outputs = (outputs - out_min) / (out_max - out_min)
-                    outputs = outputs / outputs.sum(1).view(-1,1)
+                    # out_min = outputs.min(1)[1].view(-1, 1)
+                    # out_max = outputs.max(1)[1].view(-1, 1)
+                    # outputs = (outputs - out_min) / (out_max - out_min)
+                    # outputs = outputs / outputs.sum(1).view(-1,1)
 
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
@@ -231,10 +231,10 @@ class MEAE(ContinualModel):
                     outputs = outputs[:, :, :-1]  # ignore ood class 
                     outputs = ensemble_outputs(outputs, dim=1)
 
-                    out_min = outputs.min(1)[1].view(-1, 1)
-                    out_max = outputs.max(1)[1].view(-1, 1)
-                    outputs = (outputs - out_min) / (out_max - out_min)
-                    outputs = outputs / outputs.sum(1).view(-1,1)
+                    # out_min = outputs.min(1)[1].view(-1, 1)
+                    # out_max = outputs.max(1)[1].view(-1, 1)
+                    # outputs = (outputs - out_min) / (out_max - out_min)
+                    # outputs = outputs / outputs.sum(1).view(-1,1)
 
                     joint_entropy = entropy(outputs.exp())
                     outputs_tasks.append(outputs)
