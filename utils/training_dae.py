@@ -224,15 +224,15 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         #     mode = 'ets_kbts_ba_cal'
         #     model.evaluate(task=None, mode=mode)
 
-        mode = 'ets'
-        model.evaluate(task=None, mode=mode)
+        # mode = 'ets'
+        # model.evaluate(task=None, mode=mode)
 
-        if args.cal:
-            mode = 'ets_cal'
-            model.evaluate(task=None, mode=mode)
+        # if args.cal:
+        #     mode = 'ets_cal'
+        #     model.evaluate(task=None, mode=mode)
 
-        mode = 'ets_ba' if not args.cal else 'ets_ba_cal'
-        model.evaluate(task=None, mode=mode)
+        # mode = 'ets_ba' if not args.cal else 'ets_ba_cal'
+        # model.evaluate(task=None, mode=mode)
 
         # if 'cal' in args.mode:
         #     mode = 'ets_cal'
@@ -241,15 +241,15 @@ def evaluate(model: ContinualModel, dataset: ContinualDataset,
         #     mode = 'ets_ba_cal'
         #     model.evaluate(task=None, mode=mode)
 
-        mode = 'kbts'
-        model.evaluate(task=None, mode=mode)
+        # mode = 'kbts'
+        # model.evaluate(task=None, mode=mode)
 
-        if args.cal:
-            mode = 'kbts_cal'
-            model.evaluate(task=None, mode=mode)
+        # if args.cal:
+        #     mode = 'kbts_cal'
+        #     model.evaluate(task=None, mode=mode)
 
-        mode = 'kbts_ba' if not args.cal else 'kbts_ba_cal'
-        model.evaluate(task=None, mode=mode)
+        # mode = 'kbts_ba' if not args.cal else 'kbts_ba_cal'
+        # model.evaluate(task=None, mode=mode)
 
         # if 'cal' in args.mode:
         #     mode = 'kbts_cal'
