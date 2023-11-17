@@ -143,7 +143,7 @@ class SequentialTinyImagenet(ContinualDataset):
     N_CLASSES_PER_TASK = 20
     N_TASKS = 10
     N_CLASSES = 200
-    scale = (0.2, 1.0)
+    scale = (0.08, 1.0)
     TRANSFORM = transforms.Compose([
                 transforms.Resize((32, 32)),
                 transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
