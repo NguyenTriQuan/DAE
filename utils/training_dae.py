@@ -141,7 +141,7 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
         if args.verbose:
             test_acc = 0
             if not feat and not cal:
-                test_acc = model.evaluate(task=model.task, mode=mode)
+                test_acc = model.evaluate(task=model.task, mode=args.mode)
             if squeeze:
                 num_params, num_neurons = model.net.count_params()
                 num_neurons = '-'.join(str(int(num)) for num in num_neurons)
