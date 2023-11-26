@@ -49,8 +49,8 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
 
     squeeze = False
     augment = True
-    ets = 'ets' in mode
-    kbts = 'kbts' in mode
+    ets = 'ets' in args.mode
+    kbts = 'kbts' in args.mode
     buf = 'buf' in args.mode
     rot = 'rot' in args.mode
     adv = 'adv' in args.mode
@@ -382,23 +382,24 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
         print(f'Training task {model.task}')
         if t >= start_task:
-            # modes = ['ets', 'kbts']
-            if 'feat' in args.mode:
-                modes = ['ets_kbts_feat', 'ets_kbts_head']
-            else:
-                modes = ['ets_kbts']
-            if checkpoint is not None:
-                for mode in modes:
-                    if mode == checkpoint['mode']:
-                        break
-                    else:
-                        modes.remove(mode)
+            # # modes = ['ets', 'kbts']
+            # if 'feat' in args.mode:
+            #     modes = ['ets_kbts_feat', 'ets_kbts_head']
+            # else:
+            #     modes = ['ets_kbts']
+            # if checkpoint is not None:
+            #     for mode in modes:
+            #         if mode == checkpoint['mode']:
+            #             break
+            #         else:
+            #             modes.remove(mode)
 
-            for mode in modes:
-                train_loop(model, args, train_loader, mode=mode, checkpoint=checkpoint)
-                acc = model.evaluate(task=t, mode=mode)
-                print(f'Task {t}, {mode}: til {acc}')
-                checkpoint = None
+            # for mode in modes:
+
+            train_loop(model, args, train_loader, mode=mode, checkpoint=checkpoint)
+            acc = model.evaluate(task=t, mode=mode)
+            print(f'Task {t}, {mode}: til {acc}')
+            checkpoint = None
 
             if hasattr(model, 'end_task'):
                 model.end_task(dataset)
