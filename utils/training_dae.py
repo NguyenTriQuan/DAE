@@ -17,6 +17,7 @@ from utils.loggers import *
 from utils.status import ProgressBar
 from utils.conf import base_path_memory
 from utils.lars_optimizer import LARC
+from utils.scheduler import GradualWarmupScheduler
 # try:
 #     import wandb
 # except ImportError:
@@ -77,13 +78,18 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     elif feat:
         ets_params = model.net.get_optim_ets_params()
         kbts_params, scores = model.net.get_optim_kbts_params()
-        n_epochs = 400
-        num_squeeze = 200
-        step_lr = [350, 390]
+        params = [{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}]
+        base_optimizer = optim.SGD(params, lr=args.lr, momentum=0.9, weight_decay=0)
+        optimizer = LARC(base_optimizer, trust_coefficient=0.001)
+        scheduler = CosineAnnealingLR(optimizer, T_max=train_epochs)
+        scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=10.0, total_epoch=10, after_scheduler=scheduler)
+        linear_optim = torch.optim.Adam(linear.parameters(), lr=1e-3, betas=(.9, .999))
+        model.opt = optimizer
+        model.scheduler = scheduler_warmup
+
+        n_epochs = 700
+        num_squeeze = 500
         squeeze = 'squeeze' not in args.ablation
-        model.opt = LARC(torch.optim.SGD([{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}], 
-                                    lr=args.lr, weight_decay=0, momentum=0.9), trust_coefficient=0.001)
-        
         count = 0
         for param in ets_params+kbts_params+scores:
             count += param.numel()
@@ -126,8 +132,10 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
     for epoch in range(start_epoch, n_epochs):
         if cal:
             loss, train_acc = model.back_updating(train_loader, t)
-        else:          
+        elif feat:
             ets_loss, ets_train_acc, kbts_loss, kbts_train_acc = model.train_contrast(train_loader, mode, ets, kbts, rot, buf, adv, feat, squeeze, augment, kd)
+        else:          
+            ets_loss, ets_train_acc, kbts_loss, kbts_train_acc = model.train(train_loader, mode, ets, kbts, rot, buf, adv, feat, squeeze, augment, kd)
 
         # wandb.save(base_path_memory() + args.title + '.tar')
         if args.verbose:

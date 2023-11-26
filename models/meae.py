@@ -88,7 +88,6 @@ def modified_kl_div(targets, outputs):
 def entropy(x):
     return -torch.sum(x * torch.log(x+1e-9), dim=1)
 
-
 def logmeanexp(x, dim=None, keepdim=False):
     """Stable computation of log(mean(exp(x))"""
     if dim is None:
@@ -116,7 +115,35 @@ def weighted_ensemble(outputs, weights, temperature):
     log_outputs = output_max + torch.log(torch.sum((outputs - output_max).exp() * weights, dim=-1, keepdim=True))
     return log_outputs.squeeze(-1)
 
+def Supervised_NT_xent(sim_matrix, labels, temperature=0.5, chunk=2, eps=1e-8, multi_gpu=False):
+    '''
+        Compute NT_xent loss
+        - sim_matrix: (B', B') tensor for B' = B * chunk (first 2B are pos samples)
+    '''
+    sim_matrix = torch.mm(sim_matrix, sim_matrix.t())
+    device = sim_matrix.device
 
+    labels = labels.repeat(2)
+
+    logits_max, _ = torch.max(sim_matrix, dim=1, keepdim=True)
+    sim_matrix = sim_matrix - logits_max.detach()
+
+    B = sim_matrix.size(0) // chunk  # B = B' / chunk
+
+    eye = torch.eye(B * chunk).to(device)  # (B', B')
+    sim_matrix = torch.exp(sim_matrix / temperature) * (1 - eye)  # remove diagonal
+
+    denom = torch.sum(sim_matrix, dim=1, keepdim=True)
+    sim_matrix = -torch.log(sim_matrix / (denom + eps) + eps)  # loss matrix
+
+    labels = labels.contiguous().view(-1, 1)
+    Mask = torch.eq(labels, labels.t()).float().to(device)
+    #Mask = eye * torch.stack([labels == labels[i] for i in range(labels.size(0))]).float().to(device)
+    Mask = Mask / (Mask.sum(dim=1, keepdim=True) + eps)
+
+    loss = torch.sum(Mask * sim_matrix) / (2 * B)
+
+    return loss
 
 
 class MEAE(ContinualModel):
@@ -445,6 +472,116 @@ class MEAE(ContinualModel):
             self.net.squeeze(self.opt.state)
         self.scheduler.step()
         return ets_total_loss / total, round(ets_correct * 100 / total, 2), kbts_total_loss / total, round(kbts_correct * 100 / total, 2)
+
+    def train(self, train_loader, mode, ets, kbts, rot, buf, adv, feat, squeeze, augment, kd):
+        total = 0
+        ets_correct = 0
+        ets_total_loss = 0
+
+        kbts_correct = 0
+        kbts_total_loss = 0
+
+        enabled = False
+        if self.args.amp:
+            enabled = True
+            torch.backends.cudnn.benchmark = True
+            scaler = torch.cuda.amp.GradScaler(enabled=True)
+            scaler2 = torch.cuda.amp.GradScaler(enabled=True)
+
+        if self.buffer is not None:
+            buffer = iter(self.buffer)
+        
+        self.net.train()
+        for i, data in enumerate(train_loader):
+            inputs, labels = data
+            bs = labels.shape[0]
+            # inputs, labels = inputs.to(self.device), labels.to(self.device)
+            labels = labels - self.task * self.dataset.N_CLASSES_PER_TASK
+            ood_inputs = torch.empty(0)
+            num_ood = 0
+            if rot:
+                rot = random.randint(1, 3)
+                ood_inputs = torch.cat([ood_inputs, torch.rot90(inputs, rot, dims=(2, 3))], dim=0)
+                num_ood += inputs.shape[0]
+            if buf:
+                if self.buffer is not None:
+                    try:
+                        buffer_data, buffer_targets = next(buffer)
+                    except StopIteration:
+                        # restart the generator if the previous generator is exhausted.
+                        buffer = iter(self.buffer)
+                        buffer_data, buffer_targets = next(buffer)
+                    ood_inputs = torch.cat([ood_inputs, buffer_data], dim=0)
+                    num_ood += buffer_data.shape[0]
+
+            inputs = torch.cat([inputs, ood_inputs], dim=0)
+            # if augment:
+            #     inputs = self.dataset.train_transform(inputs)
+
+            inputs, labels = inputs.to(self.device), labels.to(self.device)
+            self.opt.zero_grad()
+
+            with torch.cuda.amp.autocast(enabled=enabled):
+                if ets:
+                    ets_outputs = self.net.ets_forward(inputs, self.task, feat=False)
+                    ets_outputs = F.softmax(ets_outputs, dim=1)
+                if kbts:
+                    kbts_outputs = self.net.kbts_forward(inputs, self.task, feat=False)
+                    kbts_outputs = F.softmax(kbts_outputs, dim=1)
+                loss = 0
+                if num_ood > 0:
+                    if ets:
+                        ets_outputs, ets_ood_outputs = ets_outputs.split((bs, num_ood), dim=0)
+                        ets_ood_ent = entropy(ets_ood_outputs[:, :-1])
+                        ets_ce_loss = F.nll_loss(ets_outputs.log(), labels, reduction='none') 
+                        loss += ets_ce_loss.mean() - self.alpha * ets_ood_ent.mean()
+
+                    if kbts:
+                        kbts_outputs, kbts_ood_outputs = kbts_outputs.split((bs, num_ood), dim=0)
+                        kbts_ood_ent = entropy(kbts_ood_outputs[:, :-1])
+                        kbts_ce_loss = F.nll_loss(kbts_outputs.log(), labels, reduction='none')
+                        loss += kbts_ce_loss.mean() - self.alpha * kbts_ood_ent.mean()
+                else:
+                    if ets:
+                        ets_ce_loss = F.nll_loss(ets_outputs.log(), labels, reduction='none') 
+                        loss += ets_ce_loss.mean()
+                    if kbts:
+                        kbts_ce_loss = F.nll_loss(kbts_outputs.log(), labels, reduction='none')
+                        loss += kbts_ce_loss.mean()
+
+                if kd and ets and kbts:
+                    mask = (ets_ce_loss >= kbts_ce_loss).float()
+                    loss += self.beta * torch.mean(mask * modified_kl_div(smooth(ets_outputs.detach(), 1, 1), smooth(kbts_outputs, 1, 1))
+                                        + (1-mask) * modified_kl_div(smooth(kbts_outputs.detach(), 1, 1), smooth(ets_outputs, 1, 1)))
+
+            
+            # assert not math.isnan(loss), f'{sum([m.kb_weight.norm(p=2) for m in self.net.DM[-1]])}'
+            if self.args.amp:
+                scaler.scale(loss).backward()
+                scaler.step(self.opt)
+                scaler.update()
+            else:
+                loss.backward()
+                self.opt.step()
+
+            total += bs
+            if ets:
+                ets_total_loss += ets_ce_loss.mean().item() * bs
+                ets_correct += (ets_outputs.argmax(1) == labels).sum().item()
+            if kbts:
+                kbts_total_loss += kbts_ce_loss.mean().item() * bs
+                kbts_correct += (kbts_outputs.argmax(1) == labels).sum().item()
+
+            if squeeze and self.lamb[self.task] > 0:
+                self.net.proximal_gradient_descent(self.scheduler.get_last_lr()[0], self.lamb[self.task])
+            else:
+                if 'wn' not in self.args.ablation:
+                    self.net.normalize()
+                
+        if squeeze and self.lamb[self.task] > 0:
+            self.net.squeeze(self.opt.state)
+        self.scheduler.step()
+        return ets_total_loss / total, round(ets_correct * 100 / total, 2), kbts_total_loss / total, round(kbts_correct * 100 / total, 2)
     
     def train_calibration(self):
         self.net.freeze(False)
@@ -568,7 +705,7 @@ class MEAE(ContinualModel):
     def begin_task(self, dataset):
         self.task += 1
         self.net.expand(dataset.N_CLASSES_PER_TASK, self.task)
-        if 'init' not in self.args.ablation:
+        if 'wn' not in self.args.ablation:
             self.net.initialize()
         self.net.ERK_sparsify(sparsity=self.args.sparsity)
         for m in self.net.DM:

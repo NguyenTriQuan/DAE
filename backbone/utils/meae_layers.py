@@ -165,7 +165,7 @@ class _DynamicLayer(nn.Module):
         # self.shape_out.append(fan_out)
         # self.shape_in.append(fan_in)
         
-        bound_std = math.sqrt(self.gain / (fan_out * self.ks))
+        bound_std = math.sqrt(self.gain / (fan_in * self.ks))
         self.bound_std.append(bound_std)
 
         if isinstance(self, DynamicConv2D):
@@ -450,6 +450,9 @@ class DynamicBlock(nn.Module):
         if self.norm_type is None:
             self.ets_norm_layers.append(nn.Identity())
             self.kbts_norm_layers.append(nn.Identity())
+        elif self.norm_type == 'normal':
+            self.kbts_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out_kbts).to(self.device))
+            self.ets_norm_layers.append(nn.BatchNorm2d(layer.shape_out[-1] + add_out).to(self.device))
         else:
             if 'affine' in self.norm_type:
                 affine = True
