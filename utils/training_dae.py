@@ -396,7 +396,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
 
             # for mode in modes:
 
-            mode = 'ets_kbts'
+            mode = args.mode
             train_loop(model, args, train_loader, mode=mode, checkpoint=checkpoint)
             acc = model.evaluate(task=t, mode=mode)
             print(f'Task {t}, {mode}: til {acc}')
