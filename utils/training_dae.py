@@ -17,7 +17,7 @@ from utils.loggers import *
 from utils.status import ProgressBar
 from utils.conf import base_path_memory
 from utils.lars_optimizer import LARC
-from utils.scheduler import GradualWarmupScheduler
+# from utils.scheduler import GradualWarmupScheduler
 # try:
 #     import wandb
 # except ImportError:
@@ -75,24 +75,24 @@ def train_loop(model, args, train_loader, mode, checkpoint=None, t=0):
         feat = False
         for param in params:
             count += param.numel()
-    elif feat:
-        ets_params = model.net.get_optim_ets_params()
-        kbts_params, scores = model.net.get_optim_kbts_params()
-        params = [{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}]
-        base_optimizer = optim.SGD(params, lr=args.lr, momentum=0.9, weight_decay=0)
-        optimizer = LARC(base_optimizer, trust_coefficient=0.001)
-        scheduler = CosineAnnealingLR(optimizer, T_max=train_epochs)
-        scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=10.0, total_epoch=10, after_scheduler=scheduler)
-        linear_optim = torch.optim.Adam(linear.parameters(), lr=1e-3, betas=(.9, .999))
-        model.opt = optimizer
-        model.scheduler = scheduler_warmup
+    # elif feat:
+    #     ets_params = model.net.get_optim_ets_params()
+    #     kbts_params, scores = model.net.get_optim_kbts_params()
+    #     params = [{'params':ets_params+kbts_params, 'lr':args.lr}, {'params':scores, 'lr':args.lr_score}]
+    #     base_optimizer = optim.SGD(params, lr=args.lr, momentum=0.9, weight_decay=0)
+    #     optimizer = LARC(base_optimizer, trust_coefficient=0.001)
+    #     scheduler = CosineAnnealingLR(optimizer, T_max=train_epochs)
+    #     scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=10.0, total_epoch=10, after_scheduler=scheduler)
+    #     linear_optim = torch.optim.Adam(linear.parameters(), lr=1e-3, betas=(.9, .999))
+    #     model.opt = optimizer
+    #     model.scheduler = scheduler_warmup
 
-        n_epochs = 700
-        num_squeeze = 500
-        squeeze = 'squeeze' not in args.ablation
-        count = 0
-        for param in ets_params+kbts_params+scores:
-            count += param.numel()
+    #     n_epochs = 700
+    #     num_squeeze = 500
+    #     squeeze = 'squeeze' not in args.ablation
+    #     count = 0
+    #     for param in ets_params+kbts_params+scores:
+    #         count += param.numel()
     elif head:
         model.net.freeze_feature()
         params = model.net.last.get_optim_ets_params() + model.net.last.get_optim_kbts_params()
